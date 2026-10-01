@@ -1,0 +1,120 @@
+{
+  "compatibility_matrix": {
+    "path": "docs/compatibility-matrix.md",
+    "protected_prefix_sha256": "ab7348712a0112df982a0ab957aafc6d3466b55dc5ed6dc2fada005ba3168dd9",
+    "protected_suffix_sha256": "f863dcd1f17cf9a509157e3e373f77b7bc4d7da48371f99af7ad690090db7327"
+  },
+  "compatibility_tool": {
+    "path": "src/maf-autopilot/Tools/CompatibilityTool.cs",
+    "protected_prefix_sha256": "2371b5a4a36b86edfadaf8a34a6ac679657f472e92a006e0f55026668bdf921f",
+    "protected_suffix_sha256": "0731c74ab9cc6973c11d614d9733916dc067e51e41651a84b777191f0d2f0683"
+  },
+  "historical_guides": [
+    {
+      "path": "guides/maf-1.10.0-migration-guide.md",
+      "sha256": "d23bd04f5268e7d8abb107eeaa3ea28fc8e8a67205f76a8090610e45a5a242d6"
+    },
+    {
+      "path": "guides/maf-1.11.0-migration-guide.md",
+      "sha256": "50b5f90a81692f22620dd5aec059244484eac96c615d21df34f99e9e31261507"
+    },
+    {
+      "path": "guides/maf-1.11.1-migration-guide.md",
+      "sha256": "0235eb1d0847afe62bc93ffb1e129936194ccfedf87bd918b1f15b69e13be0f4"
+    },
+    {
+      "path": "guides/maf-1.12.0-migration-guide.md",
+      "sha256": "eb87791ae51a2232ebbc92da1bc1850cf63d2517baac1bf65f78e4df0c2461ff"
+    },
+    {
+      "path": "guides/maf-1.13.0-migration-guide.md",
+      "sha256": "a12b3e1e2f241f72f3f15e2f09c9c86e28faf9697af648b936e711d2efe6f43b"
+    },
+    {
+      "path": "guides/maf-1.14.0-migration-guide.md",
+      "sha256": "23905a65c7cd379864088bdaecb65bb1bb0d6d2b9d6e40a08e42f6d1474b2c65"
+    },
+    {
+      "path": "guides/maf-1.15.0-migration-guide.md",
+      "sha256": "ea54ef25dcc17225d56d15e5079b5c24b7be5e79eadd94a12052f8312f4f9728"
+    },
+    {
+      "path": "guides/maf-1.16.0-migration-guide.md",
+      "sha256": "e8c5f1c792376bb342f856efefe5bbd251d544594936b109ec73ac4e6870a1e1"
+    },
+    {
+      "path": "guides/maf-1.17.0-migration-guide.md",
+      "sha256": "682ed240a1c9ad5925a73b0a8d93fad412f6d1d8451a52929375d7c977d8bc64"
+    },
+    {
+      "path": "guides/maf-1.3.0-migration-guide.md",
+      "sha256": "057f10ed8ed3b67672b9b0c1dd716e7c7376fb92b364a30c96a9b62bc87516fd"
+    },
+    {
+      "path": "guides/maf-1.4.0-migration-guide.md",
+      "sha256": "15e24de6d9b620e5fb68f07d04bca59edf7ea9894e5c3043d3e06e3ddc7eddac"
+    },
+    {
+      "path": "guides/maf-1.5.0-migration-guide.md",
+      "sha256": "bf1689d20ef4830dba1a2383858d86a818b2eebf7e521ea8ed9a42db64395dbe"
+    },
+    {
+      "path": "guides/maf-1.6.1-migration-guide.md",
+      "sha256": "98e326f3841a6ba6d68463baba6a20ac2d5cac923064be3d87b9d5f748159504"
+    }
+  ],
+  "historical_obligations": [
+    {
+      "path": ".github/maf-scaffold-obligations/maf-1.14.0.json",
+      "sha256": "db578938d33018545bb05148a5c105cc4efad509cccc80b1b7cf0b00fb88baff"
+    },
+    {
+      "path": ".github/maf-scaffold-obligations/maf-1.15.0.json",
+      "sha256": "1aaf12ab916758107ceb0930b03486907a6c5aeebb78a36fa43236c0b9852093"
+    },
+    {
+      "path": ".github/maf-scaffold-obligations/maf-1.16.0.json",
+      "sha256": "6192c238ea365db9a8ad92ea5e56bebd782c96f5f3f2de724124e3aac608af2d"
+    },
+    {
+      "path": ".github/maf-scaffold-obligations/maf-1.17.0.json",
+      "sha256": "f6443033413469d6c1610b2c048f0fcbd483b434c244b94692cdfdff3c97e51e"
+    }
+  ],
+  "maf_version": {
+    "path": ".maf-version",
+    "sha256": "04d659518a1793d5396007fcabdc9211a8c1db8406bf4e0fa8069171fdb06518",
+    "value": "1.18.0"
+  },
+  "registry": {
+    "generated_target_entries": [
+      {
+        "id": "MAF118-HOSTING-ISOLATIO-001",
+        "package": "Microsoft.Agents.AI.Hosting",
+        "review": false
+      },
+      {
+        "id": "MAF118-HOSTING-PROVIDER-001",
+        "package": "Microsoft.Agents.AI.Hosting",
+        "review": false
+      }
+    ],
+    "historical_sha256": "4363794fe9930779e249d70a5c67bf3d69102eb09b6c814aca14d8ebacf61023",
+    "path": ".github/skills/maf-obsolete-api-registry/registry.yaml",
+    "review_rule": "replace_each_with_new_concrete_same_package_target_entry"
+  },
+  "scaffold": {
+    "base_commit": "898b16a103c2caf19fbfad309f36b543f949b9c0",
+    "old_version": "1.17.0",
+    "source": "maf-release-watcher",
+    "target_branch": "release-watcher/maf-1.18.0",
+    "target_version": "1.18.0"
+  },
+  "schema_version": 1,
+  "target_guide": {
+    "evidence_sha256": "d783213aae1163f6c0dee2505d909879da226ac2a67eb15de81b50b71f4566bf",
+    "path": "guides/maf-1.18.0-migration-guide.md",
+    "protected_prefix_sha256": "427a2d0508beee2e440a97334df76e1425ada0fb16d06a48b452fec0674a33cc",
+    "protected_suffix_sha256": "4cd14bc37e9b23d66039009f7a5a1c8be7f485b0411ac7271cb50eaef6d0e470"
+  }
+}
