@@ -11,6 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Signature oracle for registry entries** (report-only in `verify` for watcher PRs).
+  Every new entry's API claims are checked against the real packages in the train lock:
+  the obsolete member must exist in the old package and the replacement member in the
+  new one. Across MAF 1.10–1.23 its only findings were real mis-attributions, now fixed.
+- **The watcher runs within a day of a MAF release.** The daily freshness job dispatches
+  it as soon as `main` is behind and no watcher PR is open (was: Thursdays only).
 - **The fill agent repairs its own failed fill once.** When the required `verify` check
   fails on the agent's commit, `maf-fill-repair` re-runs the agent (bounded by
   `MAF_FILL_MAX_REPAIRS`, default 1), then labels the PR `needs-human` with a runbook
@@ -50,6 +56,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Twenty 1.10.0 entries carried the wrong release.** They were drafted from one lumped
+  1.6.1 → 1.10.0 diff; a per-release diff (and the new signature oracle) shows they
+  shipped in 1.6.2, 1.7.0, 1.8.0 and 1.9.0. Their `version_introduced` and
+  `applies_to_codebases` now match the real release.
 - **Regression plans dropped changes from releases the matrix skips.** A step lists the
   entries introduced after its source version up to its target. Before, it listed only
   entries introduced exactly at the target, so a 1.7.0 → 1.10.0 plan (one step: the

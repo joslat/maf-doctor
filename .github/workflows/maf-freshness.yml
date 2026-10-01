@@ -24,6 +24,8 @@ jobs:
     permissions:
       contents: read
       issues: write
+      actions: write   # Z-09: dispatch the release watcher
+      pull-requests: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
@@ -51,6 +53,26 @@ jobs:
             echo "::error::Freshness is unknown (nuget.org unreadable); failing rather than reporting fresh."
             exit 1
           fi
+
+      - name: Dispatch the release watcher when main is behind (Z-09)
+        # The watcher's own schedule is weekly, so a new MAF release could wait
+        # up to 7 days. This daily job already knows the lag: dispatch the
+        # watcher as soon as main is behind and no watcher PR is in flight.
+        if: steps.check.outputs.main_behind != '' && steps.check.outputs.main_behind != '0'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          BEHIND: ${{ steps.check.outputs.main_behind }}
+        run: |
+          set -euo pipefail
+          OPEN=$(gh pr list --state open --json headRefName \
+            --jq '[.[] | select(.headRefName | startswith("release-watcher/maf-"))] | length')
+          if [ "$OPEN" != "0" ]; then
+            echo "main is $BEHIND release(s) behind, but a watcher PR is already open; not dispatching."
+            exit 0
+          fi
+          gh workflow run maf-release-watcher.yml --ref main
+          echo "::notice title=Watcher dispatched::main is $BEHIND MAF release(s) behind; dispatched maf-release-watcher."
 
       - name: Discover untracked MAF packages (Z-06)
         id: discover
