@@ -5536,17 +5536,15 @@ entries:
     version_introduced: "1.23.0"
     type: PromptAgentExtensions
     method: GetChatOptions
-    obsolete_signature: "GetChatOptions (extension on PromptAgent)"
-    replacement_signature: "removed; use the GetChatOptionsAsync member added to PromptAgentExtensions"
+    obsolete_signature: "Microsoft.Extensions.AI.ChatOptions? GetChatOptions(this Microsoft.Agents.ObjectModel.GptComponentMetadata promptAgent, Microsoft.PowerFx.RecalcEngine? engine, System.Collections.Generic.IList<Microsoft.Extensions.AI.AIFunction>? functions)"
+    replacement_signature: "System.Threading.Tasks.Task<Microsoft.Extensions.AI.ChatOptions?> GetChatOptionsAsync(this Microsoft.Agents.ObjectModel.GptComponentMetadata promptAgent, Microsoft.PowerFx.RecalcEngine? engine, System.Collections.Generic.IList<Microsoft.Extensions.AI.AIFunction>? functions, System.Threading.CancellationToken cancellationToken = default)"
     argument_order_change: false
-    fix_description: "Replace `PromptAgentExtensions.GetChatOptions` with `PromptAgentExtensions.GetChatOptionsAsync` and await it."
+    fix_description: "`GetChatOptions` became asynchronous: await `GetChatOptionsAsync` with the same arguments plus an optional cancellation token. The extension-call form fails with CS1061 (CS0117 for a static `PromptAgentExtensions.GetChatOptions(...)` call)."
     example_before: |
-      // promptAgent is a PromptAgent
-      var options = PromptAgentExtensions.GetChatOptions(promptAgent);
+      ChatOptions? options = promptAgent.GetChatOptions(engine, functions);
     example_after: |
-      // Verify the exact parameter list against the 1.23.0 assembly
-      var options = await PromptAgentExtensions.GetChatOptionsAsync(promptAgent);
-    cs_warning: CS0117
+      ChatOptions? options = await promptAgent.GetChatOptionsAsync(engine, functions, cancellationToken);
+    cs_warning: CS1061
     guide_section: "N/A"
     dotnet_inspect_detectable: true
     notes: >-
@@ -5570,17 +5568,15 @@ entries:
     version_introduced: "1.23.0"
     type: StringExpressionExtensions
     method: Eval
-    obsolete_signature: "Eval (extension on StringExpression)"
-    replacement_signature: "removed; use the EvalAsync member added to StringExpressionExtensions"
+    obsolete_signature: "string? Eval(this Microsoft.Agents.ObjectModel.StringExpression? expression, Microsoft.PowerFx.RecalcEngine? engine)"
+    replacement_signature: "System.Threading.Tasks.Task<string?> EvalAsync(this Microsoft.Agents.ObjectModel.StringExpression? expression, Microsoft.PowerFx.RecalcEngine? engine, System.Threading.CancellationToken cancellationToken = default)"
     argument_order_change: false
-    fix_description: "Replace `StringExpressionExtensions.Eval` with `StringExpressionExtensions.EvalAsync` and await it."
+    fix_description: "`StringExpression.Eval` became asynchronous: await `EvalAsync` with the same arguments plus an optional cancellation token. The extension-call form fails with CS1061 (CS0117 for a static `StringExpressionExtensions.Eval(...)` call)."
     example_before: |
-      // expression is a StringExpression
-      var value = StringExpressionExtensions.Eval(expression);
+      string? value = expression.Eval(engine);
     example_after: |
-      // Verify the exact parameter list against the 1.23.0 assembly
-      var value = await StringExpressionExtensions.EvalAsync(expression);
-    cs_warning: CS0117
+      string? value = await expression.EvalAsync(engine, cancellationToken);
+    cs_warning: CS1061
     guide_section: "N/A"
     dotnet_inspect_detectable: true
     notes: >-
