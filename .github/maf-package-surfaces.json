@@ -66,6 +66,150 @@
       "slug": "mcp",
       "package": "Microsoft.Agents.AI.Mcp",
       "id_scope": "MCP"
+    },
+    {
+      "order": 11,
+      "slug": "a2a",
+      "package": "Microsoft.Agents.AI.A2A",
+      "id_scope": "A2A"
+    },
+    {
+      "order": 12,
+      "slug": "abstractions",
+      "package": "Microsoft.Agents.AI.Abstractions",
+      "id_scope": "ABSTRACTIONS"
+    },
+    {
+      "order": 13,
+      "slug": "agenthooks",
+      "package": "Microsoft.Agents.AI.AgentHooks",
+      "id_scope": "AGENTHOOKS"
+    },
+    {
+      "order": 14,
+      "slug": "anthropic",
+      "package": "Microsoft.Agents.AI.Anthropic",
+      "id_scope": "ANTHROPIC"
+    },
+    {
+      "order": 15,
+      "slug": "azureai-persistent",
+      "package": "Microsoft.Agents.AI.AzureAI.Persistent",
+      "id_scope": "AZUREAI-PERSISTENT"
+    },
+    {
+      "order": 16,
+      "slug": "copilotstudio",
+      "package": "Microsoft.Agents.AI.CopilotStudio",
+      "id_scope": "COPILOTSTUDIO"
+    },
+    {
+      "order": 17,
+      "slug": "cosmosnosql",
+      "package": "Microsoft.Agents.AI.CosmosNoSql",
+      "id_scope": "COSMOSNOSQL"
+    },
+    {
+      "order": 18,
+      "slug": "declarative",
+      "package": "Microsoft.Agents.AI.Declarative",
+      "id_scope": "DECLARATIVE"
+    },
+    {
+      "order": 19,
+      "slug": "devui",
+      "package": "Microsoft.Agents.AI.DevUI",
+      "id_scope": "DEVUI"
+    },
+    {
+      "order": 20,
+      "slug": "foundry",
+      "package": "Microsoft.Agents.AI.Foundry",
+      "id_scope": "FOUNDRY"
+    },
+    {
+      "order": 21,
+      "slug": "foundry-hosting",
+      "package": "Microsoft.Agents.AI.Foundry.Hosting",
+      "id_scope": "FOUNDRY-HOSTING"
+    },
+    {
+      "order": 22,
+      "slug": "hosting-a2a",
+      "package": "Microsoft.Agents.AI.Hosting.A2A",
+      "id_scope": "HOSTING-A2A"
+    },
+    {
+      "order": 23,
+      "slug": "hosting-a2a-aspnetcore",
+      "package": "Microsoft.Agents.AI.Hosting.A2A.AspNetCore",
+      "id_scope": "HOSTING-A2A-ASPNETCORE"
+    },
+    {
+      "order": 24,
+      "slug": "hosting-aspnetcore",
+      "package": "Microsoft.Agents.AI.Hosting.AspNetCore",
+      "id_scope": "HOSTING-ASPNETCORE"
+    },
+    {
+      "order": 25,
+      "slug": "hosting-azurestorage",
+      "package": "Microsoft.Agents.AI.Hosting.AzureStorage",
+      "id_scope": "HOSTING-AZURESTORAGE"
+    },
+    {
+      "order": 26,
+      "slug": "hyperlight",
+      "package": "Microsoft.Agents.AI.Hyperlight",
+      "id_scope": "HYPERLIGHT"
+    },
+    {
+      "order": 27,
+      "slug": "localcodeact",
+      "package": "Microsoft.Agents.AI.LocalCodeAct",
+      "id_scope": "LOCALCODEACT"
+    },
+    {
+      "order": 28,
+      "slug": "openai",
+      "package": "Microsoft.Agents.AI.OpenAI",
+      "id_scope": "OPENAI"
+    },
+    {
+      "order": 29,
+      "slug": "purview",
+      "package": "Microsoft.Agents.AI.Purview",
+      "id_scope": "PURVIEW"
+    },
+    {
+      "order": 30,
+      "slug": "valkey",
+      "package": "Microsoft.Agents.AI.Valkey",
+      "id_scope": "VALKEY"
+    },
+    {
+      "order": 31,
+      "slug": "workflows-declarative",
+      "package": "Microsoft.Agents.AI.Workflows.Declarative",
+      "id_scope": "WORKFLOWS-DECLARATIVE"
+    },
+    {
+      "order": 32,
+      "slug": "workflows-declarative-foundry",
+      "package": "Microsoft.Agents.AI.Workflows.Declarative.Foundry",
+      "id_scope": "WORKFLOWS-DECLARATIVE-FOUNDRY"
+    },
+    {
+      "order": 33,
+      "slug": "workflows-declarative-mcp",
+      "package": "Microsoft.Agents.AI.Workflows.Declarative.Mcp",
+      "id_scope": "WORKFLOWS-DECLARATIVE-MCP"
+    },
+    {
+      "order": 34,
+      "slug": "workflows-generators",
+      "package": "Microsoft.Agents.AI.Workflows.Generators",
+      "id_scope": "WORKFLOWS-GENERATORS"
     }
   ],
   "lifecycle_events": [

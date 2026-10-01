@@ -527,6 +527,15 @@ def _locked_resolution(
     )
 
 
+def _introduced_after(available: list[str] | None, old_version: str) -> bool:
+    """True when every published version belongs to a train newer than ``old_version``."""
+
+    if not available:
+        return False
+    old_key = _release_train_key(old_version)
+    return all(_release_train_key(version) > old_key for version in available)
+
+
 def _prior_externalizations(manifest: dict, new_version: str) -> dict[str, dict]:
     """Map each surface slug to the earliest externalization before ``new_version``.
 
@@ -616,6 +625,29 @@ def build_plan(
                 f"Resolved {package} from {old_resolution.value} to "
                 f"{new_resolution.value}."
             )
+        elif (
+            old_resolution.state == "missing"
+            and new_resolution.state == "resolved"
+            and _introduced_after(available, old_version)
+        ):
+            # The package first shipped after the old train (no version at or
+            # before it exists on NuGet), so there is nothing to diff and nothing
+            # an existing consumer could have depended on. A package that merely
+            # skipped a train still has older versions and stays unverifiable.
+            status = "informational"
+            reason = (
+                f"{package} first shipped after MAF {old_version} (new in "
+                f"{new_resolution.value}); no previous train to diff."
+            )
+        elif (
+            old_resolution.state == "missing"
+            and new_resolution.state == "missing"
+            and _introduced_after(available, new_version)
+        ):
+            # Not published yet at either train: every NuGet version belongs to a
+            # later train, so the surface did not exist for this release.
+            status = "informational"
+            reason = f"{package} was not yet published as of MAF {new_version}."
         elif prior_externalization is not None:
             # The surface left the MAF train in an earlier release. Missing,
             # ambiguous, or unreachable train-aligned evidence is expected and
