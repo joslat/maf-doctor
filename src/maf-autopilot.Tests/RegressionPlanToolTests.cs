@@ -117,6 +117,19 @@ public class RegressionPlanToolTests
     }
 
     [Fact]
+    public void Plan_StepOverSkippedReleases_IncludesTheirEntries()
+    {
+        // The compatibility matrix has no 1.8.0/1.9.0 rows, so 1.7.0 -> 1.10.0 is
+        // one step. Entries introduced in the skipped releases must still appear.
+        var result = _tool.MafGenerateRegressionPlan("1.7.0", "1.10.0");
+        Assert.Contains("`MAF180-HOSTING-STORE-001`", result);
+        Assert.Contains("`MAF190-HARNESS-AGENT-001`", result);
+        Assert.Contains("`MAF110-HARNESS-AGENT-001`", result);
+        // Already-passed releases (1.6.x and earlier) must not appear.
+        Assert.DoesNotContain("`MAF162-FOUNDRY-EXTENSIONS-001`", result);
+    }
+
+    [Fact]
     public void Plan_LaterSteps_ListTheirPreMarkedEntries()
     {
         // Regression: every registry-extract entry is marked pre-<its version>,
