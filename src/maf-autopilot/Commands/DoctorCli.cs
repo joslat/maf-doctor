@@ -5,7 +5,7 @@ namespace MafDoctor.Commands;
 /// Program.cs top-level statements so it can be unit-tested without spawning a
 /// process (the analysis itself lives in <c>DoctorTool</c>).
 ///
-/// Grammar: <c>doctor [path] [--exclude &lt;substr&gt;]... [--all|--full] [--json|--plan]</c>
+/// Grammar: <c>doctor [path] [--exclude &lt;substr&gt;]... [--all|--full] [--json|--plan] [--fail-on G] [--baseline &lt;file&gt;]</c>
 /// <list type="bullet">
 ///   <item>The first non-flag token is the path (default: current directory at
 ///         the call site — left null here so the caller decides the default).</item>
@@ -20,7 +20,7 @@ namespace MafDoctor.Commands;
 /// </summary>
 internal static class DoctorCli
 {
-    public static (string? Path, string Format, List<string> Excludes, bool Full, string? FailOn, string? Error) Parse(string[] args)
+    public static (string? Path, string Format, List<string> Excludes, bool Full, string? FailOn, string? Error, string? Baseline) Parse(string[] args)
     {
         var excludes = new List<string>();
         string? path = null;
@@ -28,6 +28,7 @@ internal static class DoctorCli
         var json = false;
         var plan = false;
         string? failOn = null;
+        string? baseline = null;
         var unknown = new List<string>();
         string? error = null;
 
@@ -48,6 +49,13 @@ internal static class DoctorCli
             {
                 if (i + 1 < args.Length && !args[i + 1].StartsWith("--", StringComparison.Ordinal)) failOn = args[++i];
                 else error ??= "--fail-on requires a grade (A|B|C|F)";
+                continue;
+            }
+            // F-03: suppress findings an earlier `doctor --all --json` already reported.
+            if (a == "--baseline")
+            {
+                if (i + 1 < args.Length && !args[i + 1].StartsWith("--", StringComparison.Ordinal)) baseline = args[++i];
+                else error ??= "--baseline requires a file (the output of `doctor --all --json`)";
                 continue;
             }
             if (a is "--all" or "--full") { full = true; continue; }
@@ -81,6 +89,6 @@ internal static class DoctorCli
             _ => "markdown",
         };
 
-        return (path, format, excludes, full, failOn, error);
+        return (path, format, excludes, full, failOn, error, baseline);
     }
 }

@@ -55,14 +55,16 @@ if (args.Length > 0 && (args[0] is "--help" or "-h" or "help"))
         Commands:
           init [--with-cursor]              Wire the MCP server + steering into the current repo
                                             (.vscode/mcp.json, .mcp.json, instructions, agents).
-          doctor [path] [--exclude <s>] [--all|--full] [--json] [--plan] [--fail-on A|B|C|F]
+          doctor [path] [--exclude <s>] [--all|--full] [--json] [--plan] [--fail-on A|B|C|F] [--baseline <file>]
                                             A/B/C/F health report. --all = every finding (grouped),
                                             not just the top 3; --json = machine-readable findings;
                                             --plan = ordered, checkboxed remediation plan;
                                             --plan --json = structured remediation manifest (for an automated fix loop);
                                             --exclude <substr> = skip files whose repo-relative path
                                               contains <substr> (repeatable; substring match, NOT a glob);
-                                            --fail-on = exit 3 if the grade is at/below the given letter (CI gate).
+                                            --fail-on = exit 3 if the grade is at/below the given letter (CI gate);
+                                            --baseline <file> = ignore findings already in an earlier
+                                              `doctor --all --json` output (gate new findings only).
           autofix-all [path] [--apply] [--json]
                                             Deterministic Roslyn fixes. Preview only by default
                                             (no writes); --apply = actually write the changes;
@@ -132,7 +134,7 @@ if (args.Length >= 1 && args[0] == "doctor")
     // process spawn). `--exclude` skips files by repo-relative substring (drift
     // detector scopes to product code); `--all`/`--full` lists every finding
     // (grouped); `--json` emits machine-readable output.
-    var (parsedPath, format, excludes, full, failOn, parseError) = MafDoctor.Commands.DoctorCli.Parse(args);
+    var (parsedPath, format, excludes, full, failOn, parseError, baselinePath) = MafDoctor.Commands.DoctorCli.Parse(args);
     if (parseError is { } dpe)
     {
         // WM-04 / REP-05: unknown flag, extra positional, or a bad --exclude/--fail-on value.
@@ -141,8 +143,20 @@ if (args.Length >= 1 && args[0] == "doctor")
         Environment.Exit(2);
         return;
     }
+    IReadOnlySet<string>? baseline = null;
+    if (baselinePath is not null)
+    {
+        var (fingerprints, baselineError) = MafDoctor.Commands.DoctorBaseline.Load(baselinePath);
+        if (baselineError is not null)
+        {
+            Console.Error.WriteLine($"doctor: {baselineError}");
+            Environment.Exit(2);
+            return;
+        }
+        baseline = fingerprints;
+    }
     var path = ResolveCliPath(parsedPath);
-    var report = new MafDoctor.Tools.DoctorTool().Run(path, format, excludes, full, out var summary);
+    var report = new MafDoctor.Tools.DoctorTool().Run(path, format, excludes, full, baseline, out var summary);
     // `summary` is null ONLY when PathGuard rejected the path (no scan ran).
     var pathValid = summary is not null;
     if (pathValid || format is "json" or "plan-json")

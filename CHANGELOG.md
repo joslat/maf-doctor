@@ -11,6 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`doctor --baseline <file>`: gate only on new findings.** Pass the output of an earlier
+  `maf-doctor doctor --all --json`; matching findings (by drift-stable fingerprint) are
+  dropped before grading, so `--fail-on` fails only when something new appears. The
+  report and JSON (`baseline_suppressed`) say how many matched. The PR audit now uses the
+  base branch as its baseline, so its comment shows what the PR introduced.
 - **Signature oracle for registry entries** (report-only in `verify` for watcher PRs).
   Every new entry's API claims are checked against the real packages in the train lock:
   the obsolete member must exist in the old package and the replacement member in the
