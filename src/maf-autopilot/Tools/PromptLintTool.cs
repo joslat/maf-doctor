@@ -82,7 +82,7 @@ public sealed class PromptLintTool
     /// Runs every prompt-lint rule against the given source string. Pure: no I/O.
     /// </summary>
     public static IReadOnlyList<PromptFinding> LintSource(string source, string fileName = "<inline>")
-        => LintSource(CSharpSyntaxTree.ParseText(source).GetRoot(), fileName);
+        => LintSource(SourceParsing.Parse(source).GetRoot(), fileName);
 
     /// <summary>
     /// WM-16 overload: lint an already-parsed <paramref name="root"/> so

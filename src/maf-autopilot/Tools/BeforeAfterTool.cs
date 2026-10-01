@@ -80,7 +80,7 @@ public sealed class BeforeAfterTool
             foreach (var file in SourceFileWalker.EnumerateCsFiles(repoPath))
             {
                 var orig = File.ReadAllText(file);
-                var tree = CSharpSyntaxTree.ParseText(orig);
+                var tree = SourceParsing.Parse(orig);
                 var oldRoot = tree.GetRoot();
                 var newRoot = rewriter.Visit(oldRoot);
                 if (ReferenceEquals(newRoot, oldRoot)) continue;

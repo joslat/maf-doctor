@@ -84,7 +84,7 @@ public sealed class AntiPatternScannerTool
     /// Runs all anti-pattern rules against a single source string. Pure: no I/O.
     /// </summary>
     public static IReadOnlyList<AntiPatternFinding> ScanFile(string source, string fileName = "<inline>")
-        => ScanFile(source, CSharpSyntaxTree.ParseText(source).GetRoot(), fileName);
+        => ScanFile(source, SourceParsing.Parse(source).GetRoot(), fileName);
 
     /// <summary>
     /// WM-16 overload: accepts an already-parsed <paramref name="root"/> so a caller

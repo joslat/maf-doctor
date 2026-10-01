@@ -65,7 +65,7 @@ public sealed class SimulateWorkflowTool
         var roots = new List<SyntaxNode>();
         foreach (var (fileName, source) in sources)
         {
-            var tree = CSharpSyntaxTree.ParseText(source);
+            var tree = SourceParsing.Parse(source);
             var root = tree.GetRoot();
             roots.Add(root);
 

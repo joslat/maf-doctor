@@ -39,6 +39,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **C# 14 code is parsed correctly.** The scanners and rewriters moved to Roslyn 5.6
+  (was 4.14) and parse at the latest language version through one helper, so extension
+  blocks, null-conditional assignment and the `field` keyword no longer produce syntax
+  errors around the MAF calls being checked. The shipped analyzer stays on Roslyn 4.14
+  (it loads in the user's compiler); a test guards that pin.
 - **MCP C# SDK 2.2.0** (`ModelContextProtocol`, was 1.4.1). A drop-in for MAF Doctor:
   same protocol version, tools, prompts, resources and templates (verified over stdio).
 - `xunit.runner.visualstudio` 4.0.0 (test-only).

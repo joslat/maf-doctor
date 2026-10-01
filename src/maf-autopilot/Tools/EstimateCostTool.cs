@@ -80,7 +80,7 @@ public sealed class EstimateCostTool
     /// in the same compilation unit. Returns per-call-site findings. Pure: no I/O.
     /// </summary>
     public static IReadOnlyList<CostFinding> AnalyzeSource(string source, string fileName = "<inline>")
-        => AnalyzeSource(CSharpSyntaxTree.ParseText(source).GetRoot(), fileName);
+        => AnalyzeSource(SourceParsing.Parse(source).GetRoot(), fileName);
 
     /// <summary>
     /// WM-16 overload: analyze an already-parsed <paramref name="root"/> so

@@ -72,7 +72,7 @@ public sealed class ExplainTool
     /// </summary>
     public static IReadOnlyList<ExplainFinding> AnalyzeSnippet(string snippet, RegistryService registry)
     {
-        var tree = CSharpSyntaxTree.ParseText(snippet);
+        var tree = SourceParsing.Parse(snippet);
         var root = tree.GetRoot();
         var findings = new List<ExplainFinding>();
         var seenIdentifiers = new HashSet<string>(StringComparer.Ordinal);

@@ -194,7 +194,7 @@ public sealed class SemanticKernelDetectorTool
     public static IReadOnlyList<SkConstruct> AnalyzeSource(
         string source, string fileName = "<inline>", bool repoEstablishesSkContext = false)
     {
-        var root = CSharpSyntaxTree.ParseText(source).GetRoot();
+        var root = SourceParsing.Parse(source).GetRoot();
 
         // SK-context if the repo established it globally (a global using elsewhere) OR this
         // file imports a Microsoft.SemanticKernel namespace locally.
@@ -366,7 +366,7 @@ public sealed class SemanticKernelDetectorTool
     /// </summary>
     private static bool HasGlobalSemanticKernelUsing(string source)
     {
-        var root = CSharpSyntaxTree.ParseText(source).GetRoot();
+        var root = SourceParsing.Parse(source).GetRoot();
         return root.DescendantNodes().OfType<UsingDirectiveSyntax>()
             .Any(u => u.GlobalKeyword.IsKind(SyntaxKind.GlobalKeyword)
                       && ImportsSemanticKernel(u.Name?.ToString()));
