@@ -63,6 +63,20 @@ public sealed class CompatibilityTool
     internal static readonly IReadOnlyDictionary<string, string> Matrix =
         new SortedDictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
+            ["1.22.0"] = """
+                ## MAF 1.22.0 Compatibility
+                
+                | Dependency                                | Version          | Notes |
+                |-------------------------------------------|------------------|-------|
+                | .NET runtime                              | `≥ 8.0` | net8.0, net9.0, net10.0 TFMs all supported |
+                | Microsoft.Extensions.AI                   | `≥ 10.7.0` | Carried from 1.21.0 |
+                | Azure.AI.OpenAI                           | _(not pinned by MAF — BYO via IChatClient)_ | |
+                | Microsoft.Agents.AI.Workflows.Generators  | `1.22.0` | Source-gen package |
+                | Identity                                  | `ManagedIdentityCredential` | NEVER `DefaultAzureCredential` in prod (analyzer rule MAF002) |
+                
+                **Breaking** — review required. Removed: `DeleteSessionAsync`, `WithFoundryHostedAgentUserIdentity`. API summary: 35 breaking. See `guides/maf-1.22.0-migration-guide.md` and the registry entries. Transitive pins carried from 1.21.0 (verify).
+                """,
+
             ["1.21.0"] = """
                 ## MAF 1.21.0 Compatibility
                 
