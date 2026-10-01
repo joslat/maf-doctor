@@ -2398,3 +2398,12 @@ The `(target, params sources[])` overload exists but is **marked `[Obsolete]`** 
 ### 11. Dynamic Tool Expansion via `CurrentContext` — Per-Turn Only
 
 The `FunctionInvokingChatClient.CurrentContext` approach for dynamic tool expansion only persists tools for the **current function-calling loop turn**. Tools added this way are NOT retained in subsequent `RunAsync` calls. This is expected behavior — `CurrentContext` is designed to be transient. For cross-turn persistence, combine with `AIContextProvider` session state as shown in section 17.11.
+
+## Changes found by a later per-release diff (added 2026-10-01)
+
+The first public releases were never diffed one by one. A per-release diff of every package from 1.0.0 to 1.3.0 found these breaking changes, now in the registry:
+
+- **1.1.0, `Microsoft.Agents.AI`**: `AgentInlineSkill` constructors, `AddResource` and `AddScript` gained an optional `serializerOptions`, and `AgentSkillsProvider` takes the base `AgentSkill` (source-compatible; rebuild) (MAF11-SKILL-INLINE-001..003, MAF11-SKILL-PROVIDER-001).
+- **1.2.0, `Microsoft.Agents.AI.Foundry`**: `AIProjectClient.AsAIAgent(options)` made `options` optional (rebuild) (MAF12-FOUNDRY-EXTENSIONS-001).
+- **1.3.0, `Microsoft.Agents.AI.A2A`**: `A2AAgent` and `A2AClient.AsAIAgent` take `IA2AClient`; `AgentCard.AsAIAgent` and `GetAIAgentAsync` gained `A2AClientOptions` before `loggerFactory`, so pass `loggerFactory` by name (MAF130-A2A-CLIENT-001, MAF130-A2A-OPTIONS-001).
+- **1.3.0, `Microsoft.Agents.AI.Hosting.A2A(.AspNetCore)`**: the `ITaskManager`-based `MapA2A` hosting became `AddA2AServer(..., configureOptions)` plus `MapA2AJsonRpc` / `MapA2AHttpJson`, and `A2ARunDecisionContext.MessageSendParams` became `RequestContext` (MAF130-HOSTING-A2A-MAP-001, MAF130-HOSTING-A2A-ASPNETCORE-001, MAF130-HOSTING-A2A-DECISION-001).

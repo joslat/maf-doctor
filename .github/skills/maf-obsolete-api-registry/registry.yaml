@@ -9,6 +9,102 @@ target_maf_version: "1.23.0"
 last_updated: "2026-10-01"
 
 entries:
+
+  - id: MAF11-SKILL-INLINE-001
+    package: Microsoft.Agents.AI
+    version_introduced: "1.1.0"
+    type: "AgentInlineSkill"
+    method: ".ctor"
+    obsolete_signature: "void .ctor(string name, string description, string instructions, string? license = null, string? compatibility = null, string? allowedTools = null, Microsoft.Extensions.AI.AdditionalPropertiesDictionary? metadata = null)"
+    replacement_signature: "void .ctor(string name, string description, string instructions, string? license = null, string? compatibility = null, string? allowedTools = null, Microsoft.Extensions.AI.AdditionalPropertiesDictionary? metadata = null, System.Text.Json.JsonSerializerOptions? serializerOptions = null)"
+    argument_order_change: false
+    fix_description: "Both `AgentInlineSkill` constructors (name/description and frontmatter) gained an optional trailing `serializerOptions`. Source calls compile unchanged; rebuild binaries built against 1.0."
+    example_before: |
+      var skill = new AgentInlineSkill("triage", "Triage tickets", instructions);
+    example_after: |
+      var skill = new AgentInlineSkill("triage", "Triage tickets", instructions, serializerOptions: jsonOptions);
+    cs_warning: BINARY_BREAK
+    guide_section: "N/A"
+    dotnet_inspect_detectable: true
+    applies_to_codebases: "pre-1.1.0"
+    notes: "Backfilled 2026-10-01 from a dotnet-inspect 0.9.1 diff of Microsoft.Agents.AI 1.0.0..1.1.0; releases before the 1.3.0 baseline were never diffed release by release."
+
+  - id: MAF11-SKILL-INLINE-002
+    package: Microsoft.Agents.AI
+    version_introduced: "1.1.0"
+    type: "AgentInlineSkill"
+    method: "AddResource"
+    obsolete_signature: "Microsoft.Agents.AI.AgentInlineSkill AddResource(string name, System.Delegate method, string? description = null)"
+    replacement_signature: "Microsoft.Agents.AI.AgentInlineSkill AddResource(string name, System.Delegate method, string? description = null, System.Text.Json.JsonSerializerOptions? serializerOptions = null)"
+    argument_order_change: false
+    fix_description: "`AgentInlineSkill.AddResource` gained an optional `serializerOptions`. Source calls compile unchanged; rebuild binaries built against 1.0."
+    example_before: |
+      skill.AddResource("policy", GetPolicy, "Returns the policy");
+    example_after: |
+      skill.AddResource("policy", GetPolicy, "Returns the policy", jsonOptions);
+    cs_warning: BINARY_BREAK
+    guide_section: "N/A"
+    dotnet_inspect_detectable: true
+    applies_to_codebases: "pre-1.1.0"
+    notes: "Backfilled 2026-10-01 from a dotnet-inspect 0.9.1 diff of Microsoft.Agents.AI 1.0.0..1.1.0; releases before the 1.3.0 baseline were never diffed release by release."
+
+  - id: MAF11-SKILL-INLINE-003
+    package: Microsoft.Agents.AI
+    version_introduced: "1.1.0"
+    type: "AgentInlineSkill"
+    method: "AddScript"
+    obsolete_signature: "Microsoft.Agents.AI.AgentInlineSkill AddScript(string name, System.Delegate method, string? description = null)"
+    replacement_signature: "Microsoft.Agents.AI.AgentInlineSkill AddScript(string name, System.Delegate method, string? description = null, System.Text.Json.JsonSerializerOptions? serializerOptions = null)"
+    argument_order_change: false
+    fix_description: "`AgentInlineSkill.AddScript` gained an optional `serializerOptions`. Source calls compile unchanged; rebuild binaries built against 1.0."
+    example_before: |
+      skill.AddScript("lookup", Lookup, "Looks up an order");
+    example_after: |
+      skill.AddScript("lookup", Lookup, "Looks up an order", jsonOptions);
+    cs_warning: BINARY_BREAK
+    guide_section: "N/A"
+    dotnet_inspect_detectable: true
+    applies_to_codebases: "pre-1.1.0"
+    notes: "Backfilled 2026-10-01 from a dotnet-inspect 0.9.1 diff of Microsoft.Agents.AI 1.0.0..1.1.0; releases before the 1.3.0 baseline were never diffed release by release."
+
+  - id: MAF11-SKILL-PROVIDER-001
+    package: Microsoft.Agents.AI
+    version_introduced: "1.1.0"
+    type: "AgentSkillsProvider"
+    method: ".ctor"
+    obsolete_signature: "void .ctor(System.Collections.Generic.IEnumerable<Microsoft.Agents.AI.AgentInlineSkill> skills, Microsoft.Agents.AI.AgentSkillsProviderOptions? options = null, Microsoft.Extensions.Logging.ILoggerFactory? loggerFactory = null)"
+    replacement_signature: "void .ctor(System.Collections.Generic.IEnumerable<Microsoft.Agents.AI.AgentSkill> skills, Microsoft.Agents.AI.AgentSkillsProviderOptions? options = null, Microsoft.Extensions.Logging.ILoggerFactory? loggerFactory = null)"
+    argument_order_change: false
+    fix_description: "Both `AgentSkillsProvider` constructors (params array and IEnumerable) now take the base `AgentSkill` instead of `AgentInlineSkill`. `AgentInlineSkill` inherits `AgentSkill`, so source calls compile unchanged; rebuild binaries built against 1.0."
+    example_before: |
+      var provider = new AgentSkillsProvider(new List<AgentInlineSkill> { skill });
+    example_after: |
+      var provider = new AgentSkillsProvider(new List<AgentSkill> { skill });
+    cs_warning: BINARY_BREAK
+    guide_section: "N/A"
+    dotnet_inspect_detectable: true
+    applies_to_codebases: "pre-1.1.0"
+    notes: "Backfilled 2026-10-01 from a dotnet-inspect 0.9.1 diff of Microsoft.Agents.AI 1.0.0..1.1.0; releases before the 1.3.0 baseline were never diffed release by release. The same release added AgentClassSkill<T>, which the base-type parameter accepts."
+
+  - id: MAF12-FOUNDRY-EXTENSIONS-001
+    package: Microsoft.Agents.AI.Foundry
+    version_introduced: "1.2.0"
+    type: "AzureAIProjectChatClientExtensions"
+    method: "AsAIAgent"
+    obsolete_signature: "Microsoft.Agents.AI.ChatClientAgent AsAIAgent(Azure.AI.Projects.AIProjectClient aiProjectClient, Microsoft.Agents.AI.ChatClientAgentOptions options, System.Func<Microsoft.Extensions.AI.IChatClient, Microsoft.Extensions.AI.IChatClient>? clientFactory = null, Microsoft.Extensions.Logging.ILoggerFactory? loggerFactory = null, System.IServiceProvider? services = null)"
+    replacement_signature: "Microsoft.Agents.AI.ChatClientAgent AsAIAgent(Azure.AI.Projects.AIProjectClient aiProjectClient, Microsoft.Agents.AI.ChatClientAgentOptions? options = null, System.Func<Microsoft.Extensions.AI.IChatClient, Microsoft.Extensions.AI.IChatClient>? clientFactory = null, Microsoft.Extensions.Logging.ILoggerFactory? loggerFactory = null, System.IServiceProvider? services = null)"
+    argument_order_change: false
+    fix_description: "`AIProjectClient.AsAIAgent(options)` made `options` optional and nullable. Source calls compile unchanged; rebuild binaries built against 1.1."
+    example_before: |
+      var agent = projectClient.AsAIAgent(new ChatClientAgentOptions());
+    example_after: |
+      var agent = projectClient.AsAIAgent();
+    cs_warning: BINARY_BREAK
+    guide_section: "N/A"
+    dotnet_inspect_detectable: true
+    applies_to_codebases: "pre-1.2.0"
+    notes: "Backfilled 2026-10-01 from a dotnet-inspect 0.9.1 diff of Microsoft.Agents.AI.Foundry 1.1.0..1.2.0; releases before the 1.3.0 baseline were never diffed release by release."
+
   - id: MAF130-FAN-IN-001
     package: Microsoft.Agents.AI.Workflows
     version_introduced: "1.3.0"
@@ -142,21 +238,13 @@ entries:
     type: Microsoft.Agents.AI.A2A.AIAgentExtensions
     method: RegisterA2AAgent / AddA2AAgent
     obsolete_signature: "AIAgentExtensions.RegisterA2AAgent(services, agent)"
-    replacement_signature: "services.AddA2AServer(agent, new A2AServerRegistrationOptions { AgentCard = ... })"
+    replacement_signature: "services.AddA2AServer(agent, options => options.AgentRunMode = ...)"
     argument_order_change: false
-    fix_description: "Replace AIAgentExtensions DI registration with services.AddA2AServer() with AgentCard options."
+    fix_description: "Replace AIAgentExtensions DI registration with services.AddA2AServer(agent, configureOptions); A2AServerRegistrationOptions carries AgentRunMode and ServerOptions."
     example_before: |
       services.AddA2AAgent(agent);
     example_after: |
-      services.AddA2AServer(agent, new A2AServerRegistrationOptions
-      {
-          AgentCard = new AgentCard
-          {
-              Name = "MyAgent",
-              Description = "Agent description",
-              Version = "1.0"
-          }
-      });
+      services.AddA2AServer(agent, options => options.AgentRunMode = AgentRunMode.DisallowBackground);
     cs_warning: CS0246
     guide_section: "5"
     dotnet_inspect_detectable: true
@@ -169,6 +257,12 @@ entries:
       `RegisterA2AAgent`/`AddA2AAgent` do NOT appear in any public MAF NuGet
       package (1.0.0 through 1.3.0 main + DevUI/Hosting previews). Likely
       pre-public-release pattern. Marked `applies_to_codebases: "pre-1.0.0"`.
+
+      **Correction (2026-10-01):** a per-release diff shows the public 1.2.0
+      previews of Microsoft.Agents.AI.Hosting.A2A DID ship `AIAgentExtensions.MapA2A`
+      (ITaskManager-based), removed in 1.3.0; see MAF130-HOSTING-A2A-MAP-001 for the
+      package-verified entry. A2AServerRegistrationOptions has no AgentCard
+      property in 1.3.0 (only AgentRunMode and ServerOptions).
 
   - id: MAF130-A2A-002
     package: Microsoft.Agents.AI
@@ -196,6 +290,12 @@ entries:
       **Phase W.A correction (2026-05-13):** `MapA2A` doesn't exist in any
       public MAF NuGet package — pre-1.0.0 pattern. See MAF130-A2A-001 for
       the same finding.
+
+      **Correction (2026-10-01):** that check missed the A2A hosting packages.
+      Microsoft.Agents.AI.Hosting.A2A.AspNetCore 1.2.0-preview shipped 22 `MapA2A`
+      overloads (type MicrosoftAgentAIHostingA2AEndpointRouteBuilderExtensions),
+      replaced in 1.3.0 by MapA2AJsonRpc/MapA2AHttpJson; see
+      MAF130-HOSTING-A2A-ASPNETCORE-001 for the package-verified entry.
 
   - id: MAF130-STREAM-001
     package: Microsoft.Agents.AI
@@ -422,6 +522,104 @@ entries:
 # === Draft entries auto-appended by release-watcher on 2026-05-12. Review before merging. ===
 # Draft registry entries — auto-generated 2026-05-12 from Microsoft.Agents.AI 1.3.0 → 1.4.0
 # 4 candidate(s). Review each before merging — TODO fields require human input.
+
+  - id: MAF130-A2A-CLIENT-001
+    package: Microsoft.Agents.AI.A2A
+    version_introduced: "1.3.0"
+    type: "A2AAgent"
+    method: ".ctor"
+    obsolete_signature: "void .ctor(A2A.A2AClient a2aClient, string? id = null, string? name = null, string? description = null, Microsoft.Extensions.Logging.ILoggerFactory? loggerFactory = null)"
+    replacement_signature: "void .ctor(A2A.IA2AClient a2aClient, string? id = null, string? name = null, string? description = null, Microsoft.Extensions.Logging.ILoggerFactory? loggerFactory = null)"
+    argument_order_change: false
+    fix_description: "The `A2AAgent` constructor and the `A2AClient.AsAIAgent` extension now take the `IA2AClient` interface instead of the concrete `A2AClient`. Passing an `A2AClient` still compiles; rebuild binaries built against 1.2."
+    example_before: |
+      var agent = new A2AAgent(a2aClient, name: "remote");
+    example_after: |
+      IA2AClient client = a2aClient;
+      var agent = new A2AAgent(client, name: "remote");
+    cs_warning: BINARY_BREAK
+    guide_section: "N/A"
+    dotnet_inspect_detectable: true
+    applies_to_codebases: "pre-1.3.0"
+    notes: "Backfilled 2026-10-01 from a dotnet-inspect 0.9.1 diff of Microsoft.Agents.AI.A2A 1.2.0-preview.260421.1..1.3.0-preview.260423.1; releases before the 1.3.0 baseline were never diffed release by release. Also covers A2AClientExtensions.AsAIAgent(A2AClient -> IA2AClient)."
+
+  - id: MAF130-A2A-OPTIONS-001
+    package: Microsoft.Agents.AI.A2A
+    version_introduced: "1.3.0"
+    type: "A2AAgentCardExtensions"
+    method: "AsAIAgent"
+    obsolete_signature: "Microsoft.Agents.AI.AIAgent AsAIAgent(A2A.AgentCard card, System.Net.Http.HttpClient? httpClient = null, Microsoft.Extensions.Logging.ILoggerFactory? loggerFactory = null)"
+    replacement_signature: "Microsoft.Agents.AI.AIAgent AsAIAgent(A2A.AgentCard card, System.Net.Http.HttpClient? httpClient = null, A2A.A2AClientOptions? options = null, Microsoft.Extensions.Logging.ILoggerFactory? loggerFactory = null)"
+    argument_order_change: false
+    fix_description: "`AgentCard.AsAIAgent` and `A2ACardResolver.GetAIAgentAsync` gained an `A2AClientOptions? options` parameter BEFORE `loggerFactory`. A positional `loggerFactory` argument no longer compiles; pass it by name."
+    example_before: |
+      var agent = card.AsAIAgent(httpClient, loggerFactory);
+    example_after: |
+      var agent = card.AsAIAgent(httpClient, loggerFactory: loggerFactory);
+    cs_warning: CS1503
+    guide_section: "N/A"
+    dotnet_inspect_detectable: true
+    applies_to_codebases: "pre-1.3.0"
+    notes: "Backfilled 2026-10-01 from a dotnet-inspect 0.9.1 diff of Microsoft.Agents.AI.A2A 1.2.0-preview.260421.1..1.3.0-preview.260423.1; releases before the 1.3.0 baseline were never diffed release by release. Also covers A2ACardResolverExtensions.GetAIAgentAsync (same parameter insertion)."
+
+  - id: MAF130-HOSTING-A2A-MAP-001
+    package: Microsoft.Agents.AI.Hosting.A2A
+    version_introduced: "1.3.0"
+    type: "AIAgentExtensions"
+    method: "MapA2A"
+    obsolete_signature: "A2A.ITaskManager MapA2A(Microsoft.Agents.AI.AIAgent agent, A2A.ITaskManager? taskManager = null, Microsoft.Extensions.Logging.ILoggerFactory? loggerFactory = null, Microsoft.Agents.AI.Hosting.AgentSessionStore? agentSessionStore = null, Microsoft.Agents.AI.Hosting.A2A.AgentRunMode? runMode = null)"
+    replacement_signature: "Microsoft.Extensions.DependencyInjection.IServiceCollection AddA2AServer(Microsoft.Extensions.DependencyInjection.IServiceCollection services, Microsoft.Agents.AI.AIAgent agent, System.Action<Microsoft.Agents.AI.Hosting.A2A.A2AServerRegistrationOptions>? configureOptions = null)"
+    argument_order_change: false
+    fix_description: "The `ITaskManager`-based `AIAgent.MapA2A` extensions (type `AIAgentExtensions`) were removed. Register the agent with `AddA2AServer` (run mode via `A2AServerRegistrationOptions.AgentRunMode`, server settings via `ServerOptions`) and map an endpoint with `MapA2AJsonRpc` or `MapA2AHttpJson`."
+    example_before: |
+      ITaskManager taskManager = agent.MapA2A(runMode: AgentRunMode.DisallowBackground);
+    example_after: |
+      builder.Services.AddA2AServer(agent, o => o.AgentRunMode = AgentRunMode.DisallowBackground);
+      app.MapA2AJsonRpc(agent, "/a2a");
+    cs_warning: CS1061
+    guide_section: "N/A"
+    dotnet_inspect_detectable: true
+    applies_to_codebases: "pre-1.3.0"
+    notes: "Backfilled 2026-10-01 from a dotnet-inspect 0.9.1 diff of Microsoft.Agents.AI.Hosting.A2A 1.2.0-preview.260421.1..1.3.0-preview.260423.1; releases before the 1.3.0 baseline were never diffed release by release. 1.21.0 later renamed DisallowBackground to ReturnMessage (MAF121-HOSTING-A2A-RUNMODE-001)."
+
+  - id: MAF130-HOSTING-A2A-ASPNETCORE-001
+    package: Microsoft.Agents.AI.Hosting.A2A.AspNetCore
+    version_introduced: "1.3.0"
+    type: "MicrosoftAgentAIHostingA2AEndpointRouteBuilderExtensions"
+    method: "MapA2A"
+    obsolete_signature: "Microsoft.AspNetCore.Builder.IEndpointConventionBuilder MapA2A(Microsoft.AspNetCore.Routing.IEndpointRouteBuilder endpoints, string agentName, string path, Microsoft.Agents.AI.Hosting.A2A.AgentRunMode agentRunMode)"
+    replacement_signature: "Microsoft.AspNetCore.Builder.IEndpointConventionBuilder MapA2AJsonRpc(Microsoft.AspNetCore.Routing.IEndpointRouteBuilder endpoints, string agentName, string path)"
+    argument_order_change: false
+    fix_description: "The 22 `MapA2A` endpoint overloads (type `MicrosoftAgentAIHostingA2AEndpointRouteBuilderExtensions`) were replaced by protocol-specific `MapA2AJsonRpc` and `MapA2AHttpJson` (type `A2AEndpointRouteBuilderExtensions`), each taking an agent builder, agent or agent name plus a path. Run mode and server settings move to `AddA2AServer(..., configureOptions)`."
+    example_before: |
+      app.MapA2A("assistant", "/a2a", AgentRunMode.DisallowBackground);
+    example_after: |
+      builder.Services.AddA2AServer("assistant", o => o.AgentRunMode = AgentRunMode.DisallowBackground);
+      app.MapA2AJsonRpc("assistant", "/a2a");
+    cs_warning: CS1061
+    guide_section: "N/A"
+    dotnet_inspect_detectable: true
+    applies_to_codebases: "pre-1.3.0"
+    notes: "Backfilled 2026-10-01 from a dotnet-inspect 0.9.1 diff of Microsoft.Agents.AI.Hosting.A2A.AspNetCore 1.2.0-preview.260421.1..1.3.0-preview.260423.1; releases before the 1.3.0 baseline were never diffed release by release. Overloads that took an AgentCard or Action<ITaskManager> have no direct counterpart in the 1.3.0 surface."
+
+  - id: MAF130-HOSTING-A2A-DECISION-001
+    package: Microsoft.Agents.AI.Hosting.A2A
+    version_introduced: "1.3.0"
+    type: "A2ARunDecisionContext"
+    method: "MessageSendParams"
+    obsolete_signature: "A2A.MessageSendParams A2ARunDecisionContext.MessageSendParams { get; }"
+    replacement_signature: "A2A.RequestContext A2ARunDecisionContext.RequestContext { get; }"
+    argument_order_change: false
+    fix_description: "`A2ARunDecisionContext.MessageSendParams` was replaced by `RequestContext` (type `A2A.RequestContext`). Read the request from `context.RequestContext` in run-mode predicates."
+    example_before: |
+      var parameters = context.MessageSendParams;
+    example_after: |
+      var request = context.RequestContext;
+    cs_warning: CS1061
+    guide_section: "N/A"
+    dotnet_inspect_detectable: true
+    applies_to_codebases: "pre-1.3.0"
+    notes: "Backfilled 2026-10-01 from a dotnet-inspect 0.9.1 diff of Microsoft.Agents.AI.Hosting.A2A 1.2.0-preview.260421.1..1.3.0-preview.260423.1; releases before the 1.3.0 baseline were never diffed release by release."
 
   - id: MAF140-AGENT-001
     package: Microsoft.Agents.AI
