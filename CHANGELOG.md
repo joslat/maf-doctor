@@ -26,6 +26,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Dependabot NuGet PRs repair their own lock files.** Dependabot regenerates
+  `packages.lock.json` for one target framework only, so every NuGet bump failed
+  locked restore (NU1004). `dependabot-lockfile-repair` regenerates the lock files
+  for net8.0/net9.0/net10.0 and pushes them back. It acts only on same-repo
+  `dependabot/nuget/*` branches that Dependabot alone wrote and that change only
+  `PackageVersion` lines and lock files. gh-aw's runtime action is excluded from
+  Dependabot; upgrade it with `gh aw upgrade`.
 - **`MafDoctorStatus` reports knowledge freshness.** Besides tool and init
   freshness, it now shows which MAF version the installed registry covers, how many
   stable MAF releases on nuget.org are newer (cached 24 h, 3 s timeout, honors

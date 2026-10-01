@@ -56,6 +56,11 @@ updates:
     groups:
       github-actions:
         patterns: ["*"]
+    ignore:
+      # gh-aw pins its own runtime in the compiled maf-registry-fill.lock.yml to
+      # the CLI version that compiled it. Upgrade with `gh aw upgrade` + compile,
+      # never by editing the generated lock (2026-10: #200 bumped it alone).
+      - dependency-name: "github/gh-aw-actions*"
 
   # Docker base image (mcr.microsoft.com/dotnet/sdk + runtime).
   - package-ecosystem: docker
