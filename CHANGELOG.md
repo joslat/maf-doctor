@@ -13,6 +13,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`verify` blocked PRs cut before a MAF release merged.** The AI-fill verifier
+  compared `.maf-version` with the current `main` tip and reported a "version bump
+  without obligations" on PRs that never touched it (Dependabot #201 after MAF 1.22).
+  The verifier now compares from the merge-base, and the scope step uses the PR's own
+  three-dot diff, so stale branches are no longer pulled into the full verification.
+- **The replay suite failed once the release backlog was cleared.** It required a
+  release newer than `.maf-version` in its snapshot, which blocked the MAF 1.23.0 PR.
+  Being caught up now passes; `maf-freshness` watches upstream lag.
 - **`maf_generate_regression_plan` listed almost no changes.** Each step looked up
   entries applicable to a codebase already *on* the target version. Migration entries
   are marked `pre-<version>`, so every entry from registry-extract was dropped, and

@@ -451,6 +451,37 @@ def test_ordinary_infrastructure_pr_without_contract_is_not_applicable(tmp_path:
     ) is None
 
 
+def _stale_branch(tmp_path: Path, branch_change: tuple[str, str]) -> tuple[Path, str, str]:
+    """A PR branch cut at 1.13.0, after which main merged the 1.14.0 release."""
+    repo, _ = _history_repo(tmp_path)
+    _git(repo, "checkout", "-b", "feature")
+    _write(repo, *branch_change)
+    head = _commit(repo, "pr change")
+    _git(repo, "checkout", "-")
+    _write(repo, ".maf-version", "1.14.0\n")
+    main_tip = _commit(repo, "release 1.14.0 merged")
+    _git(repo, "checkout", "feature")
+    return repo, main_tip, head
+
+
+def test_stale_pr_cut_before_a_release_merged_is_not_a_version_bump(tmp_path: Path):
+    # Regression (#201): main moved 1.21 -> 1.22 after a Dependabot PR was cut.
+    # The PR never touched .maf-version, so comparing it with the current main
+    # tip reported a "watcher-managed version bump" and blocked the merge.
+    repo, main_tip, head = _stale_branch(tmp_path, ("Directory.Packages.props", "<Project />\n"))
+    assert recover_canonical_obligations(
+        repo, base_sha=main_tip, head_sha=head, base_ref="main", head_ref="feature"
+    ) is None
+
+
+def test_stale_pr_that_bumps_the_version_itself_still_fails_closed(tmp_path: Path):
+    repo, main_tip, head = _stale_branch(tmp_path, (".maf-version", "1.15.0\n"))
+    with pytest.raises(ValueError, match="no obligations"):
+        recover_canonical_obligations(
+            repo, base_sha=main_tip, head_sha=head, base_ref="main", head_ref="feature"
+        )
+
+
 def test_prior_release_contract_on_main_does_not_block_next_release(tmp_path: Path):
     repo, original = _history_repo(tmp_path)
     _, old_raw, old_path = _add_contract(repo, original, "1.14.0", "release-watcher/maf-1.14.0")

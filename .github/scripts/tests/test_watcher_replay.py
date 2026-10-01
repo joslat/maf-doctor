@@ -68,11 +68,13 @@ def _plan(old: str, new: str) -> dict:
     )
 
 
-def test_snapshot_covers_the_pending_backlog():
+def test_snapshot_covers_the_current_train():
+    # Being caught up (current == newest snapshot train) is the healthy state,
+    # so it must not fail: it blocked the MAF 1.23.0 PR, the one that cleared
+    # the backlog. Whether upstream has released past the snapshot cannot be
+    # known offline; the maf-freshness SLO job checks that against nuget.org.
     current = (REPO_ROOT / ".maf-version").read_text(encoding="utf-8").strip()
-    trains = _trains()
-    assert current in trains
-    assert trains[-1] != current, "snapshot has no pending train; refresh it"
+    assert current in _trains(), "snapshot predates .maf-version; refresh it"
 
 
 @pytest.mark.parametrize(("old", "new"), _pairs(), ids=lambda v: v)

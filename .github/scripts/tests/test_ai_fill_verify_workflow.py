@@ -72,7 +72,7 @@ def test_current_trusted_base_sha_drives_scope_and_delta_verification():
     assert scope["env"]["BASE_SHA"] == resolved_sha
     assert delta["env"]["BASE_SHA"] == resolved_sha
     assert 'git -C pr fetch --no-tags origin "$BASE_SHA"' in scope["run"]
-    assert 'git -C pr diff --name-only "$BASE_SHA" "$HEAD_SHA"' in scope["run"]
+    assert 'git -C pr diff --name-only "${BASE_SHA}...${HEAD_SHA}"' in scope["run"]
     assert '--base-sha "$BASE_SHA"' in delta["run"]
 
 

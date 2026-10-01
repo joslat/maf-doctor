@@ -112,8 +112,11 @@ jobs:
           git -C pr fetch --no-tags origin "$BASE_SHA"
           git -C pr cat-file -e "${BASE_SHA}^{commit}"
           git -C pr cat-file -e "${HEAD_SHA}^{commit}"
-          DIFF_FILES=$(git -C pr diff --name-only "$BASE_SHA" "$HEAD_SHA")
-          echo "Files changed in PR:"
+          # Three-dot: the PR's own changes since its merge-base. A two-dot diff
+          # against the current base tip would pull a stale branch into scope
+          # merely because main changed watcher files after it was cut (#201).
+          DIFF_FILES=$(git -C pr diff --name-only "${BASE_SHA}...${HEAD_SHA}")
+          echo "Files changed in PR (since its merge-base):"
           echo "$DIFF_FILES" | sed 's/^/  /'
 
           if echo "$DIFF_FILES" | grep -qE '^(\.github/skills/maf-obsolete-api-registry/registry\.yaml|\.github/maf-scaffold-obligations/maf-[0-9]+\.[0-9]+\.[0-9]+\.json|docs/compatibility-matrix\.md|guides/maf-.*-migration-guide\.md|src/maf-autopilot/Tools/CompatibilityTool\.cs|\.github/scripts/(verify_crossfile_consistency|gen_guide_section|verify_ai_fill_delta)\.py|\.maf-version)$'; then
