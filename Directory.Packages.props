@@ -17,7 +17,7 @@
   <ItemGroup>
     <!-- MCP server SDK — provides McpServerToolType, McpServerTool, WithStdioServerTransport, etc.
          Pinned: floating versions made the shipped binary non-reproducible. -->
-    <PackageVersion Include="ModelContextProtocol" Version="1.4.0" />
+    <PackageVersion Include="ModelContextProtocol" Version="2.2.0" />
 
     <!-- BCL / Hosting. The 10.0.x line ships net8/net9/net10 TFMs in one nupkg,
          so a single pin covers all three TargetFrameworks. -->
