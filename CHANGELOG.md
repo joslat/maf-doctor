@@ -50,6 +50,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Sixteen breaking changes in MAF 1.6–1.10 had no registry entry.** The watcher
+  used to jump from 1.6.1 to 1.10.0, so those releases were never diffed one by one. A
+  per-release diff of all 35 packages found them: Foundry toolbox removal and client
+  options (1.6.0), the `AIProjectClientExtensions` move and `FoundryAgent.GetService`
+  (1.6.2), session isolation on by default in Hosting stores and the removal of
+  declarative-workflow code generation (1.8.0), Harness constructor changes (1.9.0,
+  1.10.0), and the GitHub Copilot SDK namespace move (1.10.0). Noted in the 1.6.1 and
+  1.10.0 guides.
 - **Nine breaking changes in MAF 1.18 and 1.21 were missing.** Those releases were
   processed while the watcher diffed only 8–9 packages. A backfill diff of the other
   packages found them: Foundry.Hosting session stores return `AgentSession?` and
