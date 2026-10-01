@@ -295,6 +295,56 @@ public class VerifyRegistryCommandTests
     }
 
     // -------------------------------------------------------------------------
+    // Q-03: applies_to_codebases is required and well-formed on every entry
+    // -------------------------------------------------------------------------
+
+    [Theory]
+    [InlineData("pre-1.5.0")]
+    [InlineData("1.11.1+")]
+    [InlineData("1.22.0")]
+    [InlineData(" pre-1.0.0 ")]
+    public void CheckAppliesToMarker_ValidForms_Pass(string marker)
+    {
+        var issues = new List<string>();
+        var entry = MakeEntry(id: "MAF150-PROVIDER-001");
+        entry.AppliesToCodebases = marker;
+
+        VerifyRegistryCommand.CheckAppliesToMarker(entry, issues);
+
+        Assert.Empty(issues);
+    }
+
+    [Theory]
+    [InlineData(null, "missing")]
+    [InlineData("", "missing")]
+    [InlineData("pre-1.5", "malformed")]
+    [InlineData("before 1.5.0", "malformed")]
+    [InlineData("1.x.0+", "malformed")]
+    [InlineData("pre-", "malformed")]
+    public void CheckAppliesToMarker_MissingOrMalformed_IsRejected(string? marker, string expected)
+    {
+        var issues = new List<string>();
+        var entry = MakeEntry(id: "MAF150-PROVIDER-001");
+        entry.AppliesToCodebases = marker;
+
+        VerifyRegistryCommand.CheckAppliesToMarker(entry, issues);
+
+        Assert.Single(issues);
+        Assert.Contains("MAF150-PROVIDER-001", issues[0], StringComparison.Ordinal);
+        Assert.Contains(expected, issues[0], StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void LiveRegistry_EveryEntryHasAWellFormedMarker()
+    {
+        var issues = new List<string>();
+        foreach (var entry in new RegistryService().AllEntries)
+            VerifyRegistryCommand.CheckAppliesToMarker(entry, issues);
+
+        Assert.Empty(issues);
+    }
+
+    // -------------------------------------------------------------------------
     // Integration: the LIVE embedded registry must pass verification
     // -------------------------------------------------------------------------
 

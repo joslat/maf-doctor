@@ -99,11 +99,12 @@ public sealed class RegressionPlanTool
         sb.AppendLine($"    {nodeId}([{fromVersion}<br/><i>source</i>])");
         var prevId = nodeId;
 
+        var stepSource = fromVersion;
         foreach (var step in steps)
         {
             var stepId = SanitizeNodeId(step);
-            var entriesAtStep = _registry.GetEntriesForCodebaseVersion(step)
-                .Count(e => e.VersionIntroduced == step);
+            var entriesAtStep = EntriesForStep(stepSource, step).Count;
+            stepSource = step;
             var label = entriesAtStep > 0
                 ? $"{step}<br/>{entriesAtStep} change(s)"
                 : $"{step}<br/>(no registry changes)";
@@ -120,11 +121,11 @@ public sealed class RegressionPlanTool
         sb.AppendLine("| Step | Target version | Registry IDs that fire | Guide section |");
         sb.AppendLine("|---|---|---|---|");
 
+        stepSource = fromVersion;
         foreach (var step in steps)
         {
-            var entriesAtStep = _registry.GetEntriesForCodebaseVersion(step)
-                .Where(e => e.VersionIntroduced == step)
-                .ToList();
+            var entriesAtStep = EntriesForStep(stepSource, step);
+            stepSource = step;
             var ids = entriesAtStep.Count > 0
                 ? string.Join(", ", entriesAtStep.Select(e => $"`{e.Id}`"))
                 : "_(none — minor release or polish)_";
@@ -171,6 +172,18 @@ public sealed class RegressionPlanTool
     /// Make a SemVer string safe to use as a Mermaid node ID:
     /// "1.3.0" → "v130". Dots aren't valid in node IDs.
     /// </summary>
+    /// <summary>
+    /// Registry entries a codebase meets when it moves from <paramref name="source"/>
+    /// to <paramref name="step"/>: introduced at the step, and applicable to a
+    /// codebase still on the source version. Migration entries are marked
+    /// <c>pre-STEP</c> (they describe code written before the change), so
+    /// evaluating them against the TARGET version dropped every one of them.
+    /// </summary>
+    private List<RegistryEntry> EntriesForStep(string source, string step) =>
+        _registry.GetEntriesForCodebaseVersion(source)
+            .Where(e => e.VersionIntroduced == step)
+            .ToList();
+
     internal static string SanitizeNodeId(string version)
     {
         var dashIdx = version.IndexOf('-');

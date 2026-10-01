@@ -21,6 +21,7 @@ namespace MafDoctor.Commands;
 ///   <item>Both examples have balanced <c>{}</c> and <c>()</c>.</item>
 ///   <item><c>cs_warning</c> matches <c>CS\d{4}</c>, <c>RUNTIME_SILENT</c>, or <c>BINARY_BREAK</c>.</item>
 ///   <item><c>guide_section</c> is not the literal "TODO" / "TBD" (use "N/A" if no parallel).</item>
+///   <item><c>applies_to_codebases</c> is present and well-formed on EVERY entry (Q-03).</item>
 /// </list>
 ///
 /// **Exit code:** 0 on success; 1 on any verification failure (with per-entry
@@ -46,6 +47,11 @@ public static class VerifyRegistryCommand
 
         foreach (var entry in registry.AllEntries)
         {
+            // Q-03: the per-codebase filter treats a missing or malformed marker
+            // as "applies to any version", so a forgotten marker silently widens
+            // an entry. Enforce it on every entry, including historical/drafts.
+            CheckAppliesToMarker(entry, issues);
+
             // Exact pre-1.0.0 entries are historical docs; their examples may
             // reference removed types deliberately. Skip the SUBSTANTIVE
             // checks (brace balance, placeholder detection) but ALWAYS run
@@ -99,6 +105,31 @@ public static class VerifyRegistryCommand
             entry.AppliesToCodebases?.Trim(),
             "pre-1.0.0",
             StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Requires an <c>applies_to_codebases</c> marker in one of the three forms
+    /// <see cref="RegistryService.GetEntriesForCodebaseVersion"/> understands:
+    /// <c>pre-X.Y.Z</c>, <c>X.Y.Z+</c>, or an exact <c>X.Y.Z</c>.
+    /// </summary>
+    internal static void CheckAppliesToMarker(RegistryEntry entry, List<string> issues)
+    {
+        var marker = entry.AppliesToCodebases?.Trim();
+        if (string.IsNullOrEmpty(marker))
+        {
+            issues.Add($"{entry.Id}: applies_to_codebases is missing (use \"pre-X.Y.Z\", \"X.Y.Z+\" or an exact \"X.Y.Z\").");
+            return;
+        }
+
+        var version = marker;
+        if (version.StartsWith("pre-", StringComparison.OrdinalIgnoreCase))
+            version = version[4..];
+        else if (version.EndsWith('+'))
+            version = version[..^1];
+
+        var parts = version.Split('.');
+        if (parts.Length != 3 || !parts.All(p => p.Length > 0 && p.All(char.IsAsciiDigit)))
+            issues.Add($"{entry.Id}: applies_to_codebases '{marker}' is malformed (use \"pre-X.Y.Z\", \"X.Y.Z+\" or an exact \"X.Y.Z\").");
+    }
 
     internal static void CheckDuplicateIds(
         IEnumerable<RegistryEntry> entries,

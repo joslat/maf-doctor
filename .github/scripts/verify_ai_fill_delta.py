@@ -656,7 +656,14 @@ def recover_canonical_obligations(
                 break
         if touched_contract:
             raise ValueError("obligations artifact was not added in the first scaffold commit")
-        if base_version != head_version:
+        # Compare with the version the PR started from, not the current base
+        # tip: a branch cut before a release merged still carries the older
+        # .maf-version without having bumped anything (#201, MAF 1.22).
+        try:
+            start_version = _git(repo, "show", f"{merge_base}:.maf-version").decode("utf-8").strip()
+        except UnicodeDecodeError as exc:
+            raise ValueError("merge-base .maf-version is not UTF-8") from exc
+        if start_version != head_version:
             raise ValueError("watcher-managed version bump has no obligations artifact")
         return None
     if len(canonical) > MAX_OBLIGATIONS_BYTES:
