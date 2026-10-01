@@ -301,19 +301,24 @@ Automated API summary signals:
 
 - `2` breaking API change row(s)
 
-<!-- TODO: Review every package evidence block and lifecycle transition above -->
+- `SessionIsolationKeyProvider`: Replace `SessionIsolationKeyProvider` with `AgentIsolationKeyProvider` (preview `Microsoft.Agents.AI.Hosting`; type removed, CS0246 for old references).
+- `IsolationKeyScopedAgentSessionStore..ctor`: Change the `keyProvider` argument from `SessionIsolationKeyProvider` to `AgentIsolationKeyProvider`.
 
 ## New Patterns
 
-<!-- TODO: Document any new recommended patterns from release notes -->
+- Core adds `ChatClientAgentOptions.AllowConcurrentInvocation` so agents can opt into concurrent tool invocation.
+- Core adds `ChatClientAgentOptions.EnableInvocableFunctionBypassing` and `ChatClientBuilderExtensions.UseInvocableFunctionBypassing` to store executable function calls bypassed by declaration-only tool calls.
+- `ToolApprovalAgentOptions.MaxAutoApprovalIterations` (default `ToolApprovalAgent.DefaultMaxAutoApprovalIterations`) bounds the tool-approval auto-approval loop.
+- `BackgroundAgentsProvider.ReleaseSessionAsync` cancels and releases per-session background tasks.
+- Release notes also mention usage aggregation across looping agents, a single source of conversation history for hosted agents, and A2A task-store isolation-key scoping (experimental); no public API diff was captured for these.
 
 ## Obsolete APIs Added
 
-<!-- TODO: Use MafRunCs0618Hunt against a project pinned to 1.18.0 and document findings -->
+None detected in the validated public API diffs.
 
 ## Known Misalignments
 
-<!-- TODO: Document any discrepancies between official docs and assembly behavior -->
+None documented yet.
 
 <!-- AUTO-GENERATED END -->
 

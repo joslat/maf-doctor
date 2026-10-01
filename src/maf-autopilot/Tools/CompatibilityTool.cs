@@ -74,7 +74,7 @@ public sealed class CompatibilityTool
                 | Microsoft.Agents.AI.Workflows.Generators  | `1.18.0` | Source-gen package |
                 | Identity                                  | `ManagedIdentityCredential` | NEVER `DefaultAzureCredential` in prod (analyzer rule MAF002) |
                 
-                **Breaking** — review required. API summary: 2 breaking. See `guides/maf-1.18.0-migration-guide.md` and the registry entries. Transitive pins carried from 1.17.0 (verify).
+                **Breaking in the preview Hosting package** — `SessionIsolationKeyProvider` was renamed to `AgentIsolationKeyProvider`, which also changes the `IsolationKeyScopedAgentSessionStore` constructor's `keyProvider` parameter type. **Additive** in Core: `AllowConcurrentInvocation`, `EnableInvocableFunctionBypassing` / `UseInvocableFunctionBypassing`, bounded tool-approval auto-approval (`MaxAutoApprovalIterations`), and `BackgroundAgentsProvider.ReleaseSessionAsync`. Transitive pins carried from 1.17.0. See `guides/maf-1.18.0-migration-guide.md` and the registry entries.
                 """,
 
             ["1.17.0"] = """
