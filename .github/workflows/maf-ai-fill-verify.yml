@@ -390,6 +390,36 @@ jobs:
       # PR-supplied data, so it must not hold write scope. The workflow_run companion
       # (maf-pr-audit-comment.yml) posts it from the base-repo context. Task 4.8: still a
       # single sticky comment (header maf-ai-fill-verify), updated per PR.
+      - name: Signature oracle (report-only, Q-02)
+        # Checks every new entry's API claims against the real packages in the
+        # train lock: the obsolete member must exist in the old package, the
+        # replacement member in the new one. REPORT-ONLY for now (not part of the
+        # final status) until it has run clean on real trains; across 1.10-1.23
+        # its only findings were real mis-attributions.
+        id: oracle
+        if: steps.scope.outputs.in_scope == 'true' && startsWith(github.head_ref, 'release-watcher/maf-')
+        continue-on-error: true
+        env:
+          BASE_SHA: ${{ steps.trusted_base.outputs.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -uo pipefail
+          dotnet tool install --global dotnet-inspect --version 0.9.1 >/dev/null 2>&1 \
+            || dotnet tool update --global dotnet-inspect --version 0.9.1 >/dev/null 2>&1
+          MERGE_BASE=$(git -C pr merge-base "$BASE_SHA" "$HEAD_SHA")
+          OLD=$(git -C pr show "${MERGE_BASE}:.maf-version" | tr -d '\r\n')
+          NEW=$(tr -d '\r\n' < pr/.maf-version)
+          python3 trusted/.github/scripts/verify_registry_signatures.py \
+            --registry pr/.github/skills/maf-obsolete-api-registry/registry.yaml \
+            --train-lock pr/.github/maf-train-lock.json \
+            --old-version "$OLD" --version "$NEW" \
+            --dotnet-inspect dotnet-inspect \
+            --report-out "$RUNNER_TEMP/signature-oracle.md"
+          RC=$?
+          echo "exit_code=$RC" >> "$GITHUB_OUTPUT"
+          [ "$RC" -ne 0 ] && echo "::warning title=Signature oracle::$RC (report-only); see the verify comment."
+          exit 0
+
       - name: Build verify comment body
         if: steps.scope.outputs.in_scope == 'true'
         env:
@@ -441,6 +471,17 @@ jobs:
               echo "- duplicate version row -> UPDATE the watcher placeholder, do NOT add a row."
               echo "- Version Tracking section stale -> bump 'Current tracked version' to match .maf-version."
             } > ai-fill-verify-comment.md
+          fi
+          # Q-02 signature oracle: report-only, appended whether or not it passed.
+          if [ -f "$RUNNER_TEMP/signature-oracle.md" ]; then
+            {
+              echo ""
+              echo "### Signature oracle (report-only)"
+              echo ""
+              echo '```'
+              python3 trusted/.github/scripts/neutralize_fences.py < "$RUNNER_TEMP/signature-oracle.md"
+              echo '```'
+            } >> ai-fill-verify-comment.md
           fi
 
       - name: Write PR number for the comment companion
