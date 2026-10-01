@@ -59,7 +59,7 @@ public sealed class DoctorBaselineTests : IDisposable
             var output = Json(fingerprints, out var changed);
 
             Assert.Equal(1, changed!.BaselineSuppressed);
-            Assert.Equal(1, changed.AntiPatternErrors);
+            Assert.Equal(1, changed.AntiPatternWarnings); // SEC-001 is a warning
             using var json = JsonDocument.Parse(output);
             Assert.Equal(1, json.RootElement.GetProperty("baseline_suppressed").GetInt32());
             var files = json.RootElement.GetProperty("top_fixes").EnumerateArray()

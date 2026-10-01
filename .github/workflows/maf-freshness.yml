@@ -8,7 +8,7 @@ name: MAF Knowledge Freshness
 
 on:
   schedule:
-    - cron: '0 7 * * *'   # daily 07:00 UTC
+    - cron: '0 7 * * 1'   # Mondays 07:00 UTC (weekly: budget decision 2026-10-01; the watcher's own run is Thursday)
   workflow_dispatch:
 
 permissions:
@@ -56,7 +56,7 @@ jobs:
 
       - name: Dispatch the release watcher when main is behind (Z-09)
         # The watcher's own schedule is weekly, so a new MAF release could wait
-        # up to 7 days. This daily job already knows the lag: dispatch the
+        # up to 7 days. This job (Mondays) already knows the lag: dispatch the
         # watcher as soon as main is behind and no watcher PR is in flight.
         if: steps.check.outputs.main_behind != '' && steps.check.outputs.main_behind != '0'
         env:

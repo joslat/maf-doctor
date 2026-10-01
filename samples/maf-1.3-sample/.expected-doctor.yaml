@@ -3,6 +3,6 @@
 # the regression ships. Update this file in lockstep with intentional sample
 # or toolkit changes. See src/maf-autopilot.Tests/SampleRegressionTests.cs.
 grade: F
-anti_pattern_errors: 7
-anti_pattern_warnings: 3
+anti_pattern_errors: 6
+anti_pattern_warnings: 4
 silent_starvation_risks: 3
