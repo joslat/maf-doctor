@@ -4238,13 +4238,15 @@ entries:
     fix_description: >-
       `GetSessionAsync` on the Foundry hosting session stores (`AgentSessionStore`,
       `FileSystemAgentSessionStore`, `InMemoryAgentSessionStore`) now returns `AgentSession?`:
-      a missing session is `null`. Handle the null case, or call the new
-      `GetOrCreateSessionAsync` when a session must exist. Overrides must return `AgentSession?`.
+      a missing session is `null`. Handle the null case. The same release adds
+      `AgentSessionStore.GetOrCreateSessionAsync` for callers that always need a session.
+      Overrides must return `AgentSession?`.
     example_before: |
       AgentSession session = await store.GetSessionAsync(agent, conversationId, userId, ct);
       await agent.RunAsync(input, session, cancellationToken: ct);
     example_after: |
-      AgentSession session = await store.GetOrCreateSessionAsync(agent, conversationId, userId, ct);
+      AgentSession? session = await store.GetSessionAsync(agent, conversationId, userId, ct);
+      session ??= await agent.CreateSessionAsync(ct);
       await agent.RunAsync(input, session, cancellationToken: ct);
     cs_warning: CS8602
     guide_section: "N/A"
@@ -4253,8 +4255,9 @@ entries:
     notes: >-
       Backfilled 2026-10-01 from a dotnet-inspect 0.9.1 diff of Microsoft.Agents.AI.Foundry.Hosting
       1.17.0-preview.260804.1..1.18.0-preview.260818.1; the package was not diffed when 1.18 was
-      processed. Nullability-only change (binary compatible). In 1.22 these stores moved to
-      Microsoft.Agents.AI.AgentSessionStore (MAF122-FOUNDRY-HOSTING-*).
+      processed. Nullability-only change (binary compatible). The same diff's additive section
+      lists "Member 'GetOrCreateSessionAsync' was added" on AgentSessionStore. In 1.22 these
+      stores moved to Microsoft.Agents.AI.AgentSessionStore (MAF122-FOUNDRY-HOSTING-*).
 
   - id: MAF118-FOUNDRY-HOSTING-RESPONSES-001
     package: Microsoft.Agents.AI.Foundry.Hosting
@@ -4565,7 +4568,9 @@ entries:
     applies_to_codebases: "pre-1.21.0"
     notes: >-
       Backfilled 2026-10-01 from a dotnet-inspect 0.9.1 diff of Microsoft.Agents.AI.Hosting.A2A
-      1.20.0-preview.260831.1..1.21.0-preview.260911.1. Upstream PR 8032.
+      1.20.0-preview.260831.1..1.21.0-preview.260911.1. Upstream PR 8032 states: "The mode no
+      longer implies capability negotiation with the underlying AIAgent" and "the handler works
+      with any AIAgent".
 
   - id: MAF121-HOSTING-A2A-RUNMODE-003
     package: Microsoft.Agents.AI.Hosting.A2A
