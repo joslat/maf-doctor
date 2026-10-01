@@ -21,6 +21,7 @@
 
 | MAF Version | Microsoft.Extensions.AI | .NET | Azure.AI.OpenAI | Generators Package | Notes |
 |-------------|------------------------|------|-----------------|--------------------|-------|
+| **1.22.0** | `≥ 10.7.0` | `≥ 8.0` | _(not pinned by MAF — BYO via IChatClient)_ | `1.22.0` | **Breaking** — review required, concentrated in the preview Hosting packages. `AgentSessionStore` and `DelegatingAgentSessionStore` moved from `Microsoft.Agents.AI.Hosting` / `Microsoft.Agents.AI.Foundry.Hosting` into `Microsoft.Agents.AI` (Abstractions); store implementations (`InMemory`, `Noop`, `IsolationKeyScoped`, `FileSystem`, `Foundry`, `AzureBlob`) now use `GetSessionAsync`/`SaveSessionAsync(agent, AgentSessionStoreKey, …)` and `DeleteSessionAsync` was removed. Foundry: `WithFoundryHostedAgentUserIdentity` removed; `CreateFoundryHostedAgentSessionAsync` gained `userIdentity`. API summary: 35 breaking. See `guides/maf-1.22.0-migration-guide.md` and the registry entries. Transitive pins carried from 1.21.0 (verify). |
 | **1.21.0** | `≥ 10.7.0` | `≥ 8.0` | _(not pinned by MAF — BYO via IChatClient)_ | `1.21.0` | **Breaking** — review required. Breaking only in the preview Hosting package: two `HostedWorkflowBuilderExtensions.AddAsAIAgent` overloads gained an optional `includeWorkflowOutputsInResponse` parameter (binary break; rebuild required, source still compiles). See `guides/maf-1.21.0-migration-guide.md` and the registry entries. Transitive pins carried from 1.20.0 (verify). |
 | **1.20.0** | `≥ 10.7.0` | `≥ 8.0` | _(not pinned by MAF — BYO via IChatClient)_ | `1.20.0` | Additive release — no `.NET … [BREAKING]` changes and no breaking or potentially-breaking API rows (source-compatible). New members: `WaitTimeout`. Transitive pins carried from 1.19.0. |
 | **1.19.0** | `≥ 10.7.0` | `≥ 8.0` | _(not pinned by MAF — BYO via IChatClient)_ | `1.19.0` | **Breaking in the alpha `Microsoft.Agents.AI.Mcp` package**: MCP long-running tasks moved to the 2026-07-28 Tasks extension (`ListAgentToolsWithTaskSupportAsync` → `ListAgentToolsWithTasksAsync`, `McpTaskOptions.DefaultTimeToLive` removed); MAF now builds against `ModelContextProtocol` 2.1.0. **Additive** in Core and Workflows. See `guides/maf-1.19.0-migration-guide.md`. |
@@ -77,7 +78,7 @@
 
 The `.maf-version` file at the repository root records the latest MAF version this toolkit's data covers. The `maf-release-watcher` GitHub Actions workflow compares this against the NuGet feed to detect new releases.
 
-Current tracked version: **`1.21.0`** (see `.maf-version`)
+Current tracked version: **`1.22.0`** (see `.maf-version`)
 
 ---
 
