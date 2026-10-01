@@ -13,7 +13,8 @@ migrate, and keep registry fresh.
 | Tests | `src/maf-autopilot.Tests/`, `src/maf-autopilot.Analyzers.Tests/` |
 | Skills (procedural) | `.github/skills/` (load into GitHub Copilot Coding Agent) |
 | Specialist agents | `.github/agents/` (`.agent.md` files for Copilot Coding Agent) |
-| CI / maintenance workflows | `.github/workflows/` (12 workflows incl. AI-fill loop) |
+| CI / maintenance workflows | `.github/workflows/` (12 YAML workflows + 1 agentic workflow, `maf-registry-fill.md` → compiled `.lock.yml` via `gh aw compile`) |
+| Self-update runbook | `docs/runbooks/self-update.md` (one section per watcher failure class) |
 | Obsolete-API registry | `.github/skills/maf-obsolete-api-registry/registry.yaml` |
 | MAF migration guide | embedded in NuGet (`guide.md`) |
 | Multi-version samples | `samples/maf-1.0-sample/`, `maf-1.2-sample/`, `maf-1.3-sample/` |
@@ -42,11 +43,19 @@ migrate, and keep registry fresh.
 - `docs/security/threat-model.md` — full attack-surface map, closure list (§4), and documented residual gaps (§5)
 - `CHANGELOG.md` — release history
 
-## The AI-fill loop (unique to this project)
+## The self-update loop (unique to this project)
 
-When Microsoft ships a new MAF version, our `maf-release-watcher` workflow detects
-it, drafts new registry entries with TODOs via `registry-extract`, then dispatches
-to a sibling workflow that opens a GitHub issue for Copilot Coding Agent to fill
-the TODOs. A PR-gate workflow (`maf-ai-fill-verify`) runs `verify-registry` against
-the AI-filled output before merge. The skill `maf-release-watcher` documents the
-full loop.
+When Microsoft ships a new MAF version, the `maf-release-watcher` workflow detects
+it, resolves every package surface (`.github/maf-package-surfaces.json`, pinned by
+`.github/maf-train-lock.json`), diffs it with dotnet-inspect, drafts registry entries
+with TODOs, and opens a scaffold PR on `release-watcher/maf-X.Y.Z`. The agentic
+workflow `maf-registry-fill` (GitHub Agentic Workflows; source `.md`, compiled
+`.lock.yml`) then fills the TODOs inside Actions, runs the release verification
+checklist, and pushes the fill to the PR branch through safe outputs restricted to
+the registry, guides, compatibility matrix and `CompatibilityTool.cs`. The PR gates
+(`maf-ai-fill-verify`, crossfile consistency, `verify-registry`) decide. Watcher
+failures are classified into a single rolling issue that links
+`docs/runbooks/self-update.md`.
+
+Edit an agentic workflow by changing its `.md` and running `gh aw compile <name>`;
+never hand-edit a `.lock.yml`.

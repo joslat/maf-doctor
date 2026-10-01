@@ -9,7 +9,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-_No unreleased changes yet._
+**Self-healing release pipeline, phase 1: the watcher is unstuck, fails loudly, and gets an in-workflow agent.**
+
+### Fixed
+
+- **Release watcher stalled since 2026-08-20 (7 failed runs).** The MAF 1.17
+  Durable Task / Azure Functions repository externalization was modelled as a
+  one-release exception, so every later train failed the complete-evidence gate.
+  Externalization is now lasting lifecycle state: later trains plan the moved
+  surfaces as informational (or diff them if upstream realigns), while every
+  other surface stays fail-closed. MAF 1.18 → 1.23 now plan cleanly.
+- **Upstream prerelease republishes no longer make a processed train ambiguous.**
+  A new train lock (`.github/maf-train-lock.json`, written by the watcher via
+  `update_train_lock.py`) pins the next train's old side to exactly what was
+  diffed; the 1.17 transition uses the event's pinned source version.
+
+### Added
+
+- **Watcher replay harness** (`test_watcher_replay.py`): replays every adjacent
+  MAF train 1.9 → 1.23 against a recorded nuget.org snapshot, so a manifest,
+  lock, or planner change that would strand a train fails CI.
+- **Diagnosing failure issues**: a failed watcher run now classifies its own
+  failure (evidence gap, credential, tool version, NuGet unreachable, sequencing,
+  registry extraction), rewrites the tracking issue with cause, streak, first
+  failure, evidence and runbook link, and escalates (`p0` + owner mention) from
+  the second consecutive failure.
+- **Self-update runbook** (`docs/runbooks/self-update.md`).
+- **`maf-registry-fill` agentic workflow** (GitHub Agentic Workflows, Copilot
+  engine): fills a scaffold PR inside Actions, runs the verification checklist,
+  and pushes only to an allowlisted set of files through validated safe outputs.
+  Triggered when a scaffold PR opens (or is labelled `ai-fill`), or by dispatch.
 
 ## [1.15.0] - 2026-08-17
 
