@@ -74,7 +74,7 @@ public sealed class CompatibilityTool
                 | Microsoft.Agents.AI.Workflows.Generators  | `1.23.0` | Source-gen package |
                 | Identity                                  | `ManagedIdentityCredential` | NEVER `DefaultAzureCredential` in prod (analyzer rule MAF002) |
                 
-                **Breaking** — review required. Removed: `GetChatOptions`, `Eval`. API summary: 11 breaking. See `guides/maf-1.23.0-migration-guide.md` and the registry entries. Transitive pins carried from 1.22.0 (verify).
+                **Breaking** — review required. Declarative: `PromptAgentExtensions.GetChatOptions` and `StringExpressionExtensions.Eval` removed (async `GetChatOptionsAsync`/`EvalAsync` added). Foundry: eight `FoundryAITool.Create*Tool` methods now take `Azure.AI.Extensions.OpenAI` option types instead of `Azure.AI.Projects.Agents` ones. Hosting (preview): `AIHostAgent` constructor gained optional `sessionStorageIdentity` (rebuild required). API summary: 11 breaking. See `guides/maf-1.23.0-migration-guide.md` and the registry entries. Transitive pins carried from 1.22.0 (verify).
                 """,
 
             ["1.22.0"] = """

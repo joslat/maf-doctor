@@ -823,19 +823,26 @@ Automated API summary signals:
 
 - `11` breaking API change row(s)
 
-<!-- TODO: Review every package evidence block and lifecycle transition above -->
+- `AIHostAgent..ctor`: Rebuild against 1.23.0 and use the new `AIHostAgent` constructor metadata signature, optionally passing `sessionStorageIdentity`.
+- `PromptAgentExtensions.GetChatOptions`: Replace `PromptAgentExtensions.GetChatOptions` with `PromptAgentExtensions.GetChatOptionsAsync` and await it.
+- `StringExpressionExtensions.Eval`: Replace `StringExpressionExtensions.Eval` with `StringExpressionExtensions.EvalAsync` and await it.
+- `FoundryAITool.CreateOpenApiTool`, `CreateBingGroundingTool`, `CreateBingCustomSearchTool`, `CreateMicrosoftFabricTool`, `CreateSharepointTool`, `CreateAzureAISearchTool`, `CreateBrowserAutomationTool`, `CreateStructuredOutputsTool`: Change each parameter type from `Azure.AI.Projects.Agents.*` to the same-named `Azure.AI.Extensions.OpenAI.*` type.
 
 ## New Patterns
 
-<!-- TODO: Document any new recommended patterns from release notes -->
+- Declarative: prefer the new async `PromptAgentExtensions.GetChatOptionsAsync` and `StringExpressionExtensions.EvalAsync`; `ChatClientPromptAgentFactory` gained a constructor.
+- Declarative workflows: `DeclarativeWorkflowOptions` adds `AllowedEnvironmentVariables` and `AllowProcessEnvironmentVariableFallback`, and `IWorkflowContextExtensions` adds `*WithSensitivityAsync` helpers; `ExternalInputResponse` adds `RequestId`.
+- Hosting (preview): `AIHostAgent` adds `BindIsolationKey` and an optional `sessionStorageIdentity` constructor argument.
+- Core: new `FunctionInvocationContextExtensions` type.
+- Release notes list several items flagged `[BREAKING]` (tool changes between runs, approval response binding, DevUI approval continuation, configuration-key allow list, Azure.AI.Projects/OpenAI/MEAI bumps); these are behavior or dependency changes not visible in the public API diffs, so verify with focused behavior tests.
 
 ## Obsolete APIs Added
 
-<!-- TODO: Use MafRunCs0618Hunt against a project pinned to 1.23.0 and document findings -->
+None detected in the validated public API diffs.
 
 ## Known Misalignments
 
-<!-- TODO: Document any discrepancies between official docs and assembly behavior -->
+None documented yet.
 
 <!-- AUTO-GENERATED END -->
 
