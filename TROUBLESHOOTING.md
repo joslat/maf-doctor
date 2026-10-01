@@ -146,6 +146,7 @@ These workflows keep the repo in sync with MAF:
 - **MAF AI-Fill PR Verify** (`maf-ai-fill-verify.yml`, required check) — the obligations contract, train-lock immutability, REVIEW-sentinel replacement, `verify-registry`, cross-file consistency, and the autonomy envelope (watcher PRs may only touch data paths). Releases without breaking changes then auto-merge; breaking ones wait for review.
 - **MAF Knowledge Freshness** (`maf-freshness.yml`) — daily. Compares the MAF release covered on `main` and in the latest release tag with nuget.org (SLO: ≤ 1 release and ≤ 10 days behind), and lists any new `Microsoft.Agents.AI*` package that is not tracked. Keeps a rolling issue open for each and turns the run red.
 - **MAF Drift Detector** (`maf-drift-detector.yml`) — Mondays; runs `MafDoctor` and opens/updates a `maf-drift` issue when the grade drops below A.
+- **Auto-release** (`auto-release.yml`) — when a watcher PR changes `.maf-version` on `main`, tags the next minor version so `release.yml` tests, canary-installs (install from the packed `.nupkg`, MCP handshake, `verify-registry` on the embedded registry) and publishes it. Disable with `gh variable set AUTO_RELEASE --body false`.
 - **Dependabot lockfile repair** (`dependabot-lockfile-repair.yml`) — regenerates NuGet lock files for all target frameworks on Dependabot PRs (Dependabot writes them for one framework only).
 
 ### How do I know if a scheduled run failed?
