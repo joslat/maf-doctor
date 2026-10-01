@@ -73,7 +73,7 @@ RUN dotnet publish src/maf-autopilot/maf-autopilot.csproj \
 # The runtime image is much smaller than the SDK image (~150 MB vs ~900 MB).
 # Must match the --framework TFM published above. Digest-pinned — see the
 # F-27 note on the build-stage FROM above.
-FROM mcr.microsoft.com/dotnet/runtime@sha256:ed5d539b27842d656a06a5984dbcb5114d3e885fbada612a49a5a7c3c3a44e1c
+FROM mcr.microsoft.com/dotnet/runtime@sha256:68d35011fe04a39cca38208d392ed48f2df15653633dca16dbc4582d07342b9f
 WORKDIR /app
 
 # Copy build output. Embedded resources (registry.yaml, constraints.md,
