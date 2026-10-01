@@ -21,7 +21,7 @@
 
     <!-- BCL / Hosting. The 10.0.x line ships net8/net9/net10 TFMs in one nupkg,
          so a single pin covers all three TargetFrameworks. -->
-    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.9" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.12" />
 
     <!-- YAML parsing — used for registry.yaml and similar. -->
     <PackageVersion Include="YamlDotNet" Version="18.1.0" />
