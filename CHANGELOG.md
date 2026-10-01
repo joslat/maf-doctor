@@ -9,10 +9,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-**Self-healing release pipeline, phase 1: the watcher is unstuck, fails loudly, and gets an in-workflow agent.**
+## [1.16.0] - 2026-10-01
+
+**MAF 1.18 → 1.23, all 35 Agent Framework packages, and a release pipeline that
+fills, verifies and largely heals itself.** The watcher was stuck from July to
+October; it is unstuck, fails loudly with a diagnosis, and an in-workflow agent
+fills each release. The tool now says UNKNOWN instead of SAFE past its coverage.
+
+### Microsoft Agent Framework lifecycle intelligence
+
+- Added ordered migration intelligence for MAF **1.18 → 1.19 → 1.20 → 1.21 → 1.22
+  → 1.23**: per-release guides, compatibility-matrix rows and registry entries
+  (1.22: session stores promoted to `Microsoft.Agents.AI.AgentSessionStore`,
+  key-based `Get`/`SaveSessionAsync`, removed `DeleteSessionAsync`, sticky Foundry
+  user identity; 1.23: async Declarative `GetChatOptionsAsync`/`EvalAsync`,
+  Foundry `Azure.AI.Extensions.OpenAI` parameter types).
+- The watcher now diffs all **35** `Microsoft.Agents.AI*` packages (was 11).
 
 ### Fixed
 
+- **Per-release steering covers MAF 1.18–1.23.** The `maf-constraints` resource's
+  version checkpoint table stopped at 1.17.
+- **The Copilot semantic review stopped working after `actions/ai-inference` v3.**
+  v3 defaults `model` to gpt-4.1 when the input is omitted, which re-created the
+  "model unavailable to this seat" failure. The workflow now passes an empty
+  `model` so the Copilot CLI picks one.
 - **`verify` blocked PRs cut before a MAF release merged.** The AI-fill verifier
   compared `.maf-version` with the current `main` tip and reported a "version bump
   without obligations" on PRs that never touched it (Dependabot #201 after MAF 1.22).

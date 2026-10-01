@@ -22,7 +22,9 @@ def test_copilot_inference_uses_the_seat_supported_default_model():
     )
 
     assert inference["with"]["provider"] == "copilot"
-    assert "model" not in inference["with"]
+    # ai-inference v3 defaults an omitted `model` to gpt-4.1; only an explicit
+    # empty string lets the Copilot CLI pick a model this seat can use.
+    assert inference["with"]["model"] == ""
 
 
 def test_privileged_review_scripts_are_checked_out_from_trusted_base():

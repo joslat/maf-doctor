@@ -111,11 +111,21 @@ public static class VerifyRegistryCommand
     /// <see cref="RegistryService.GetEntriesForCodebaseVersion"/> understands:
     /// <c>pre-X.Y.Z</c>, <c>X.Y.Z+</c>, or an exact <c>X.Y.Z</c>.
     /// </summary>
+    private static readonly Version LegacyMarkerCutoff = new(1, 6, 0);
+
     internal static void CheckAppliesToMarker(RegistryEntry entry, List<string> issues)
     {
         var marker = entry.AppliesToCodebases?.Trim();
         if (string.IsNullOrEmpty(marker))
         {
+            // This gate runs on a PR's HEAD. Branches cut before the legacy
+            // (pre-1.6.0, hand-written) entries got their markers cannot add
+            // them: a watcher scaffold may not touch historical entries. So a
+            // missing marker is enforced here from 1.6.0 on (registry-extract
+            // always writes one); the live-registry unit test, which runs on
+            // the merge result in build-test, still requires it on every entry.
+            if (Version.TryParse(entry.VersionIntroduced, out var introduced) && introduced < LegacyMarkerCutoff)
+                return;
             issues.Add($"{entry.Id}: applies_to_codebases is missing (use \"pre-X.Y.Z\", \"X.Y.Z+\" or an exact \"X.Y.Z\").");
             return;
         }

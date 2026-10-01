@@ -57,6 +57,12 @@ single release's syntax into a timeless global rule.
 | 1.15.0 | Preview Hosting `sessionStoreId` named arguments, abstract `DeleteSessionAsync`, session isolation, checkpoint ordering, and declarative/hosted behavior. |
 | 1.16.0 | `Microsoft.Extensions.VectorData.Abstractions` 9.7→10.7 migration, provider rebuilds, history ownership, approval sessions, FileMemory scope, and code-execution boundaries. |
 | 1.17.0 | Declarative top-level `ErrorContent` is terminal; Foundry raw failure payloads are redacted; Durable Task/Azure Functions packages follow an independent extension cadence. |
+| 1.18.0 | Hosting session isolation: `SessionIsolationKeyProvider` is replaced by `AgentIsolationKeyProvider`, including the `IsolationKeyScopedAgentSessionStore` constructor. |
+| 1.19.0 | `Microsoft.Agents.AI.Mcp` long-running tasks moved to the 2026-07-28 Tasks extension: `ListAgentToolsWithTasksAsync` rename, `McpTaskOptions.DefaultTimeToLive` removed. |
+| 1.20.0 | Additive release; no registry changes. Review the release notes for behavior only. |
+| 1.21.0 | `HostedWorkflowBuilderExtensions.AddAsAIAgent` overloads changed (rebuild). Behavior-only: `AgentFileStore` line numbering, A2A run modes, LocalCodeAct subprocess environment isolation, ZIP-only MCP skill archives. |
+| 1.22.0 | Session stores promoted to `Microsoft.Agents.AI.AgentSessionStore` (Abstractions): namespace move, key-based `GetSessionAsync`/`SaveSessionAsync` returning `AgentSession?`, `DeleteSessionAsync` removed, rebuild for the base-type change. Foundry user identity is sticky on the session (`WithFoundryHostedAgentUserIdentity` removed). Behavior: approval binding, per-invocation MCP sessions, per-run tools. |
+| 1.23.0 | Declarative `GetChatOptionsAsync`/`EvalAsync` are async; Foundry parameter types moved to `Azure.AI.Extensions.OpenAI`; `AIHostAgent` constructor binary change; Azure.AI.Projects 3.0.0-beta.3, OpenAI 2.14.0 and MEAI 10.10.1. Behavior: tool changes between runs, approval-response binding, configuration-key allow list, DevUI approval continuation. |
 
 Read the exact target guide before changing code. Existing repositories may
 need several rows, not only the final target row.

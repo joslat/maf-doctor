@@ -179,8 +179,11 @@ jobs:
         with:
           provider: copilot
           prompt-file: .ai-review-prompt.txt
-          # Deliberately omit `model`: Copilot CLI selects a model available to
-          # this seat. Hard-coding gpt-4.1 failed when that model was unavailable.
+          # Empty `model` lets the Copilot CLI select a model available to this
+          # seat. Hard-coding gpt-4.1 failed when that model was unavailable, and
+          # ai-inference v3 defaults `model` to gpt-4.1 when the input is omitted
+          # (2026-10-01: semantic-review failed right after the v2 -> v3 bump).
+          model: ''
           # Do not set copilot-allow-tools. The action denies every Copilot
           # tool by default, containing prompt-injection impact to response text.
         env:
