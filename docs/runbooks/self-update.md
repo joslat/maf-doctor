@@ -55,6 +55,14 @@ General rules:
 
 **Fix:** rerun without `maf_version`. If a stale `release-watcher/maf-<version>` branch exists, delete it only if its PR is closed and unneeded.
 
+## stalled-pr
+
+**Signature:** `Watcher scaffold PR #N (...) has been open for D days (limit 14)`. A warning appears from day 7.
+
+**Meaning:** only one watcher PR may be open at a time, so an unmerged scaffold PR blocks every later MAF release. This is the 2026-07/08 failure mode: 25 days of green no-ops.
+
+**Fix:** open the PR and check the `maf-registry-fill` agent's comment. Finish any TODO it left (see `evidence-gap` for missing package evidence), make CI green, and merge. Close it only if the release must be redone.
+
 ## registry-extraction
 
 **Signature:** `Registry de-duplication failed` or `Cannot prove per-package registry extraction coverage`.

@@ -80,7 +80,8 @@ def test_stale_event_base_sha_cannot_select_or_verify_trusted_code():
     workflow = WORKFLOW.read_text(encoding="utf-8")
 
     assert "github.event.pull_request.base.sha" not in workflow
-    assert workflow.count("${{ steps.trusted_base.outputs.sha }}") == 2
+    # Scope decision, obligations verifier, and the Z-02 autonomy-envelope check.
+    assert workflow.count("${{ steps.trusted_base.outputs.sha }}") == 3
 
 
 def test_resolver_command_uses_checked_out_tip_not_an_older_sha(tmp_path):
