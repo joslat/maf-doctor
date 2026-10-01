@@ -585,6 +585,65 @@ entries:
 # Draft registry entries — auto-generated 2026-05-12 from Microsoft.Agents.AI.Workflows 1.5.0 → 1.6.1
 # 1 candidate(s). Review each before merging — TODO fields require human input.
 
+  - id: MAF160-FOUNDRY-HOSTING-TOOLBOX-001
+    package: Microsoft.Agents.AI.Foundry.Hosting
+    version_introduced: "1.6.0"
+    type: "FoundryToolbox"
+    method: "Microsoft.Agents.AI.Foundry.Hosting.FoundryToolbox"
+    obsolete_signature: "Microsoft.Agents.AI.Foundry.Hosting.FoundryToolbox (GetToolboxVersionAsync, GetToolsAsync, ToAITools)"
+    replacement_signature: "removed; no direct replacement in the package diff"
+    argument_order_change: false
+    fix_description: "`FoundryToolbox` (GetToolboxVersionAsync, GetToolsAsync, ToAITools) was removed from Microsoft.Agents.AI.Foundry.Hosting in 1.6.0 with no replacement in the package. Remove the calls and supply the toolbox tools another way."
+    example_before: |
+      var tools = await FoundryToolbox.GetToolsAsync(projectEndpoint, credential, "my-toolbox");
+    example_after: |
+      // FoundryToolbox was removed in 1.6.0; build the IList<AITool> yourself.
+      IList<AITool> tools = [];
+    cs_warning: CS0246
+    guide_section: "N/A"
+    dotnet_inspect_detectable: true
+    applies_to_codebases: "pre-1.6.0"
+    notes: "Backfilled 2026-10-01 from a dotnet-inspect 0.9.1 diff of Microsoft.Agents.AI.Foundry.Hosting 1.5.0-preview.260507.1..1.6.0-preview.260512.1; the pre-August watcher jumped 1.6.1 -> 1.10.0, so this release was never diffed on its own."
+
+  - id: MAF160-FOUNDRY-HOSTING-TOOLBOX-002
+    package: Microsoft.Agents.AI.Foundry.Hosting
+    version_introduced: "1.6.0"
+    type: "AIProjectClientToolboxExtensions"
+    method: "GetToolboxToolsAsync"
+    obsolete_signature: "System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<Microsoft.Extensions.AI.AITool>> GetToolboxToolsAsync(Azure.AI.Projects.AIProjectClient projectClient, string name, string? version = null, System.Threading.CancellationToken cancellationToken = default)"
+    replacement_signature: "removed; no direct replacement in the package diff"
+    argument_order_change: false
+    fix_description: "The `AIProjectClient.GetToolboxToolsAsync` extension (type `AIProjectClientToolboxExtensions`) was removed in 1.6.0 with no replacement in the package. Remove the call and supply the toolbox tools another way."
+    example_before: |
+      var tools = await projectClient.GetToolboxToolsAsync("my-toolbox");
+    example_after: |
+      // GetToolboxToolsAsync was removed in 1.6.0; build the IList<AITool> yourself.
+      IList<AITool> tools = [];
+    cs_warning: CS1061
+    guide_section: "N/A"
+    dotnet_inspect_detectable: true
+    applies_to_codebases: "pre-1.6.0"
+    notes: "Backfilled 2026-10-01 from a dotnet-inspect 0.9.1 diff of Microsoft.Agents.AI.Foundry.Hosting 1.5.0-preview.260507.1..1.6.0-preview.260512.1; the pre-August watcher jumped 1.6.1 -> 1.10.0, so this release was never diffed on its own."
+
+  - id: MAF160-FOUNDRY-AGENT-001
+    package: Microsoft.Agents.AI.Foundry
+    version_introduced: "1.6.0"
+    type: "FoundryAgent"
+    method: ".ctor"
+    obsolete_signature: "void .ctor(System.Uri agentEndpoint, System.ClientModel.AuthenticationTokenProvider credential, Azure.AI.Projects.AIProjectClientOptions? clientOptions = null, System.Collections.Generic.IList<Microsoft.Extensions.AI.AITool>? tools = null, System.Func<Microsoft.Extensions.AI.IChatClient, Microsoft.Extensions.AI.IChatClient>? clientFactory = null, System.IServiceProvider? services = null)"
+    replacement_signature: "void .ctor(System.Uri agentEndpoint, System.ClientModel.AuthenticationTokenProvider credential, Azure.AI.Extensions.OpenAI.ProjectOpenAIClientOptions? clientOptions = null, System.Collections.Generic.IList<Microsoft.Extensions.AI.AITool>? tools = null, System.Func<Microsoft.Extensions.AI.IChatClient, Microsoft.Extensions.AI.IChatClient>? clientFactory = null, System.IServiceProvider? services = null)"
+    argument_order_change: false
+    fix_description: "The agent-endpoint `FoundryAgent` constructor now takes `ProjectOpenAIClientOptions` (Azure.AI.Extensions.OpenAI) instead of `AIProjectClientOptions` for `clientOptions`."
+    example_before: |
+      var agent = new FoundryAgent(agentEndpoint, credential, new AIProjectClientOptions());
+    example_after: |
+      var agent = new FoundryAgent(agentEndpoint, credential, new ProjectOpenAIClientOptions());
+    cs_warning: CS1503
+    guide_section: "N/A"
+    dotnet_inspect_detectable: true
+    applies_to_codebases: "pre-1.6.0"
+    notes: "Backfilled 2026-10-01 from a dotnet-inspect 0.9.1 diff of Microsoft.Agents.AI.Foundry 1.5.0..1.6.0-preview.260512.1; the pre-August watcher jumped 1.6.1 -> 1.10.0, so this release was never diffed on its own."
+
   - id: MAF161-EXTENSIO-001
     package: Microsoft.Agents.AI.Workflows
     version_introduced: "1.6.1"
@@ -622,6 +681,198 @@ entries:
 
 
 # === Draft entries auto-appended by release-watcher on 2026-06-14. Review before merging. ===
+
+  - id: MAF162-FOUNDRY-EXTENSIONS-001
+    package: Microsoft.Agents.AI.Foundry
+    version_introduced: "1.6.2"
+    type: "AzureAIProjectChatClientExtensions"
+    method: "Azure.AI.Projects.AzureAIProjectChatClientExtensions"
+    obsolete_signature: "Azure.AI.Projects.AzureAIProjectChatClientExtensions (AsAIAgent overloads on AIProjectClient)"
+    replacement_signature: "Azure.AI.Projects.AIProjectClientExtensions (same AsAIAgent overloads, plus an agentEndpoint overload)"
+    argument_order_change: false
+    fix_description: "The `AsAIAgent` extensions on `AIProjectClient` moved from `AzureAIProjectChatClientExtensions` to `AIProjectClientExtensions` in the same namespace. Extension-method calls compile unchanged; rebuild binaries built against 1.6.1 and rename explicit static calls."
+    example_before: |
+      var agent = AzureAIProjectChatClientExtensions.AsAIAgent(projectClient, model, instructions);
+    example_after: |
+      var agent = AIProjectClientExtensions.AsAIAgent(projectClient, model, instructions);
+    cs_warning: BINARY_BREAK
+    guide_section: "N/A"
+    dotnet_inspect_detectable: true
+    applies_to_codebases: "pre-1.6.2"
+    notes: "Backfilled 2026-10-01 from a dotnet-inspect 0.9.1 diff of Microsoft.Agents.AI.Foundry 1.6.1-preview.260514.1..1.6.2-preview.260521.1; the pre-August watcher jumped 1.6.1 -> 1.10.0, so this release was never diffed on its own."
+
+  - id: MAF162-FOUNDRY-AGENT-001
+    package: Microsoft.Agents.AI.Foundry
+    version_introduced: "1.6.2"
+    type: "FoundryAgent"
+    method: "GetService"
+    obsolete_signature: "object? FoundryAgent.GetService(System.Type serviceType, object? serviceKey = null)"
+    replacement_signature: "object? AIAgent.GetService(System.Type serviceType, object? serviceKey = null) (inherited)"
+    argument_order_change: false
+    fix_description: "`FoundryAgent` no longer overrides `GetService`; calls bind to the inherited `AIAgent.GetService`. Calls still compile, but re-check any `GetService` lookups that relied on Foundry-specific services."
+    example_before: |
+      var client = foundryAgent.GetService(typeof(AIProjectClient));
+    example_after: |
+      var client = foundryAgent.GetService(typeof(AIProjectClient));
+      // verify the result: the FoundryAgent override was removed in 1.6.2
+    cs_warning: RUNTIME_SILENT
+    guide_section: "N/A"
+    dotnet_inspect_detectable: true
+    applies_to_codebases: "pre-1.6.2"
+    notes: "Backfilled 2026-10-01 from a dotnet-inspect 0.9.1 diff of Microsoft.Agents.AI.Foundry 1.6.1-preview.260514.1..1.6.2-preview.260521.1; the pre-August watcher jumped 1.6.1 -> 1.10.0, so this release was never diffed on its own."
+
+  - id: MAF180-HOSTING-STORE-001
+    package: Microsoft.Agents.AI.Hosting
+    version_introduced: "1.8.0"
+    type: "HostedAgentBuilderExtensions"
+    method: "WithInMemorySessionStore"
+    obsolete_signature: "Microsoft.Agents.AI.Hosting.IHostedAgentBuilder WithInMemorySessionStore(Microsoft.Agents.AI.Hosting.IHostedAgentBuilder builder)"
+    replacement_signature: "Microsoft.Agents.AI.Hosting.IHostedAgentBuilder WithInMemorySessionStore(Microsoft.Agents.AI.Hosting.IHostedAgentBuilder builder, bool withIsolation = true)"
+    argument_order_change: false
+    fix_description: "`WithInMemorySessionStore` gained `withIsolation` (default `true`), so session isolation is now on by default. Rebuild binaries built against 1.7; pass `withIsolation: false` to keep the old shared store."
+    example_before: |
+      builder.AddAIAgent("assistant", instructions).WithInMemorySessionStore();
+    example_after: |
+      builder.AddAIAgent("assistant", instructions).WithInMemorySessionStore(withIsolation: false);
+    cs_warning: BINARY_BREAK
+    guide_section: "N/A"
+    dotnet_inspect_detectable: true
+    applies_to_codebases: "pre-1.8.0"
+    notes: "Backfilled 2026-10-01 from a dotnet-inspect 0.9.1 diff of Microsoft.Agents.AI.Hosting 1.7.0-preview.260526.1..1.8.0-preview.260528.1; the pre-August watcher jumped 1.6.1 -> 1.10.0, so this release was never diffed on its own. Session isolation types (AgentSessionStore, IsolationKeyScopedAgentSessionStore, SessionIsolationKeyProvider) were added in the same release."
+
+  - id: MAF180-HOSTING-STORE-002
+    package: Microsoft.Agents.AI.Hosting
+    version_introduced: "1.8.0"
+    type: "HostedAgentBuilderExtensions"
+    method: "WithSessionStore"
+    obsolete_signature: "Microsoft.Agents.AI.Hosting.IHostedAgentBuilder WithSessionStore(Microsoft.Agents.AI.Hosting.IHostedAgentBuilder builder, Microsoft.Agents.AI.Hosting.AgentSessionStore store)"
+    replacement_signature: "Microsoft.Agents.AI.Hosting.IHostedAgentBuilder WithSessionStore(Microsoft.Agents.AI.Hosting.IHostedAgentBuilder builder, Microsoft.Agents.AI.Hosting.AgentSessionStore store, bool withIsolation = true)"
+    argument_order_change: false
+    fix_description: "`WithSessionStore(store)` gained `withIsolation` (default `true`): the store is wrapped for per-key session isolation by default. Rebuild binaries built against 1.7; pass `withIsolation: false` for the old behavior."
+    example_before: |
+      agentBuilder.WithSessionStore(store);
+    example_after: |
+      agentBuilder.WithSessionStore(store, withIsolation: false);
+    cs_warning: BINARY_BREAK
+    guide_section: "N/A"
+    dotnet_inspect_detectable: true
+    applies_to_codebases: "pre-1.8.0"
+    notes: "Backfilled 2026-10-01 from a dotnet-inspect 0.9.1 diff of Microsoft.Agents.AI.Hosting 1.7.0-preview.260526.1..1.8.0-preview.260528.1; the pre-August watcher jumped 1.6.1 -> 1.10.0, so this release was never diffed on its own."
+
+  - id: MAF180-HOSTING-STORE-003
+    package: Microsoft.Agents.AI.Hosting
+    version_introduced: "1.8.0"
+    type: "HostedAgentBuilderExtensions"
+    method: "WithSessionStore"
+    obsolete_signature: "Microsoft.Agents.AI.Hosting.IHostedAgentBuilder WithSessionStore(Microsoft.Agents.AI.Hosting.IHostedAgentBuilder builder, System.Func<System.IServiceProvider, string, Microsoft.Agents.AI.Hosting.AgentSessionStore> createAgentSessionStore, Microsoft.Extensions.DependencyInjection.ServiceLifetime lifetime = 0)"
+    replacement_signature: "Microsoft.Agents.AI.Hosting.IHostedAgentBuilder WithSessionStore(Microsoft.Agents.AI.Hosting.IHostedAgentBuilder builder, System.Func<System.IServiceProvider, string, Microsoft.Agents.AI.Hosting.AgentSessionStore> createAgentSessionStore, Microsoft.Extensions.DependencyInjection.ServiceLifetime lifetime = 0, bool withIsolation = true)"
+    argument_order_change: false
+    fix_description: "The factory overload of `WithSessionStore` gained `withIsolation` (default `true`). Rebuild binaries built against 1.7; pass `withIsolation: false` to keep stores unwrapped."
+    example_before: |
+      agentBuilder.WithSessionStore((sp, name) => new MyStore());
+    example_after: |
+      agentBuilder.WithSessionStore((sp, name) => new MyStore(), withIsolation: false);
+    cs_warning: BINARY_BREAK
+    guide_section: "N/A"
+    dotnet_inspect_detectable: true
+    applies_to_codebases: "pre-1.8.0"
+    notes: "Backfilled 2026-10-01 from a dotnet-inspect 0.9.1 diff of Microsoft.Agents.AI.Hosting 1.7.0-preview.260526.1..1.8.0-preview.260528.1; the pre-August watcher jumped 1.6.1 -> 1.10.0, so this release was never diffed on its own."
+
+  - id: MAF180-DECLARATIVE-CODEGEN-001
+    package: Microsoft.Agents.AI.Workflows.Declarative
+    version_introduced: "1.8.0"
+    type: "DeclarativeWorkflowBuilder"
+    method: "Eject"
+    obsolete_signature: "string Eject(string workflowFile, Microsoft.Agents.AI.Workflows.Declarative.DeclarativeWorkflowLanguage workflowLanguage, string? workflowNamespace = null, string? workflowPrefix = null)"
+    replacement_signature: "removed; no replacement (code generation for declarative workflows was removed)"
+    argument_order_change: false
+    fix_description: "Code generation for declarative workflows was removed in 1.8.0 (upstream PR 6095), including both `DeclarativeWorkflowBuilder.Eject` overloads (file and TextReader). Run the YAML with `DeclarativeWorkflowBuilder.Build`, or keep the generated code you already ejected."
+    example_before: |
+      string code = DeclarativeWorkflowBuilder.Eject("workflow.yaml", DeclarativeWorkflowLanguage.CSharp);
+    example_after: |
+      Workflow workflow = DeclarativeWorkflowBuilder.Build<string>("workflow.yaml", options);
+    cs_warning: CS0117
+    guide_section: "N/A"
+    dotnet_inspect_detectable: true
+    applies_to_codebases: "pre-1.8.0"
+    notes: "Backfilled 2026-10-01 from a dotnet-inspect 0.9.1 diff of Microsoft.Agents.AI.Workflows.Declarative 1.7.0-rc1..1.8.0-rc1; the pre-August watcher jumped 1.6.1 -> 1.10.0, so this release was never diffed on its own. Upstream PR 6095 \"[BREAKING] Remove Support for Code-Gen in Declarative Workflows\"."
+
+  - id: MAF180-DECLARATIVE-CODEGEN-002
+    package: Microsoft.Agents.AI.Workflows.Declarative
+    version_introduced: "1.8.0"
+    type: "DeclarativeWorkflowLanguage"
+    method: "Microsoft.Agents.AI.Workflows.Declarative.DeclarativeWorkflowLanguage"
+    obsolete_signature: "Microsoft.Agents.AI.Workflows.Declarative.DeclarativeWorkflowLanguage"
+    replacement_signature: "removed; no replacement (code generation for declarative workflows was removed)"
+    argument_order_change: false
+    fix_description: "`DeclarativeWorkflowLanguage` only selected the target language for `Eject`; it was removed with declarative-workflow code generation in 1.8.0. Remove references to it."
+    example_before: |
+      var language = DeclarativeWorkflowLanguage.CSharp;
+    example_after: |
+      // DeclarativeWorkflowLanguage was removed in 1.8.0 with Eject; run the YAML with DeclarativeWorkflowBuilder.Build.
+    cs_warning: CS0246
+    guide_section: "N/A"
+    dotnet_inspect_detectable: true
+    applies_to_codebases: "pre-1.8.0"
+    notes: "Backfilled 2026-10-01 from a dotnet-inspect 0.9.1 diff of Microsoft.Agents.AI.Workflows.Declarative 1.7.0-rc1..1.8.0-rc1; the pre-August watcher jumped 1.6.1 -> 1.10.0, so this release was never diffed on its own. Upstream PR 6095."
+
+  - id: MAF180-DECLARATIVE-CODEGEN-003
+    package: Microsoft.Agents.AI.Workflows.Declarative
+    version_introduced: "1.8.0"
+    type: "ToStringInstanceHelper"
+    method: "ToStringInstanceHelper"
+    obsolete_signature: "ToStringInstanceHelper (public helper of the code-generation templates)"
+    replacement_signature: "removed; no replacement"
+    argument_order_change: false
+    fix_description: "`ToStringInstanceHelper` was a public helper of the declarative code-generation templates and was removed with code generation in 1.8.0. Code that referenced it must drop the reference."
+    example_before: |
+      var helper = new ToStringInstanceHelper();
+    example_after: |
+      // ToStringInstanceHelper was removed in 1.8.0 with declarative code generation.
+    cs_warning: CS0246
+    guide_section: "N/A"
+    dotnet_inspect_detectable: true
+    applies_to_codebases: "pre-1.8.0"
+    notes: "Backfilled 2026-10-01 from a dotnet-inspect 0.9.1 diff of Microsoft.Agents.AI.Workflows.Declarative 1.7.0-rc1..1.8.0-rc1; the pre-August watcher jumped 1.6.1 -> 1.10.0, so this release was never diffed on its own. Upstream PR 6095."
+
+  - id: MAF190-HARNESS-AGENT-001
+    package: Microsoft.Agents.AI.Harness
+    version_introduced: "1.9.0"
+    type: "HarnessAgent"
+    method: ".ctor"
+    obsolete_signature: "void .ctor(Microsoft.Extensions.AI.IChatClient chatClient, int maxContextWindowTokens, int maxOutputTokens, Microsoft.Agents.AI.HarnessAgentOptions? options = null)"
+    replacement_signature: "void .ctor(Microsoft.Extensions.AI.IChatClient chatClient, int maxContextWindowTokens, int maxOutputTokens, Microsoft.Agents.AI.HarnessAgentOptions? options = null, Microsoft.Extensions.Logging.ILoggerFactory? loggerFactory = null, System.IServiceProvider? services = null)"
+    argument_order_change: false
+    fix_description: "The `HarnessAgent` constructor gained optional `loggerFactory` and `services` parameters. Source calls compile unchanged; rebuild binaries built against 1.8."
+    example_before: |
+      var agent = new HarnessAgent(chatClient, 128_000, 8_000, options);
+    example_after: |
+      var agent = new HarnessAgent(chatClient, 128_000, 8_000, options, loggerFactory);
+    cs_warning: BINARY_BREAK
+    guide_section: "N/A"
+    dotnet_inspect_detectable: true
+    applies_to_codebases: "pre-1.9.0"
+    notes: "Backfilled 2026-10-01 from a dotnet-inspect 0.9.1 diff of Microsoft.Agents.AI.Harness 1.8.0-preview.260528.1..1.9.0-preview.260603.1; the pre-August watcher jumped 1.6.1 -> 1.10.0, so this release was never diffed on its own. Changed again in 1.10.0 (MAF110-HARNESS-AGENT-001)."
+
+  - id: MAF190-HARNESS-EXTENSIONS-001
+    package: Microsoft.Agents.AI.Harness
+    version_introduced: "1.9.0"
+    type: "ChatClientHarnessExtensions"
+    method: "AsHarnessAgent"
+    obsolete_signature: "Microsoft.Agents.AI.HarnessAgent AsHarnessAgent(Microsoft.Extensions.AI.IChatClient chatClient, int maxContextWindowTokens, int maxOutputTokens, Microsoft.Agents.AI.HarnessAgentOptions? options = null)"
+    replacement_signature: "Microsoft.Agents.AI.HarnessAgent AsHarnessAgent(Microsoft.Extensions.AI.IChatClient chatClient, int maxContextWindowTokens, int maxOutputTokens, Microsoft.Agents.AI.HarnessAgentOptions? options = null, Microsoft.Extensions.Logging.ILoggerFactory? loggerFactory = null, System.IServiceProvider? services = null)"
+    argument_order_change: false
+    fix_description: "`AsHarnessAgent` gained optional `loggerFactory` and `services` parameters. Source calls compile unchanged; rebuild binaries built against 1.8."
+    example_before: |
+      var agent = chatClient.AsHarnessAgent(128_000, 8_000, options);
+    example_after: |
+      var agent = chatClient.AsHarnessAgent(128_000, 8_000, options, loggerFactory);
+    cs_warning: BINARY_BREAK
+    guide_section: "N/A"
+    dotnet_inspect_detectable: true
+    applies_to_codebases: "pre-1.9.0"
+    notes: "Backfilled 2026-10-01 from a dotnet-inspect 0.9.1 diff of Microsoft.Agents.AI.Harness 1.8.0-preview.260528.1..1.9.0-preview.260603.1; the pre-August watcher jumped 1.6.1 -> 1.10.0, so this release was never diffed on its own. Changed again in 1.10.0 (MAF110-HARNESS-EXTENSIONS-001)."
+
   - id: MAF110-AGENT-001
     package: Microsoft.Agents.AI
     version_introduced: "1.10.0"
@@ -1133,6 +1384,72 @@ entries:
     applies_to_codebases: "pre-1.10.0"
 
 # === Draft entries auto-appended by release-watcher on 2026-06-25. Review before merging. ===
+
+  - id: MAF110-HARNESS-AGENT-001
+    package: Microsoft.Agents.AI.Harness
+    version_introduced: "1.10.0"
+    type: "HarnessAgent"
+    method: ".ctor"
+    obsolete_signature: "void .ctor(Microsoft.Extensions.AI.IChatClient chatClient, int maxContextWindowTokens, int maxOutputTokens, Microsoft.Agents.AI.HarnessAgentOptions? options = null, Microsoft.Extensions.Logging.ILoggerFactory? loggerFactory = null, System.IServiceProvider? services = null)"
+    replacement_signature: "void .ctor(Microsoft.Extensions.AI.IChatClient chatClient, Microsoft.Agents.AI.HarnessAgentOptions? options = null, Microsoft.Extensions.Logging.ILoggerFactory? loggerFactory = null, System.IServiceProvider? services = null)"
+    argument_order_change: false
+    fix_description: "The token limits left the `HarnessAgent` constructor: set `HarnessAgentOptions.MaxContextWindowTokens` and `MaxOutputTokens` (added in the same release) and pass the options instead."
+    example_before: |
+      var agent = new HarnessAgent(chatClient, 128_000, 8_000, options);
+    example_after: |
+      options.MaxContextWindowTokens = 128_000;
+      options.MaxOutputTokens = 8_000;
+      var agent = new HarnessAgent(chatClient, options);
+    cs_warning: CS1503
+    guide_section: "N/A"
+    dotnet_inspect_detectable: true
+    applies_to_codebases: "pre-1.10.0"
+    notes: "Backfilled 2026-10-01 from a dotnet-inspect 0.9.1 diff of Microsoft.Agents.AI.Harness 1.9.0-preview.260603.1..1.10.0-preview.260610.1; the pre-August watcher jumped 1.6.1 -> 1.10.0, so this release was never diffed on its own."
+
+  - id: MAF110-HARNESS-EXTENSIONS-001
+    package: Microsoft.Agents.AI.Harness
+    version_introduced: "1.10.0"
+    type: "ChatClientHarnessExtensions"
+    method: "AsHarnessAgent"
+    obsolete_signature: "Microsoft.Agents.AI.HarnessAgent AsHarnessAgent(Microsoft.Extensions.AI.IChatClient chatClient, int maxContextWindowTokens, int maxOutputTokens, Microsoft.Agents.AI.HarnessAgentOptions? options = null, Microsoft.Extensions.Logging.ILoggerFactory? loggerFactory = null, System.IServiceProvider? services = null)"
+    replacement_signature: "Microsoft.Agents.AI.HarnessAgent AsHarnessAgent(Microsoft.Extensions.AI.IChatClient chatClient, Microsoft.Agents.AI.HarnessAgentOptions? options = null, Microsoft.Extensions.Logging.ILoggerFactory? loggerFactory = null, System.IServiceProvider? services = null)"
+    argument_order_change: false
+    fix_description: "`AsHarnessAgent` no longer takes the token limits: set `HarnessAgentOptions.MaxContextWindowTokens` and `MaxOutputTokens` and pass the options."
+    example_before: |
+      var agent = chatClient.AsHarnessAgent(128_000, 8_000, options);
+    example_after: |
+      options.MaxContextWindowTokens = 128_000;
+      options.MaxOutputTokens = 8_000;
+      var agent = chatClient.AsHarnessAgent(options);
+    cs_warning: CS1503
+    guide_section: "N/A"
+    dotnet_inspect_detectable: true
+    applies_to_codebases: "pre-1.10.0"
+    notes: "Backfilled 2026-10-01 from a dotnet-inspect 0.9.1 diff of Microsoft.Agents.AI.Harness 1.9.0-preview.260603.1..1.10.0-preview.260610.1; the pre-August watcher jumped 1.6.1 -> 1.10.0, so this release was never diffed on its own."
+
+  - id: MAF110-COPILOT-SDK-001
+    package: Microsoft.Agents.AI.GitHub.Copilot
+    version_introduced: "1.10.0"
+    type: "CopilotClientExtensions"
+    method: "GitHub.Copilot.SDK.CopilotClientExtensions"
+    obsolete_signature: "GitHub.Copilot.SDK.CopilotClient / SessionConfig / CopilotClientExtensions (namespace GitHub.Copilot.SDK)"
+    replacement_signature: "GitHub.Copilot.CopilotClient / SessionConfig / CopilotClientExtensions (namespace GitHub.Copilot)"
+    argument_order_change: false
+    fix_description: "MAF 1.10.0 moved to GitHub Copilot SDK 1.0.0 (upstream PR 6381), whose types live in `GitHub.Copilot` instead of `GitHub.Copilot.SDK`. Change the using directive; the `GitHubCopilotAgent` constructors and `AsAIAgent` take the new types."
+    example_before: |
+      using GitHub.Copilot.SDK;
+      
+      var agent = copilotClient.AsAIAgent(sessionConfig);
+    example_after: |
+      using GitHub.Copilot;
+      
+      var agent = copilotClient.AsAIAgent(sessionConfig);
+    cs_warning: CS0246
+    guide_section: "N/A"
+    dotnet_inspect_detectable: true
+    applies_to_codebases: "pre-1.10.0"
+    notes: "Backfilled 2026-10-01 from a dotnet-inspect 0.9.1 diff of Microsoft.Agents.AI.GitHub.Copilot 1.9.0-preview.260603.1..1.10.0-rc1; the pre-August watcher jumped 1.6.1 -> 1.10.0, so this release was never diffed on its own. Upstream PR 6381 \"[BREAKING] Migrate .NET GitHub Copilot SDK to v1.0.0\". The diff failed MAF Doctor's evidence validation only on a type-count mismatch; the rows were read by hand."
+
   - id: MAF111-AGENT-001
     package: Microsoft.Agents.AI
     version_introduced: "1.11.0"

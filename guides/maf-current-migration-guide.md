@@ -2769,6 +2769,13 @@ The `expectedOutput` parameter is optional and defaults to `null`. When provided
 <!-- Add notes, corrections, and refinements below this heading.
      Content under this heading is PRESERVED across re-runs of the watcher. -->
 
+### Changes found by a later per-release diff (added 2026-10-01)
+
+This guide covers 1.5.0 → 1.6.1 in one step. Diffing every package release by release found three more breaking changes, all in 1.6.0:
+
+- **`Microsoft.Agents.AI.Foundry.Hosting`**: `FoundryToolbox` and the `AIProjectClient.GetToolboxToolsAsync` extension were removed with no replacement in the package (MAF160-FOUNDRY-HOSTING-TOOLBOX-001/002).
+- **`Microsoft.Agents.AI.Foundry`**: the agent-endpoint `FoundryAgent` constructor takes `ProjectOpenAIClientOptions` instead of `AIProjectClientOptions` (MAF160-FOUNDRY-AGENT-001).
+
 ---
 
 ## Migrating to MAF 1.10.0
@@ -2958,6 +2965,16 @@ The following APIs were removed (CS0246) or their signatures changed (CS0618) in
 
 <!-- Add notes, corrections, and refinements below this heading.
      Content under this heading is PRESERVED across re-runs of the watcher. -->
+
+### Changes found by a later per-release diff (added 2026-10-01)
+
+This guide covers 1.6.1 → 1.10.0 in one step because the watcher skipped 1.6.2–1.9.0. Diffing every package release by release found these breaking changes that had no registry entry:
+
+- **1.6.2, `Microsoft.Agents.AI.Foundry`**: the `AsAIAgent` extensions moved from `AzureAIProjectChatClientExtensions` to `AIProjectClientExtensions` (rebuild; rename static calls), and `FoundryAgent` no longer overrides `GetService` (MAF162-FOUNDRY-EXTENSIONS-001, MAF162-FOUNDRY-AGENT-001).
+- **1.8.0, `Microsoft.Agents.AI.Hosting`**: `WithInMemorySessionStore` and both `WithSessionStore` overloads gained `withIsolation` (default `true`), so session isolation is on by default (MAF180-HOSTING-STORE-001..003).
+- **1.8.0, `Microsoft.Agents.AI.Workflows.Declarative`**: code generation was removed (upstream PR 6095): `DeclarativeWorkflowBuilder.Eject`, `DeclarativeWorkflowLanguage` and `ToStringInstanceHelper` are gone (MAF180-DECLARATIVE-CODEGEN-001..003).
+- **1.9.0 and 1.10.0, `Microsoft.Agents.AI.Harness`**: the `HarnessAgent` constructor and `AsHarnessAgent` gained `loggerFactory`/`services` (1.9.0), then lost the token-limit parameters in favor of `HarnessAgentOptions.MaxContextWindowTokens` and `MaxOutputTokens` (1.10.0) (MAF190-HARNESS-*, MAF110-HARNESS-*).
+- **1.10.0, `Microsoft.Agents.AI.GitHub.Copilot`**: GitHub Copilot SDK 1.0.0 moved its types from `GitHub.Copilot.SDK` to `GitHub.Copilot` (upstream PR 6381; MAF110-COPILOT-SDK-001).
 
 ---
 

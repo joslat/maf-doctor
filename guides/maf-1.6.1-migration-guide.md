@@ -127,3 +127,10 @@ The `expectedOutput` parameter is optional and defaults to `null`. When provided
 
 <!-- Add notes, corrections, and refinements below this heading.
      Content under this heading is PRESERVED across re-runs of the watcher. -->
+
+### Changes found by a later per-release diff (added 2026-10-01)
+
+This guide covers 1.5.0 → 1.6.1 in one step. Diffing every package release by release found three more breaking changes, all in 1.6.0:
+
+- **`Microsoft.Agents.AI.Foundry.Hosting`**: `FoundryToolbox` and the `AIProjectClient.GetToolboxToolsAsync` extension were removed with no replacement in the package (MAF160-FOUNDRY-HOSTING-TOOLBOX-001/002).
+- **`Microsoft.Agents.AI.Foundry`**: the agent-endpoint `FoundryAgent` constructor takes `ProjectOpenAIClientOptions` instead of `AIProjectClientOptions` (MAF160-FOUNDRY-AGENT-001).
