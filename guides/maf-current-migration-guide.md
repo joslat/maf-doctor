@@ -6348,19 +6348,24 @@ Externalized since MAF 1.17.0 to microsoft/agent-framework-durable-extension (li
 
 ## Breaking Changes (requires human verification)
 
-<!-- TODO: Review every package evidence block and lifecycle transition above -->
+- Release notes flag one `[BREAKING]` change: "Migrate MCP long-running task support to the 2026-07-28 Tasks extension" (upstream PR 7774). None of the validated public API diffs above show a removed or changed member for it, and no package lifecycle transitions are declared, so the affected symbols and fix are **unverified**. Review code that uses MCP long-running tasks against the 1.19.0 packages before relying on this release; the registry sentinel `MAF119-REVIEW-001` stays open for this reason.
+- No removed, renamed, or signature-changed public APIs were detected in the validated diffs (Core, Workflows, Harness, Hosting, Hosting.OpenAI, Hosting.AGUI, GitHub.Copilot, Tools.Shell).
 
 ## New Patterns
 
-<!-- TODO: Document any new recommended patterns from release notes -->
+- `RoutePersistingRoutingChatClient` / `RoutePersistingRoutingChatClientOptions` (Microsoft.Agents.AI): new types for session-persisted chat client routing.
+- `WorkflowHostingExtensions.WithCheckpointing` (Microsoft.Agents.AI.Workflows): new member for enabling checkpointing on hosted workflows.
+- `WorkflowSessionCheckpointRecovery` and `WorkflowAgentMetadata` (Microsoft.Agents.AI.Workflows): new types supporting workflow session checkpoint recovery and agent metadata.
+- Release notes also mention Azure Blob Storage session persistence, Foundry hosted-agent state persistence, and an experimental agent-hooks interception contract; these are not visible as public API changes in the validated diffs, so treat them as behavioral/package additions to verify.
+- `AddAIAgent` overloads now pass `IServiceProvider` to `ChatClientAgent`, and AG-UI history special cases were removed from `ChatClientAgent`; retest AG-UI and DI-resolved agents after upgrading.
 
 ## Obsolete APIs Added
 
-<!-- TODO: Use MafRunCs0618Hunt against a project pinned to 1.19.0 and document findings -->
+None detected in the validated public API diffs.
 
 ## Known Misalignments
 
-<!-- TODO: Document any discrepancies between official docs and assembly behavior -->
+None documented yet.
 
 <!-- AUTO-GENERATED END -->
 
