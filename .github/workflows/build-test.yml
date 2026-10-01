@@ -58,3 +58,11 @@ jobs:
             --configuration Release \
             --no-build \
             --logger "console;verbosity=minimal"
+
+      - name: MCP round trip (handshake + stateless 2026-07-28)
+        # M-02: a real client/server exchange on every PR. Lists every tool,
+        # prompt, resource and template, reads every resource, renders the
+        # argument-free prompts, makes a real tool call, and repeats discovery
+        # and a call over the stateless 2026-07-28 flow. Unit tests alone did not
+        # cover the wire protocol, which an SDK upgrade can change.
+        run: python3 .github/scripts/mcp_smoke.py -- dotnet src/maf-autopilot/bin/Release/net10.0/maf-doctor.dll

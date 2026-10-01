@@ -11,6 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **MCP spec 2026-07-28 (stateless) is served.** With the 2.2.0 SDK, hosts can skip the
+  `initialize` handshake: `server/discover`, `tools/list` and `tools/call` work with
+  per-request `_meta`. The classic handshake still negotiates up to 2025-11-25.
+- **An MCP round trip runs on every PR** (`build-test`): every tool, prompt, resource
+  and template is listed, every resource read, the argument-free prompts rendered, a
+  real tool call made, and the stateless 2026-07-28 flow exercised.
 - **Automatic releases.** When a watcher PR merges (`.maf-version` changes on `main`),
   `auto-release` tags the next minor version, so each MAF train ships as a maf-doctor
   release with no human step. Switched by the `AUTO_RELEASE` repository variable.
