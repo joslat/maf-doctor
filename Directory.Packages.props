@@ -17,30 +17,30 @@
   <ItemGroup>
     <!-- MCP server SDK — provides McpServerToolType, McpServerTool, WithStdioServerTransport, etc.
          Pinned: floating versions made the shipped binary non-reproducible. -->
-    <PackageVersion Include="ModelContextProtocol" Version="1.4.0" />
+    <PackageVersion Include="ModelContextProtocol" Version="1.4.1" />
 
     <!-- BCL / Hosting. The 10.0.x line ships net8/net9/net10 TFMs in one nupkg,
          so a single pin covers all three TargetFrameworks. -->
-    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.9" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.12" />
 
     <!-- YAML parsing — used for registry.yaml and similar. -->
     <PackageVersion Include="YamlDotNet" Version="18.1.0" />
 
     <!-- Roslyn syntax-tree only (no Workspaces). Used by anti-pattern scanners,
          scaffolders, and the FanOutValidator tool. -->
-    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="4.11.0" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="4.14.0" />
     <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="3.11.0" />
     <PackageVersion Include="Microsoft.CodeAnalysis.CSharp.Analyzer.Testing.XUnit" Version="1.1.2" />
 
     <!-- Test stack. Pinned to specific versions to keep CI deterministic. -->
-    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.7.0" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.10.1" />
     <PackageVersion Include="xunit" Version="2.9.3" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
-    <PackageVersion Include="coverlet.collector" Version="10.0.1" />
+    <PackageVersion Include="coverlet.collector" Version="10.1.0" />
 
     <!-- SourceLink (W.14 / AgentEval parity) — embedded source maps so
          consumers can step into the nupkg's source under the debugger.
          Pinned to the same version AgentEval pins. -->
-    <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.303" />
+    <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.401" />
   </ItemGroup>
 </Project>
