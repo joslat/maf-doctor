@@ -1077,17 +1077,14 @@ entries:
     type: AgentClassSkill`1
     method: Content
     obsolete_signature: "string Content { get; }"
-    replacement_signature: "N/A — define skill content via the skill XML schema file"
+    replacement_signature: "System.Threading.Tasks.ValueTask<string> GetContentAsync(System.Threading.CancellationToken cancellationToken = default)"
     argument_order_change: false
-    fix_description: "Remove access to AgentClassSkill<T>.Content; define skill content in the skill XML schema instead of reading it programmatically."
+    fix_description: "`AgentClassSkill<T>.Content` became the asynchronous `GetContentAsync()` in 1.7.0 (part of making skill content, resources and scripts load on demand)."
     example_before: |
-      var skill = new AgentClassSkill<MySkill>();
-      string content = skill.Content; // get-only Content removed in 1.10.0 — no longer compiles
+      string text = skill.Content;
     example_after: |
-      // Content was removed as a property in 1.10.0.
-      // Define skill content in the skill XML schema file.
-      var skill = new AgentClassSkill<MySkill>();
-    cs_warning: CS0246
+      string text = await skill.GetContentAsync(cancellationToken);
+    cs_warning: CS1061
     guide_section: "N/A"
     dotnet_inspect_detectable: true
     notes: >-
@@ -1102,17 +1099,14 @@ entries:
     type: AgentFileSkill
     method: Content
     obsolete_signature: "string Content { get; }"
-    replacement_signature: "N/A — define skill content via the skill XML schema file"
+    replacement_signature: "System.Threading.Tasks.ValueTask<string> GetContentAsync(System.Threading.CancellationToken cancellationToken = default)"
     argument_order_change: false
-    fix_description: "Remove access to AgentFileSkill.Content; define skill content in the skill XML schema instead of setting it programmatically."
+    fix_description: "`AgentFileSkill.Content` became the asynchronous `GetContentAsync()` in 1.7.0 (part of making skill content, resources and scripts load on demand)."
     example_before: |
-      var skill = new AgentFileSkill("path/to/skill");
-      var content = skill.Content;
+      string text = skill.Content;
     example_after: |
-      // Content is no longer available as a property in 1.10.0.
-      // Read skill content directly from the skill XML schema file if needed.
-      var skill = new AgentFileSkill("path/to/skill");
-    cs_warning: CS0246
+      string text = await skill.GetContentAsync(cancellationToken);
+    cs_warning: CS1061
     guide_section: "N/A"
     dotnet_inspect_detectable: true
     notes: >-
@@ -1126,18 +1120,15 @@ entries:
     version_introduced: "1.7.0"
     type: AgentFileSkill
     method: Resources
-    obsolete_signature: "IReadOnlyList<AgentSkillResource> Resources { get; }"
-    replacement_signature: "N/A — define skill resources in the skill XML schema file"
+    obsolete_signature: "System.Collections.Generic.IReadOnlyList<Microsoft.Agents.AI.AgentSkillResource>? Resources { get; }"
+    replacement_signature: "System.Threading.Tasks.ValueTask<Microsoft.Agents.AI.AgentSkillResource?> GetResourceAsync(string name, System.Threading.CancellationToken cancellationToken = default)"
     argument_order_change: false
-    fix_description: "Remove access to AgentFileSkill.Resources; resource definitions have moved to the skill XML schema as part of the skill schema restructuring in 1.10.0."
+    fix_description: "`AgentFileSkill.Resources` was removed in 1.7.0; resources are loaded on demand by name with `GetResourceAsync(name)`, which returns null when the skill has no such resource."
     example_before: |
-      var skill = new AgentFileSkill("path/to/skill");
-      foreach (var resource in skill.Resources) { /* use resource */ }
+      var policy = skill.Resources?.FirstOrDefault(r => r.Name == "policy");
     example_after: |
-      // Resources are no longer accessible as a property in 1.10.0.
-      // Define resources directly in the skill XML schema file.
-      var skill = new AgentFileSkill("path/to/skill");
-    cs_warning: CS0246
+      var policy = await skill.GetResourceAsync("policy", cancellationToken);
+    cs_warning: CS1061
     guide_section: "N/A"
     dotnet_inspect_detectable: true
     notes: >-
@@ -1151,18 +1142,15 @@ entries:
     version_introduced: "1.7.0"
     type: AgentFileSkill
     method: Scripts
-    obsolete_signature: "IReadOnlyList<AgentSkillScript> Scripts { get; }"
-    replacement_signature: "N/A — define skill scripts in the skill XML schema file"
+    obsolete_signature: "System.Collections.Generic.IReadOnlyList<Microsoft.Agents.AI.AgentSkillScript>? Scripts { get; }"
+    replacement_signature: "System.Threading.Tasks.ValueTask<Microsoft.Agents.AI.AgentSkillScript?> GetScriptAsync(string name, System.Threading.CancellationToken cancellationToken = default)"
     argument_order_change: false
-    fix_description: "Remove access to AgentFileSkill.Scripts; script definitions have moved to the skill XML schema as part of the skill schema restructuring in 1.10.0."
+    fix_description: "`AgentFileSkill.Scripts` was removed in 1.7.0; scripts are loaded on demand by name with `GetScriptAsync(name)`, which returns null when the skill has no such script."
     example_before: |
-      var skill = new AgentFileSkill("path/to/skill");
-      foreach (var script in skill.Scripts) { /* use script */ }
+      var lookup = skill.Scripts?.FirstOrDefault(s => s.Name == "lookup");
     example_after: |
-      // Scripts are no longer accessible as a property in 1.10.0.
-      // Define scripts directly in the skill XML schema file.
-      var skill = new AgentFileSkill("path/to/skill");
-    cs_warning: CS0246
+      var lookup = await skill.GetScriptAsync("lookup", cancellationToken);
+    cs_warning: CS1061
     guide_section: "N/A"
     dotnet_inspect_detectable: true
     notes: >-
@@ -1176,23 +1164,18 @@ entries:
     version_introduced: "1.8.0"
     type: AgentFileSkillsSourceOptions
     method: ScriptDirectories
-    obsolete_signature: "IReadOnlyList<string> ScriptDirectories { get; init; }"
-    replacement_signature: "N/A — configure script locations via the updated skill source options"
+    obsolete_signature: "System.Collections.Generic.IEnumerable<string>? ScriptDirectories { get; set; }"
+    replacement_signature: "System.Func<Microsoft.Agents.AI.AgentFileSkillFilterContext, bool>? ScriptFilter { get; set; }"
     argument_order_change: false
-    fix_description: "Remove AgentFileSkillsSourceOptions.ScriptDirectories; update skill source configuration to use the replacement API for specifying script locations."
+    fix_description: "`AgentFileSkillsSourceOptions.ScriptDirectories` was removed in 1.8.0 when skill discovery became depth-based (upstream PR 6109). Select files with the `ScriptFilter` predicate, which receives an `AgentFileSkillFilterContext` (`SkillName`, `RelativeFilePath`), and set `SearchDepth` if skills are nested."
     example_before: |
-      var options = new AgentFileSkillsSourceOptions
-      {
-          ScriptDirectories = new[] { "skills/scripts" }
-      };
+      var options = new AgentFileSkillsSourceOptions { ScriptDirectories = new[] { "scripts" } };
     example_after: |
-      // ScriptDirectories was removed in 1.10.0 as part of skill schema restructuring.
-      // Configure skill locations via the replacement AgentFileSkillsSourceOptions properties.
       var options = new AgentFileSkillsSourceOptions
       {
-          // Use updated configuration properties — verify with dotnet-inspect
+          ScriptFilter = ctx => ctx.RelativeFilePath.StartsWith("scripts/", StringComparison.Ordinal),
       };
-    cs_warning: CS0246
+    cs_warning: CS0117
     guide_section: "N/A"
     dotnet_inspect_detectable: true
     notes: >-
@@ -1206,23 +1189,18 @@ entries:
     version_introduced: "1.8.0"
     type: AgentFileSkillsSourceOptions
     method: ResourceDirectories
-    obsolete_signature: "IReadOnlyList<string> ResourceDirectories { get; init; }"
-    replacement_signature: "N/A — configure resource locations via the updated skill source options"
+    obsolete_signature: "System.Collections.Generic.IEnumerable<string>? ResourceDirectories { get; set; }"
+    replacement_signature: "System.Func<Microsoft.Agents.AI.AgentFileSkillFilterContext, bool>? ResourceFilter { get; set; }"
     argument_order_change: false
-    fix_description: "Remove AgentFileSkillsSourceOptions.ResourceDirectories; update skill source configuration to use the replacement API for specifying resource locations."
+    fix_description: "`AgentFileSkillsSourceOptions.ResourceDirectories` was removed in 1.8.0 when skill discovery became depth-based (upstream PR 6109). Select files with the `ResourceFilter` predicate, which receives an `AgentFileSkillFilterContext` (`SkillName`, `RelativeFilePath`), and set `SearchDepth` if skills are nested."
     example_before: |
-      var options = new AgentFileSkillsSourceOptions
-      {
-          ResourceDirectories = new[] { "skills/resources" }
-      };
+      var options = new AgentFileSkillsSourceOptions { ResourceDirectories = new[] { "resources" } };
     example_after: |
-      // ResourceDirectories was removed in 1.10.0 as part of skill schema restructuring.
-      // Configure resource locations via the replacement AgentFileSkillsSourceOptions properties.
       var options = new AgentFileSkillsSourceOptions
       {
-          // Use updated configuration properties — verify with dotnet-inspect
+          ResourceFilter = ctx => ctx.RelativeFilePath.StartsWith("resources/", StringComparison.Ordinal),
       };
-    cs_warning: CS0246
+    cs_warning: CS0117
     guide_section: "N/A"
     dotnet_inspect_detectable: true
     notes: >-
@@ -1237,17 +1215,14 @@ entries:
     type: AgentInlineSkill
     method: Content
     obsolete_signature: "string Content { get; }"
-    replacement_signature: "N/A — define inline skill content via the skill XML schema"
+    replacement_signature: "System.Threading.Tasks.ValueTask<string> GetContentAsync(System.Threading.CancellationToken cancellationToken = default)"
     argument_order_change: false
-    fix_description: "Remove access to AgentInlineSkill.Content; define inline skill content in the skill XML schema instead of reading it programmatically."
+    fix_description: "`AgentInlineSkill.Content` became the asynchronous `GetContentAsync()` in 1.7.0 (part of making skill content, resources and scripts load on demand)."
     example_before: |
-      var skill = new AgentInlineSkill();
-      string content = skill.Content; // get-only Content removed in 1.10.0 — no longer compiles
+      string text = skill.Content;
     example_after: |
-      // Content was removed as a property in 1.10.0.
-      // Define inline skill content in the skill XML schema.
-      var skill = new AgentInlineSkill();
-    cs_warning: CS0246
+      string text = await skill.GetContentAsync(cancellationToken);
+    cs_warning: CS1061
     guide_section: "N/A"
     dotnet_inspect_detectable: true
     notes: >-
@@ -1261,18 +1236,15 @@ entries:
     version_introduced: "1.7.0"
     type: AgentInlineSkill
     method: Resources
-    obsolete_signature: "IReadOnlyList<AgentSkillResource> Resources { get; }"
-    replacement_signature: "N/A — define skill resources in the skill XML schema"
+    obsolete_signature: "System.Collections.Generic.IReadOnlyList<Microsoft.Agents.AI.AgentSkillResource>? Resources { get; }"
+    replacement_signature: "System.Threading.Tasks.ValueTask<Microsoft.Agents.AI.AgentSkillResource?> GetResourceAsync(string name, System.Threading.CancellationToken cancellationToken = default)"
     argument_order_change: false
-    fix_description: "Remove access to AgentInlineSkill.Resources; resource definitions have moved to the skill XML schema as part of the skill schema restructuring in 1.10.0."
+    fix_description: "`AgentInlineSkill.Resources` was removed in 1.7.0; resources are loaded on demand by name with `GetResourceAsync(name)`, which returns null when the skill has no such resource."
     example_before: |
-      var skill = new AgentInlineSkill();
-      foreach (var resource in skill.Resources) { /* use resource */ }
+      var policy = skill.Resources?.FirstOrDefault(r => r.Name == "policy");
     example_after: |
-      // Resources are no longer accessible as a property in 1.10.0.
-      // Define resources in the skill XML schema.
-      var skill = new AgentInlineSkill();
-    cs_warning: CS0246
+      var policy = await skill.GetResourceAsync("policy", cancellationToken);
+    cs_warning: CS1061
     guide_section: "N/A"
     dotnet_inspect_detectable: true
     notes: >-
@@ -1286,18 +1258,15 @@ entries:
     version_introduced: "1.7.0"
     type: AgentInlineSkill
     method: Scripts
-    obsolete_signature: "IReadOnlyList<AgentSkillScript> Scripts { get; }"
-    replacement_signature: "N/A — define skill scripts in the skill XML schema"
+    obsolete_signature: "System.Collections.Generic.IReadOnlyList<Microsoft.Agents.AI.AgentSkillScript>? Scripts { get; }"
+    replacement_signature: "System.Threading.Tasks.ValueTask<Microsoft.Agents.AI.AgentSkillScript?> GetScriptAsync(string name, System.Threading.CancellationToken cancellationToken = default)"
     argument_order_change: false
-    fix_description: "Remove access to AgentInlineSkill.Scripts; script definitions have moved to the skill XML schema as part of the skill schema restructuring in 1.10.0."
+    fix_description: "`AgentInlineSkill.Scripts` was removed in 1.7.0; scripts are loaded on demand by name with `GetScriptAsync(name)`, which returns null when the skill has no such script."
     example_before: |
-      var skill = new AgentInlineSkill();
-      foreach (var script in skill.Scripts) { /* use script */ }
+      var lookup = skill.Scripts?.FirstOrDefault(s => s.Name == "lookup");
     example_after: |
-      // Scripts are no longer accessible as a property in 1.10.0.
-      // Define scripts in the skill XML schema.
-      var skill = new AgentInlineSkill();
-    cs_warning: CS0246
+      var lookup = await skill.GetScriptAsync("lookup", cancellationToken);
+    cs_warning: CS1061
     guide_section: "N/A"
     dotnet_inspect_detectable: true
     notes: >-
@@ -1312,17 +1281,14 @@ entries:
     type: AgentSkill
     method: Content
     obsolete_signature: "string Content { get; }"
-    replacement_signature: "N/A — define skill content via the skill XML schema"
+    replacement_signature: "System.Threading.Tasks.ValueTask<string> GetContentAsync(System.Threading.CancellationToken cancellationToken = default)"
     argument_order_change: false
-    fix_description: "Remove access to AgentSkill.Content; define skill content in the skill XML schema instead of reading it from this property."
+    fix_description: "`AgentSkill.Content` became the asynchronous `GetContentAsync()` in 1.7.0 (part of making skill content, resources and scripts load on demand)."
     example_before: |
-      var skill = GetSkill();
-      Console.WriteLine(skill.Content);
+      string text = skill.Content;
     example_after: |
-      // Content is no longer available on AgentSkill in 1.10.0.
-      // Access skill content through the skill XML schema file directly.
-      var skill = GetSkill();
-    cs_warning: CS0246
+      string text = await skill.GetContentAsync(cancellationToken);
+    cs_warning: CS1061
     guide_section: "N/A"
     dotnet_inspect_detectable: true
     notes: >-
@@ -1336,18 +1302,15 @@ entries:
     version_introduced: "1.7.0"
     type: AgentSkill
     method: Resources
-    obsolete_signature: "IReadOnlyList<AgentSkillResource> Resources { get; }"
-    replacement_signature: "N/A — define skill resources via the skill XML schema"
+    obsolete_signature: "System.Collections.Generic.IReadOnlyList<Microsoft.Agents.AI.AgentSkillResource>? Resources { get; }"
+    replacement_signature: "System.Threading.Tasks.ValueTask<Microsoft.Agents.AI.AgentSkillResource?> GetResourceAsync(string name, System.Threading.CancellationToken cancellationToken = default)"
     argument_order_change: false
-    fix_description: "Remove access to AgentSkill.Resources; resource definitions have moved to the skill XML schema as part of the skill schema restructuring in 1.10.0."
+    fix_description: "`AgentSkill.Resources` was removed in 1.7.0; resources are loaded on demand by name with `GetResourceAsync(name)`, which returns null when the skill has no such resource."
     example_before: |
-      var skill = GetSkill();
-      foreach (var resource in skill.Resources) { /* use resource */ }
+      var policy = skill.Resources?.FirstOrDefault(r => r.Name == "policy");
     example_after: |
-      // Resources are no longer accessible via AgentSkill in 1.10.0.
-      // Define resources in the skill XML schema.
-      var skill = GetSkill();
-    cs_warning: CS0246
+      var policy = await skill.GetResourceAsync("policy", cancellationToken);
+    cs_warning: CS1061
     guide_section: "N/A"
     dotnet_inspect_detectable: true
     notes: >-
@@ -1361,18 +1324,15 @@ entries:
     version_introduced: "1.7.0"
     type: AgentSkill
     method: Scripts
-    obsolete_signature: "IReadOnlyList<AgentSkillScript> Scripts { get; }"
-    replacement_signature: "N/A — define skill scripts via the skill XML schema"
+    obsolete_signature: "System.Collections.Generic.IReadOnlyList<Microsoft.Agents.AI.AgentSkillScript>? Scripts { get; }"
+    replacement_signature: "System.Threading.Tasks.ValueTask<Microsoft.Agents.AI.AgentSkillScript?> GetScriptAsync(string name, System.Threading.CancellationToken cancellationToken = default)"
     argument_order_change: false
-    fix_description: "Remove access to AgentSkill.Scripts; script definitions have moved to the skill XML schema as part of the skill schema restructuring in 1.10.0."
+    fix_description: "`AgentSkill.Scripts` was removed in 1.7.0; scripts are loaded on demand by name with `GetScriptAsync(name)`, which returns null when the skill has no such script."
     example_before: |
-      var skill = GetSkill();
-      foreach (var script in skill.Scripts) { /* use script */ }
+      var lookup = skill.Scripts?.FirstOrDefault(s => s.Name == "lookup");
     example_after: |
-      // Scripts are no longer accessible via AgentSkill in 1.10.0.
-      // Define scripts in the skill XML schema.
-      var skill = GetSkill();
-    cs_warning: CS0246
+      var lookup = await skill.GetScriptAsync("lookup", cancellationToken);
+    cs_warning: CS1061
     guide_section: "N/A"
     dotnet_inspect_detectable: true
     notes: >-
@@ -1387,15 +1347,13 @@ entries:
     type: SubAgentsProvider
     method: Microsoft.Agents.AI.SubAgentsProvider
     obsolete_signature: "Microsoft.Agents.AI.SubAgentsProvider"
-    replacement_signature: "N/A — SubAgentsProvider type was removed in 1.10.0"
+    replacement_signature: "Microsoft.Agents.AI.BackgroundAgentsProvider"
     argument_order_change: false
-    fix_description: "Replace SubAgentsProvider with the updated sub-agent orchestration pattern for 1.10.0; verify the replacement API with dotnet-inspect against Microsoft.Agents.AI 1.10.0."
+    fix_description: "`SubAgentsProvider` was renamed `BackgroundAgentsProvider` in 1.6.2, together with the rest of the sub-agent API (`SubAgentsProvider` -> `BackgroundAgentsProvider`, `SubAgentsProviderOptions` -> `BackgroundAgentsProviderOptions`, `SubTaskInfo` -> `BackgroundTaskInfo`, `SubTaskStatus` -> `BackgroundTaskStatus`). Rename the type; the provider constructor keeps the same parameters."
     example_before: |
-      var provider = new SubAgentsProvider(options);
-      agent.UseSubAgents(provider);
+      var provider = new SubAgentsProvider(agents, options);
     example_after: |
-      // SubAgentsProvider is removed in 1.10.0 (likely related to GitHub Copilot SDK v1.0.0 migration).
-      // Verify the 1.10.0 replacement pattern with dotnet-inspect type Microsoft.Agents.AI.
+      var provider = new BackgroundAgentsProvider(agents, options);
     cs_warning: CS0246
     guide_section: "N/A"
     dotnet_inspect_detectable: true
@@ -1411,17 +1369,13 @@ entries:
     type: SubAgentsProviderOptions
     method: Microsoft.Agents.AI.SubAgentsProviderOptions
     obsolete_signature: "Microsoft.Agents.AI.SubAgentsProviderOptions"
-    replacement_signature: "N/A — SubAgentsProviderOptions type was removed in 1.10.0"
+    replacement_signature: "Microsoft.Agents.AI.BackgroundAgentsProviderOptions"
     argument_order_change: false
-    fix_description: "Replace SubAgentsProviderOptions with the updated sub-agent configuration pattern for 1.10.0; verify the replacement API with dotnet-inspect against Microsoft.Agents.AI 1.10.0."
+    fix_description: "`SubAgentsProviderOptions` was renamed `BackgroundAgentsProviderOptions` in 1.6.2, together with the rest of the sub-agent API (`SubAgentsProvider` -> `BackgroundAgentsProvider`, `SubAgentsProviderOptions` -> `BackgroundAgentsProviderOptions`, `SubTaskInfo` -> `BackgroundTaskInfo`, `SubTaskStatus` -> `BackgroundTaskStatus`). Rename the type; the provider constructor keeps the same parameters."
     example_before: |
-      var options = new SubAgentsProviderOptions
-      {
-          MaxSubAgents = 5
-      };
+      var options = new SubAgentsProviderOptions();
     example_after: |
-      // SubAgentsProviderOptions is removed in 1.10.0 (likely related to GitHub Copilot SDK v1.0.0 migration).
-      // Verify the 1.10.0 replacement configuration pattern with dotnet-inspect type Microsoft.Agents.AI.
+      var options = new BackgroundAgentsProviderOptions();
     cs_warning: CS0246
     guide_section: "N/A"
     dotnet_inspect_detectable: true
@@ -1437,15 +1391,13 @@ entries:
     type: SubTaskInfo
     method: Microsoft.Agents.AI.SubTaskInfo
     obsolete_signature: "Microsoft.Agents.AI.SubTaskInfo"
-    replacement_signature: "N/A — SubTaskInfo type was removed in 1.10.0"
+    replacement_signature: "Microsoft.Agents.AI.BackgroundTaskInfo"
     argument_order_change: false
-    fix_description: "Replace SubTaskInfo with the updated sub-task tracking pattern for 1.10.0; verify the replacement API with dotnet-inspect against Microsoft.Agents.AI 1.10.0."
+    fix_description: "`SubTaskInfo` was renamed `BackgroundTaskInfo` in 1.6.2, together with the rest of the sub-agent API (`SubAgentsProvider` -> `BackgroundAgentsProvider`, `SubAgentsProviderOptions` -> `BackgroundAgentsProviderOptions`, `SubTaskInfo` -> `BackgroundTaskInfo`, `SubTaskStatus` -> `BackgroundTaskStatus`). Rename the type; its members are unchanged in the diff."
     example_before: |
-      SubTaskInfo taskInfo = GetSubTaskInfo();
-      Console.WriteLine(taskInfo.Status);
+      SubTaskInfo info = GetTaskInfo();
     example_after: |
-      // SubTaskInfo is removed in 1.10.0.
-      // Verify the 1.10.0 replacement with dotnet-inspect type Microsoft.Agents.AI.
+      BackgroundTaskInfo info = GetTaskInfo();
     cs_warning: CS0246
     guide_section: "N/A"
     dotnet_inspect_detectable: true
@@ -1461,17 +1413,13 @@ entries:
     type: SubTaskStatus
     method: Microsoft.Agents.AI.SubTaskStatus
     obsolete_signature: "Microsoft.Agents.AI.SubTaskStatus"
-    replacement_signature: "N/A — SubTaskStatus type was removed in 1.10.0"
+    replacement_signature: "Microsoft.Agents.AI.BackgroundTaskStatus"
     argument_order_change: false
-    fix_description: "Replace SubTaskStatus with the updated sub-task status pattern for 1.10.0; verify the replacement API with dotnet-inspect against Microsoft.Agents.AI 1.10.0."
+    fix_description: "`SubTaskStatus` was renamed `BackgroundTaskStatus` in 1.6.2, together with the rest of the sub-agent API (`SubAgentsProvider` -> `BackgroundAgentsProvider`, `SubAgentsProviderOptions` -> `BackgroundAgentsProviderOptions`, `SubTaskInfo` -> `BackgroundTaskInfo`, `SubTaskStatus` -> `BackgroundTaskStatus`). Rename the type; its members are unchanged in the diff."
     example_before: |
-      if (task.Status == SubTaskStatus.Running)
-      {
-          // handle running sub-task
-      }
+      SubTaskStatus status = info.Status;
     example_after: |
-      // SubTaskStatus is removed in 1.10.0.
-      // Verify the 1.10.0 replacement with dotnet-inspect type Microsoft.Agents.AI.
+      BackgroundTaskStatus status = info.Status;
     cs_warning: CS0246
     guide_section: "N/A"
     dotnet_inspect_detectable: true
@@ -1542,18 +1490,19 @@ entries:
     type: GroupChatWorkflowBuilder
     method: WithName
     obsolete_signature: "GroupChatWorkflowBuilder WithName(string name)"
-    replacement_signature: "N/A — WithName was removed from GroupChatWorkflowBuilder in 1.10.0"
+    replacement_signature: "TBuilder OrchestrationBuilderBase<TBuilder>.WithName(string name)"
     argument_order_change: false
-    fix_description: "Remove calls to GroupChatWorkflowBuilder.WithName; workflow names are no longer configured via this builder method in 1.10.0."
+    fix_description: "`GroupChatWorkflowBuilder.WithName` moved to the new base class `OrchestrationBuilderBase<TBuilder>` in 1.9.0 (the group-chat, handoff and Magentic builders now share it). Calls compile unchanged; rebuild binaries built against 1.8, which fail with MissingMethodException."
     example_before: |
-      var workflow = new GroupChatWorkflowBuilder()
-          .WithName("MyGroupChat")
+      var workflow = builder
+          .WithName("MyWorkflow")
           .Build();
     example_after: |
-      // WithName is no longer available on GroupChatWorkflowBuilder in 1.10.0.
-      var workflow = new GroupChatWorkflowBuilder()
+      // WithName is now inherited from OrchestrationBuilderBase<TBuilder>; rebuild against 1.9.
+      var workflow = builder
+          .WithName("MyWorkflow")
           .Build();
-    cs_warning: CS0246
+    cs_warning: BINARY_BREAK
     guide_section: "N/A"
     dotnet_inspect_detectable: true
     notes: >-
@@ -1568,18 +1517,19 @@ entries:
     type: GroupChatWorkflowBuilder
     method: WithDescription
     obsolete_signature: "GroupChatWorkflowBuilder WithDescription(string description)"
-    replacement_signature: "N/A — WithDescription was removed from GroupChatWorkflowBuilder in 1.10.0"
+    replacement_signature: "TBuilder OrchestrationBuilderBase<TBuilder>.WithDescription(string description)"
     argument_order_change: false
-    fix_description: "Remove calls to GroupChatWorkflowBuilder.WithDescription; workflow descriptions are no longer configured via this builder method in 1.10.0."
+    fix_description: "`GroupChatWorkflowBuilder.WithDescription` moved to the new base class `OrchestrationBuilderBase<TBuilder>` in 1.9.0 (the group-chat, handoff and Magentic builders now share it). Calls compile unchanged; rebuild binaries built against 1.8, which fail with MissingMethodException."
     example_before: |
-      var workflow = new GroupChatWorkflowBuilder()
-          .WithDescription("A collaborative group chat workflow")
+      var workflow = builder
+          .WithDescription("Routes support tickets")
           .Build();
     example_after: |
-      // WithDescription is no longer available on GroupChatWorkflowBuilder in 1.10.0.
-      var workflow = new GroupChatWorkflowBuilder()
+      // WithDescription is now inherited from OrchestrationBuilderBase<TBuilder>; rebuild against 1.9.
+      var workflow = builder
+          .WithDescription("Routes support tickets")
           .Build();
-    cs_warning: CS0246
+    cs_warning: BINARY_BREAK
     guide_section: "N/A"
     dotnet_inspect_detectable: true
     notes: >-
@@ -1594,18 +1544,19 @@ entries:
     type: MagenticWorkflowBuilder
     method: WithName
     obsolete_signature: "MagenticWorkflowBuilder WithName(string name)"
-    replacement_signature: "N/A — WithName was removed from MagenticWorkflowBuilder in 1.10.0"
+    replacement_signature: "TBuilder OrchestrationBuilderBase<TBuilder>.WithName(string name)"
     argument_order_change: false
-    fix_description: "Remove calls to MagenticWorkflowBuilder.WithName; workflow names are no longer configured via this builder method in 1.10.0."
+    fix_description: "`MagenticWorkflowBuilder.WithName` moved to the new base class `OrchestrationBuilderBase<TBuilder>` in 1.9.0 (the group-chat, handoff and Magentic builders now share it). Calls compile unchanged; rebuild binaries built against 1.8, which fail with MissingMethodException."
     example_before: |
-      var workflow = new MagenticWorkflowBuilder()
-          .WithName("MyMagenticWorkflow")
+      var workflow = builder
+          .WithName("MyWorkflow")
           .Build();
     example_after: |
-      // WithName is no longer available on MagenticWorkflowBuilder in 1.10.0.
-      var workflow = new MagenticWorkflowBuilder()
+      // WithName is now inherited from OrchestrationBuilderBase<TBuilder>; rebuild against 1.9.
+      var workflow = builder
+          .WithName("MyWorkflow")
           .Build();
-    cs_warning: CS0246
+    cs_warning: BINARY_BREAK
     guide_section: "N/A"
     dotnet_inspect_detectable: true
     notes: >-
@@ -1620,18 +1571,19 @@ entries:
     type: MagenticWorkflowBuilder
     method: WithDescription
     obsolete_signature: "MagenticWorkflowBuilder WithDescription(string description)"
-    replacement_signature: "N/A — WithDescription was removed from MagenticWorkflowBuilder in 1.10.0"
+    replacement_signature: "TBuilder OrchestrationBuilderBase<TBuilder>.WithDescription(string description)"
     argument_order_change: false
-    fix_description: "Remove calls to MagenticWorkflowBuilder.WithDescription; workflow descriptions are no longer configured via this builder method in 1.10.0."
+    fix_description: "`MagenticWorkflowBuilder.WithDescription` moved to the new base class `OrchestrationBuilderBase<TBuilder>` in 1.9.0 (the group-chat, handoff and Magentic builders now share it). Calls compile unchanged; rebuild binaries built against 1.8, which fail with MissingMethodException."
     example_before: |
-      var workflow = new MagenticWorkflowBuilder()
-          .WithDescription("A Magentic-One style orchestration workflow")
+      var workflow = builder
+          .WithDescription("Routes support tickets")
           .Build();
     example_after: |
-      // WithDescription is no longer available on MagenticWorkflowBuilder in 1.10.0.
-      var workflow = new MagenticWorkflowBuilder()
+      // WithDescription is now inherited from OrchestrationBuilderBase<TBuilder>; rebuild against 1.9.
+      var workflow = builder
+          .WithDescription("Routes support tickets")
           .Build();
-    cs_warning: CS0246
+    cs_warning: BINARY_BREAK
     guide_section: "N/A"
     dotnet_inspect_detectable: true
     notes: >-

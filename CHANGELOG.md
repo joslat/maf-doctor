@@ -56,6 +56,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The 20 re-attributed 1.6.2–1.9.0 entries now give real migration steps.** Their old
+  text was vague and partly wrong: `WithName`/`WithDescription` did not disappear in 1.9.0,
+  they moved to the new `OrchestrationBuilderBase<TBuilder>` (calls compile; rebuild). The
+  entries now name the actual replacements from the packages: `SubAgents*` →
+  `BackgroundAgents*`/`BackgroundTask*` (1.6.2), skill `Content`/`Resources`/`Scripts` →
+  `GetContentAsync`/`GetResourceAsync`/`GetScriptAsync` (1.7.0), and
+  `ScriptDirectories`/`ResourceDirectories` → `ScriptFilter`/`ResourceFilter` +
+  `SearchDepth` (1.8.0).
 - **`DefaultAzureCredential` no longer flags non-AI code.** MAF-AP-SEC-001 now applies only
   to files that use an agent/AI stack (MAF, Microsoft.Extensions.AI, Azure AI, OpenAI,
   Semantic Kernel). A false-positive sweep of non-MAF repos graded CleanArchitecture "C"
