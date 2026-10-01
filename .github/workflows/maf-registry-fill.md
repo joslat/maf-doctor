@@ -56,7 +56,8 @@ pre-steps:
       if ! echo "$HEAD_REF" | grep -qE '^release-watcher/maf-[0-9]+\.[0-9]+\.[0-9]+(-run-[0-9]+-[0-9]+)?$'; then
         echo "::error::Not a release-watcher scaffold branch: $HEAD_REF"; exit 1
       fi
-      PR=$(gh pr list --state open --head "$HEAD_REF" --json number,title         --jq '[.[] | select(.title | startswith("chore: MAF "))][0].number // empty')
+      PR=$(gh pr list --state open --head "$HEAD_REF" --json number,title \
+        --jq '[.[] | select(.title | startswith("chore: MAF "))][0].number // empty')
       if [ -z "$PR" ]; then
         echo "::error::No open scaffold PR (title 'chore: MAF ...') for $HEAD_REF"; exit 1
       fi
@@ -77,6 +78,17 @@ steps:
       python-version: '3.12'
   - name: Install Python deps for the verification checklist
     run: pip install pyyaml==6.0.1
+  # Restore outside the agent sandbox so the checklist's locked-mode restore and
+  # build work from the local package cache (the agent's egress is firewalled).
+  - name: Pre-restore maf-doctor packages (locked mode)
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+      DOTNET_NOLOGO: "1"
+    run: dotnet restore src/maf-autopilot/maf-autopilot.csproj --locked-mode
+
+env:
+  DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+  DOTNET_NOLOGO: "1"
 
 safe-outputs:
   # A user token so the push triggers the PR's CI (GITHUB_TOKEN pushes don't).
@@ -84,19 +96,24 @@ safe-outputs:
   github-token: ${{ secrets.COPILOT_ASSIGN_PAT }}
   push-to-pull-request-branch:
     target: "*"
-    # Validate allowed-files against the scaffold branch itself, so only the
-    # agent's own commit is checked (the watcher's scaffold commit legitimately
-    # touches .maf-version, the train lock and the obligations contract).
-    base-branch: ${{ github.head_ref || inputs.scaffold_branch }}
     required-title-prefix: "chore: MAF "
     if-no-changes: error
-    # Autonomy envelope: the fill may touch ONLY these files. Anything else is refused.
+    # Autonomy envelope. gh-aw validates the WHOLE PR (base..head), so the list
+    # has two parts:
+    #  - fill paths the agent edits;
+    #  - the watcher's scaffold-owned paths, which the agent must NOT change.
+    #    That is enforced deterministically by the PR gate (maf-ai-fill-verify →
+    #    verify_ai_fill_delta.py: .maf-version stays the target, the obligations
+    #    contract and the train lock stay byte-identical to the scaffold commit).
     protected-files: allowed
     allowed-files:
       - ".github/skills/maf-obsolete-api-registry/registry.yaml"
       - "docs/compatibility-matrix.md"
       - "guides/maf-*-migration-guide.md"
       - "src/maf-autopilot/Tools/CompatibilityTool.cs"
+      - ".maf-version"
+      - ".github/maf-train-lock.json"
+      - ".github/maf-scaffold-obligations/maf-*.json"
   add-comment:
     target: "*"
     required-title-prefix: "chore: MAF "
