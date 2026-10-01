@@ -1,0 +1,127 @@
+name: Dependabot lockfile repair
+
+# Dependabot regenerates packages.lock.json for ONE target framework (net9.0)
+# although every project multi-targets net8.0;net9.0;net10.0, so each NuGet
+# Dependabot PR fails `dotnet restore --locked-mode` with NU1004 (2026-10:
+# #201, #203, #204). This job regenerates the lock files for all frameworks
+# and pushes them back to the Dependabot branch.
+#
+# Trust envelope: workflow_run executes in the base-repo context with secrets,
+# so it acts only when (1) the branch is a same-repo dependabot/nuget/* branch,
+# (2) every commit on it since main is authored by dependabot[bot], and (3) it
+# changes nothing but Directory.Packages.props and packages.lock.json files.
+# Restore evaluates only this repository's project files (unchanged by the
+# branch) and never runs package code. The commit may contain lock files only.
+# The push uses the PAT so CI re-runs on the repaired commit (pushes made with
+# GITHUB_TOKEN do not trigger workflows).
+
+on:
+  workflow_run:
+    workflows: [build-test]
+    types: [completed]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dependabot-lockfile-repair-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: true
+
+jobs:
+  repair:
+    if: >-
+      github.event.workflow_run.conclusion == 'failure' &&
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.head_repository.full_name == github.repository &&
+      startsWith(github.event.workflow_run.head_branch, 'dependabot/nuget/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Check the trust envelope
+        id: envelope
+        env:
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          BASE=$(git merge-base origin/main "$HEAD_SHA")
+          AUTHORS=$(git log --format='%an' "$BASE..$HEAD_SHA" | sort -u)
+          if [ "$AUTHORS" != "dependabot[bot]" ]; then
+            echo "::notice::Branch has non-Dependabot commits ($AUTHORS); not repairing."
+            echo "ok=false" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          OUTSIDE=$(git diff --name-only "$BASE...$HEAD_SHA" | grep -vE '^(Directory\.Packages\.props|src/[^/]+/packages\.lock\.json)$' || true)
+          if [ -n "$OUTSIDE" ]; then
+            echo "::notice::Branch changes files outside the lockfile envelope; not repairing:"
+            echo "$OUTSIDE"
+            echo "ok=false" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          # Restore evaluates Directory.Packages.props (MSBuild), so its diff may
+          # only change PackageVersion lines, which is all Dependabot writes.
+          PROPS_EXTRA=$(git diff -U0 "$BASE...$HEAD_SHA" -- Directory.Packages.props \
+            | grep -E '^[-+]' | grep -vE '^(\+\+\+|---) ' \
+            | grep -vE '^[-+][[:space:]]*<PackageVersion Include="[A-Za-z0-9._-]+" Version="[A-Za-z0-9.+-]+"[[:space:]]*/>[[:space:]]*$' || true)
+          if [ -n "$PROPS_EXTRA" ]; then
+            echo "::notice::Directory.Packages.props changes more than PackageVersion lines; not repairing."
+            echo "ok=false" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          echo "ok=true" >> "$GITHUB_OUTPUT"
+
+      - name: Setup .NET (all three runtimes)
+        if: steps.envelope.outputs.ok == 'true'
+        uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1  # v5.4.0
+        with:
+          dotnet-version: |
+            8.0.x
+            9.0.x
+            10.0.x
+
+      - name: Regenerate lock files for every target framework
+        id: regen
+        if: steps.envelope.outputs.ok == 'true'
+        env:
+          DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+          DOTNET_NOLOGO: '1'
+        run: |
+          set -euo pipefail
+          if dotnet restore maf-autopilot.sln --locked-mode >/dev/null 2>&1; then
+            echo "Lock files already consistent; the build failed for another reason."
+            echo "changed=false" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          dotnet restore maf-autopilot.sln --force-evaluate
+          dotnet restore maf-autopilot.sln --locked-mode
+          CHANGED=$(git status --porcelain | awk '{print $2}')
+          OUTSIDE=$(echo "$CHANGED" | grep -vE '^src/[^/]+/packages\.lock\.json$' | grep -v '^$' || true)
+          if [ -n "$OUTSIDE" ]; then
+            echo "::error::Restore changed files other than lock files: $OUTSIDE"
+            exit 1
+          fi
+          echo "changed=$([ -n "$CHANGED" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+
+      - name: Push the repaired lock files
+        if: steps.regen.outputs.changed == 'true'
+        env:
+          PUSH_TOKEN: ${{ secrets.COPILOT_ASSIGN_PAT }}
+          BRANCH: ${{ github.event.workflow_run.head_branch }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if [ -z "$PUSH_TOKEN" ]; then
+            echo "::error::COPILOT_ASSIGN_PAT is not set; cannot push the repaired lock files."
+            exit 1
+          fi
+          git config user.name "maf-doctor-bot"
+          git config user.email "maf-doctor-bot@users.noreply.github.com"
+          git add -- 'src/*/packages.lock.json'
+          git commit -m "deps: regenerate lock files for net8.0/net9.0/net10.0
+
+          Dependabot wrote single-framework lock files (NU1004 under --locked-mode)."
+          git push "https://x-access-token:${PUSH_TOKEN}@github.com/${REPO}.git" "HEAD:refs/heads/${BRANCH}"
+          echo "Pushed repaired lock files to ${BRANCH}."
