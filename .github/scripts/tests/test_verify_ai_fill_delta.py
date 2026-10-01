@@ -530,3 +530,31 @@ def test_review_sentinel_cannot_be_resolved_outside_maf(tmp_path: Path):
     _replace_review_with(tmp_path, "Contoso.Unrelated")
     errors = verify_obligations(doc, tmp_path, raw)
     assert any("same-package" in error for error in errors)
+
+
+def test_tracked_set_is_the_one_in_force_for_the_train(tmp_path: Path):
+    # An Mcp entry may resolve a sentinel when Mcp was untracked for the train,
+    # even after the package becomes tracked on main (MAF 1.19 -> 1.20).
+    doc, raw = _scaffold(tmp_path)
+    _replace_review_with(tmp_path, "Microsoft.Agents.AI.Mcp")
+    before = verify_obligations(doc, tmp_path, raw, tracked_packages={"microsoft.agents.ai.harness"})
+    after = verify_obligations(
+        doc, tmp_path, raw, tracked_packages={"microsoft.agents.ai.harness", "microsoft.agents.ai.mcp"}
+    )
+    assert not any("REVIEW sentinel" in error for error in before)
+    assert any("same-package" in error for error in after)
+
+
+def test_tracked_packages_at_reads_manifest_from_base_commit(tmp_path: Path):
+    from verify_ai_fill_delta import tracked_packages_at
+
+    repo, base = _history_repo(tmp_path)
+    # No manifest at the base commit: fall back to the trusted checked-in copy.
+    assert "microsoft.agents.ai.workflows" in tracked_packages_at(repo, base)
+    _write(
+        repo,
+        ".github/maf-package-surfaces.json",
+        '{"schema_version": 1, "surfaces": [{"package": "Microsoft.Agents.AI"}]}',
+    )
+    commit = _commit(repo, "manifest")
+    assert tracked_packages_at(repo, commit) == {"microsoft.agents.ai"}
