@@ -17,7 +17,7 @@
          release.yml overrides this from the pushed tag and keeps the analyzer
          package in lockstep, so the canonical version is the git tag (`vX.Y.Z`).
          This value is the local/dev default. -->
-    <Version>1.15.0</Version>
+    <Version>1.16.0</Version>
     <Authors>joslat</Authors>
     <Description>MAF Doctor — a .NET global tool and MCP server for Microsoft Agent Framework (MAF). Diagnoses, explains, and auto-fixes MAF agents and workflows: A-F health grades, deterministic Roslyn rewriters, anti-pattern and fan-out scanning, and a self-updating obsolete-API registry. Use it from Copilot / Claude / Cursor via MCP, or standalone as a CLI.</Description>
     <PackageTags>maf;migration;mcp;dotnet;agents</PackageTags>

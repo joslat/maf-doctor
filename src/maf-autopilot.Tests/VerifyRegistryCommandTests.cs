@@ -334,12 +334,48 @@ public class VerifyRegistryCommandTests
         Assert.Contains(expected, issues[0], StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData("1.3.0", 0)]   // legacy hand-written entry on a stale PR branch
+    [InlineData("1.5.0", 0)]
+    [InlineData("1.6.0", 1)]   // registry-extract era: always enforced
+    [InlineData("1.22.0", 1)]
+    public void CheckAppliesToMarker_MissingMarker_EnforcedFromRegistryExtractEra(string introduced, int expectedIssues)
+    {
+        var issues = new List<string>();
+        var entry = MakeEntry(id: "MAF-X-001");
+        entry.VersionIntroduced = introduced;
+        entry.AppliesToCodebases = null;
+
+        VerifyRegistryCommand.CheckAppliesToMarker(entry, issues);
+
+        Assert.Equal(expectedIssues, issues.Count);
+    }
+
+    [Fact]
+    public void CheckAppliesToMarker_LegacyEntryWithMalformedMarker_IsStillRejected()
+    {
+        var issues = new List<string>();
+        var entry = MakeEntry(id: "MAF130-X-001");
+        entry.VersionIntroduced = "1.3.0";
+        entry.AppliesToCodebases = "before 1.3";
+
+        VerifyRegistryCommand.CheckAppliesToMarker(entry, issues);
+
+        Assert.Single(issues);
+    }
+
     [Fact]
     public void LiveRegistry_EveryEntryHasAWellFormedMarker()
     {
+        // Strict on EVERY entry, legacy included: build-test runs this on the PR
+        // merge result, while verify-registry (PR head) tolerates legacy gaps.
         var issues = new List<string>();
         foreach (var entry in new RegistryService().AllEntries)
+        {
+            if (string.IsNullOrWhiteSpace(entry.AppliesToCodebases))
+                issues.Add($"{entry.Id}: missing applies_to_codebases");
             VerifyRegistryCommand.CheckAppliesToMarker(entry, issues);
+        }
 
         Assert.Empty(issues);
     }
