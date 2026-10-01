@@ -37,8 +37,13 @@ def _snapshot() -> dict[str, list[str]]:
     return json.loads(SNAPSHOT.read_text(encoding="utf-8"))["indexes"]
 
 
+# The train lock's recorded history starts at 1.9.0; earlier trains predate the
+# watcher's package-aware evidence (and had several aligned previews per train).
+REPLAY_FROM = (1, 9, 0)
+
+
 def _trains() -> list[str]:
-    stable = [v for v in _snapshot()["Microsoft.Agents.AI"] if "-" not in v]
+    stable = [v for v in _snapshot()["Microsoft.Agents.AI"] if "-" not in v and _key(v) >= REPLAY_FROM]
     return sorted(stable, key=_key)
 
 

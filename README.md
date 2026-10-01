@@ -53,18 +53,18 @@ Findings you can act on, with the false positives flagged before you touch code:
 
 ## It updates itself
 
-Migration tooling is only useful if it knows about the MAF version you're on. MAF Doctor keeps its own knowledge base current instead of asking you to wait for a maintainer release:
+Migration tooling is only useful if it knows about the MAF version you're on. MAF Doctor's repository keeps its own knowledge base current; new knowledge reaches you when you update the tool:
 
-**How** — a GitHub Actions watcher checks NuGet for new Microsoft.Agents.AI releases, drains the backlog **oldest stable release first**, diffs each adjacent API surface, and updates the per-version migration guide, compatibility matrix, and obsolete-API registry:
+**How** — a GitHub Actions watcher checks NuGet for new Microsoft.Agents.AI releases, drains the backlog **oldest stable release first**, diffs every train-aligned `Microsoft.Agents.AI*` package (35 surfaces), and updates the per-version migration guide, compatibility matrix, and obsolete-API registry:
 
 - **Minor / patch bumps** always go to a per-version `release-watcher/maf-X.Y.Z` PR — the watcher never pushes an unreviewed scaffold to `main`. Additive releases should arrive green; breaking releases deliberately stay red while registry TODOs remain.
 - **Major bumps** don't produce an automatic update PR; they open a human-gated issue with the raw diffs attached so the migration is reviewed before anything lands.
-- Breaking registry entries can be filled on the scaffold branch by a maintainer or by manually dispatching the AI-fill workflow. The mechanical registry gate and semantic review then validate the filled result before the scaffold PR is merged.
+- An in-repo agent ([GitHub Agentic Workflows](https://github.github.com/gh-aw/), `maf-registry-fill`) fills each scaffold PR as soon as it opens, runs the release verification checklist, and pushes only to the registry, guides and compatibility matrix. The mechanical registry gate and semantic review then validate the result before the scaffold PR is merged; when evidence is missing, the agent leaves an honest TODO for a human instead of guessing.
 - Only one watcher PR is allowed in flight. Once it merges and advances `.maf-version`, the next run processes the next pending stable release, preserving every row and guide in the migration chain.
 
 **When** — every **Thursday 06:00 UTC** (~08:00 Europe/Zurich), aligned with MAF's .NET Thursday-morning ship cadence. Off-cadence releases are covered by a manual dispatch trigger.
 
-The practical upshot: you don't pin to a MAF version in these docs, and you don't wait on us. Re-run the doctor after any MAF bump and it cross-references the freshest guide automatically.
+The practical upshot: you don't pin to a MAF version in these docs. The registry and guides embedded in the tool cover MAF up to the version they were built with, so keep the tool current with `dotnet tool update -g maf-doctor`. If your project references a newer MAF than your installed registry covers, `doctor` shows a **coverage horizon** banner and `MafApiSafety` answers **UNKNOWN** instead of SAFE, so a stale install never claims a newer API is safe.
 
 ## How It Works
 

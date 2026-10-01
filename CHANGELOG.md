@@ -26,6 +26,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Coverage horizon (honest verdicts past the registry).** `doctor` (markdown, plan
+  and JSON) and `MafApiSafety` now compare the project's `Microsoft.Agents.AI*`
+  package versions (including Central Package Management pins) with the embedded
+  registry's MAF version. Past it, `doctor` shows a banner and an additive
+  `coverage_gap` JSON field, and `MafApiSafety` (with the new optional `repoPath`)
+  answers **UNKNOWN** instead of SAFE. Without `repoPath`, SAFE now states where
+  coverage ends.
+- **Every train-aligned MAF package is diffed (11 → 35 surfaces).** The watcher now
+  covers `Microsoft.Agents.AI.Abstractions`, A2A, OpenAI, Anthropic, Foundry,
+  Declarative, Workflows.Declarative, LocalCodeAct, Purview and the other
+  `Microsoft.Agents.AI*` packages that ship with each MAF release. The planner
+  treats a package with no version at or before the old train as new in this train,
+  and one with no version at or before the new train as not yet published. Both
+  are informational and evidence-based; a package that merely skipped a train still
+  fails closed.
 - **`Microsoft.Agents.AI.Mcp` is now a tracked package surface.** MAF 1.19's only
   breaking change (`ListAgentToolsWithTaskSupportAsync` → `ListAgentToolsWithTasksAsync`,
   `McpTaskOptions.DefaultTimeToLive` removed, MCP SDK floor 1.2.0 → 2.1.0) lived in

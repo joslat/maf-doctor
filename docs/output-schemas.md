@@ -56,6 +56,7 @@ Pass `format: "json"` to get machine-readable output.
 - `summary_md`: the same markdown that `format: "markdown"` would emit (for hybrid consumers). It includes the offending source line per finding, so it inherits the markdown report's **best-effort, content-aware secret redaction** — the structured `top_fixes` array carries no source text and is the safer channel for machine consumers.
 - `scan_truncated`: `true` if the repo-size cap (file count or per-file size) meant the scan did NOT cover every file — the verdict/findings above reflect a partial repo, not the whole one. Additive within schema v1; consumers that don't recognize it can ignore it, but a CI gate reading only the typed fields (not `summary_md`) should check it before trusting a clean verdict.
 - `files_scanned`: how many files were actually included in the scan (integer).
+- `coverage_gap`: `null`, or an object when the repo references a newer MAF than the embedded registry covers: `registry_maf_version`, `project_maf_version` (the highest train any `Microsoft.Agents.AI*` package reference resolves to, including Central Package Management pins), `newer_packages` (`Id@Version` strings past the registry) and `update_command`. When non-null, findings for APIs changed after `registry_maf_version` are **unknown**, not clean: treat an A grade as "clean against what the registry knows". Additive within schema v1.
 
 ### Usage in CI
 

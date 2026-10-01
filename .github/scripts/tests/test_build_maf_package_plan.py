@@ -17,8 +17,19 @@ import build_maf_package_plan as planner  # noqa: E402
 MANIFEST_PATH = Path(__file__).resolve().parents[2] / "maf-package-surfaces.json"
 
 
+LEGACY_SURFACE_COUNT = 11  # surfaces tracked before the 2026-10 expansion (orders 0-10)
+
+
 def manifest() -> dict:
-    return json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+    """The checked-in manifest trimmed to the original 11 surfaces.
+
+    Fixture-based tests below exercise planner semantics with hand-written
+    NuGet indexes for those packages; breadth of the checked-in manifest is
+    covered by test_checked_in_manifest_* and the replay harness.
+    """
+    loaded = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+    loaded["surfaces"] = loaded["surfaces"][:LEGACY_SURFACE_COUNT]
+    return loaded
 
 
 def fetch_from(indexes: dict[str, list[str]]):
@@ -102,8 +113,15 @@ def test_checked_in_manifest_is_valid_and_ordered():
     loaded = planner.load_manifest(MANIFEST_PATH)
     surfaces = loaded["surfaces"]
 
-    assert [surface["order"] for surface in surfaces] == list(range(11))
-    assert [surface["slug"] for surface in surfaces] == [
+    assert [surface["order"] for surface in surfaces] == list(range(len(surfaces)))
+    assert len(surfaces) == 35
+    assert len({s["package"].casefold() for s in surfaces}) == len(surfaces)
+    assert all(
+        s["package"] == "Microsoft.Agents.AI" or s["package"].startswith("Microsoft.Agents.AI.")
+        for s in surfaces
+    )
+    assert "Microsoft.Agents.AI.Abstractions" in {s["package"] for s in surfaces}
+    assert [surface["slug"] for surface in surfaces][:LEGACY_SURFACE_COUNT] == [
         "core",
         "workflows",
         "harness",
@@ -291,7 +309,9 @@ def test_1_17_declared_externalization_is_informational_not_missing():
 
 def test_missing_harness_evidence_is_unverifiable_while_other_surfaces_continue():
     indexes = indexes_1_13_to_1_14()
-    indexes["Microsoft.Agents.AI.Harness"] = ["1.14.0"]
+    # An existing package that skipped the old train: older versions exist, so
+    # this is missing evidence (fail closed), not a newly introduced package.
+    indexes["Microsoft.Agents.AI.Harness"] = ["1.12.0-preview.260629.1", "1.14.0"]
     plan = planner.build_plan(
         manifest(), "1.13.0", "1.14.0", fetch_from(indexes)
     )
@@ -508,7 +528,7 @@ def test_dry_run_prints_plan_and_does_not_touch_output(tmp_path, monkeypatch, ca
     rendered = capsys.readouterr().out
     parsed = json.loads(rendered)
     assert parsed["release"]["new_version"] == "1.14.0"
-    assert len(parsed["surfaces"]) == 11
+    assert len(parsed["surfaces"]) == 35
 
 
 def test_non_dry_run_writes_selected_output(tmp_path, monkeypatch):
@@ -677,3 +697,22 @@ def test_train_lock_validation_rejects_malformed_documents(tmp_path, payload):
 
 def test_missing_train_lock_file_is_an_empty_lock(tmp_path):
     assert planner.load_train_lock(tmp_path / "absent.json")["trains"] == {}
+
+
+def test_package_first_published_in_the_new_train_is_informational():
+    indexes = indexes_1_13_to_1_14()
+    indexes["Microsoft.Agents.AI.Harness"] = ["1.14.0"]
+    plan = planner.build_plan(manifest(), "1.13.0", "1.14.0", fetch_from(indexes))
+    harness = next(s for s in plan["surfaces"] if s["slug"] == "harness")
+    assert harness["status"] == "informational"
+    assert "first shipped after MAF 1.13.0" in harness["reason"]
+    assert harness["new_package_version"] == "1.14.0"
+
+
+def test_package_not_yet_published_is_informational():
+    indexes = indexes_1_13_to_1_14()
+    indexes["Microsoft.Agents.AI.Harness"] = ["1.19.0-alpha.1"]
+    plan = planner.build_plan(manifest(), "1.13.0", "1.14.0", fetch_from(indexes))
+    harness = next(s for s in plan["surfaces"] if s["slug"] == "harness")
+    assert harness["status"] == "informational"
+    assert "not yet published as of MAF 1.14.0" in harness["reason"]

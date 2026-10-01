@@ -20,6 +20,15 @@ public sealed class DoctorTool
     private readonly FanOutValidatorTool _fanOut = new();
     private readonly AntiPatternScannerTool _scanner = new();
 
+    // U-01: the registry's coverage horizon (honors MAF_REGISTRY_PATH). Loaded lazily
+    // so the parameterless constructor used by DI, the CLI and tests is unchanged; a
+    // registry that cannot load disables the horizon check instead of failing doctor.
+    private readonly Lazy<string?> _registryTarget = new(() =>
+    {
+        try { return new Data.RegistryService().TargetVersion; }
+        catch { return null; }
+    });
+
     [McpServerTool(ReadOnly = true, Destructive = false, OpenWorld = false)]
     [Description("""
         Run every MAF anti-pattern scanner and fan-out validator across the repo
@@ -97,10 +106,11 @@ public sealed class DoctorTool
 
         var s = AnalyzeRepo(repoPath, excludes);
         summary = s;
+        var gap = _registryTarget.Value is { } target ? CoverageHorizon.Evaluate(repoPath, target) : null;
 
         if (format.Equals("json", StringComparison.OrdinalIgnoreCase))
         {
-            var result = BuildJsonResult(repoPath, s, full);
+            var result = BuildJsonResult(repoPath, s, full, gap);
             return JsonSerializer.Serialize(result, DoctorJsonContext.Default.DoctorJsonResult);
         }
 
@@ -112,10 +122,10 @@ public sealed class DoctorTool
                 BuildPlanJson(repoPath, s), DoctorJsonContext.Default.DoctorPlanJson);
 
         if (format.Equals("plan", StringComparison.OrdinalIgnoreCase))
-            return FormatPlan(repoPath, s); // always covers every finding
+            return FormatPlan(repoPath, s, gap); // always covers every finding
 
         if (format.Equals("markdown", StringComparison.OrdinalIgnoreCase))
-            return FormatReport(repoPath, s, full);
+            return FormatReport(repoPath, s, full, gap);
 
         // REP-27: an unrecognized format used to silently fall through to markdown,
         // hiding caller typos (e.g. "sarif"/"csv"). Fail loudly instead. Plain text is
@@ -312,9 +322,9 @@ public sealed class DoctorTool
     // JSON output support
     // -------------------------------------------------------------------------
 
-    private static DoctorJsonResult BuildJsonResult(string repoPath, DoctorSummary s, bool full = false)
+    private static DoctorJsonResult BuildJsonResult(string repoPath, DoctorSummary s, bool full = false, CoverageGap? gap = null)
     {
-        var markdownSummary = FormatReport(repoPath, s, full);
+        var markdownSummary = FormatReport(repoPath, s, full, gap);
         var lineCache = new Dictionary<string, string[]?>(StringComparer.Ordinal);
         var findings = (full ? s.AllFixes : s.TopFixes)
             .Select(f => new DoctorJsonFinding(
@@ -340,7 +350,14 @@ public sealed class DoctorTool
             TopFixes: findings,
             SummaryMd: markdownSummary,
             ScanTruncated: s.ScanIncomplete,
-            FilesScanned: s.FilesScanned);
+            FilesScanned: s.FilesScanned,
+            CoverageGap: gap is null
+                ? null
+                : new DoctorCoverageGap(
+                    gap.RegistryMafVersion,
+                    gap.ProjectMafVersion,
+                    gap.NewerPackages.Select(p => $"{p.Id}@{p.Version}").ToList(),
+                    CoverageGap.UpdateCommand));
     }
 
     /// <summary>
@@ -581,7 +598,7 @@ public sealed class DoctorTool
     /// </summary>
     private static string CliRepoArg(string repoPath) => "\"" + LlmFencing.MdInline(repoPath) + "\"";
 
-    internal static string FormatReport(string repoPath, DoctorSummary s, bool full = false)
+    internal static string FormatReport(string repoPath, DoctorSummary s, bool full = false, CoverageGap? gap = null)
     {
         var sb = new StringBuilder();
         var emoji = GradeEmoji(s.Grade);
@@ -592,6 +609,12 @@ public sealed class DoctorTool
         sb.AppendLine();
         sb.AppendLine($"**Repo:** `{LlmFencing.MdInline(repoPath)}`");
         sb.AppendLine();
+        if (gap is not null)
+        {
+            // U-01: the grade only reflects what the registry knows about.
+            sb.AppendLine(gap.ToMarkdown());
+            sb.AppendLine();
+        }
         AppendScanIncompleteNote(sb, s, "The grade and findings below reflect a partial scan, not the whole repo.");
 
         // REP-28: the read-only banner must match what the scan actually found — a
@@ -840,7 +863,7 @@ public sealed class DoctorTool
     /// covers every finding (a partial plan would be misleading). No source
     /// snippets — file:line + why + fix only — so it never echoes a secret.
     /// </summary>
-    internal static string FormatPlan(string repoPath, DoctorSummary s)
+    internal static string FormatPlan(string repoPath, DoctorSummary s, CoverageGap? gap = null)
     {
         var sb = new StringBuilder();
         var emoji = GradeEmoji(s.Grade);
@@ -850,6 +873,12 @@ public sealed class DoctorTool
         sb.AppendLine();
         sb.AppendLine($"**Repo:** `{LlmFencing.MdInline(repoPath)}`");
         sb.AppendLine();
+        if (gap is not null)
+        {
+            // U-01: a clean plan only means clean against what the registry knows.
+            sb.AppendLine(gap.ToMarkdown());
+            sb.AppendLine();
+        }
         AppendScanIncompleteNote(sb, s, "This plan does NOT cover the whole repo.");
 
         var all = s.AllFixes;
@@ -1091,7 +1120,17 @@ public sealed record DoctorJsonResult(
     // machine consumer that only reads typed fields (not summary_md) still
     // needs a structured way to know the scan didn't cover the whole repo.
     [property: JsonPropertyName("scan_truncated")] bool ScanTruncated = false,
-    [property: JsonPropertyName("files_scanned")] int FilesScanned = 0);
+    [property: JsonPropertyName("files_scanned")] int FilesScanned = 0,
+    // U-01 — additive within schema_version "1": non-null when the repo references a
+    // newer MAF than the registry covers (findings past that version are unknown).
+    [property: JsonPropertyName("coverage_gap")] DoctorCoverageGap? CoverageGap = null);
+
+/// <summary>Coverage-horizon gap in <see cref="DoctorJsonResult"/> (U-01).</summary>
+public sealed record DoctorCoverageGap(
+    [property: JsonPropertyName("registry_maf_version")] string RegistryMafVersion,
+    [property: JsonPropertyName("project_maf_version")] string ProjectMafVersion,
+    [property: JsonPropertyName("newer_packages")] IReadOnlyList<string> NewerPackages,
+    [property: JsonPropertyName("update_command")] string UpdateCommand);
 
 /// <summary>Error shape for format:"json" when the request fails validation (e.g. bad path).</summary>
 public sealed record DoctorJsonError(

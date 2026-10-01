@@ -20,7 +20,9 @@ from validate_dotnet_inspect_diff import MAX_DIFF_FILE_BYTES, validate_diff_file
 PLAN_FILENAME = "maf-package-plan.json"
 RESULTS_FILENAME = "maf-diff-results.json"
 SCHEMA_VERSION = 1
-MAX_SURFACES = 32
+# Bound on planned surfaces (defense against an oversized/forged plan). MAF ships
+# ~33 train-aligned Microsoft.Agents.AI* packages (2026-10); 64 leaves headroom.
+MAX_SURFACES = 64
 MAX_METADATA_BYTES = 1024 * 1024
 
 _STATUS_VALUES = {"diffable", "unverifiable", "informational"}
