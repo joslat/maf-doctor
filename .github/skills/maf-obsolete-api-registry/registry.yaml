@@ -4227,6 +4227,154 @@ entries:
       Verdict: Type REMOVED in new version — direct type references fail to compile (typically CS0246). Requires human review before merging.
     applies_to_codebases: pre-1.18.0
 
+  - id: MAF118-FOUNDRY-HOSTING-SESSION-001
+    package: Microsoft.Agents.AI.Foundry.Hosting
+    version_introduced: "1.18.0"
+    type: AgentSessionStore
+    method: GetSessionAsync
+    obsolete_signature: "System.Threading.Tasks.ValueTask<Microsoft.Agents.AI.AgentSession> GetSessionAsync(Microsoft.Agents.AI.AIAgent agent, string conversationId, string? userId, System.Threading.CancellationToken cancellationToken = default)"
+    replacement_signature: "System.Threading.Tasks.ValueTask<Microsoft.Agents.AI.AgentSession?> GetSessionAsync(Microsoft.Agents.AI.AIAgent agent, string conversationId, string? userId, System.Threading.CancellationToken cancellationToken = default)"
+    argument_order_change: false
+    fix_description: >-
+      `GetSessionAsync` on the Foundry hosting session stores (`AgentSessionStore`,
+      `FileSystemAgentSessionStore`, `InMemoryAgentSessionStore`) now returns `AgentSession?`:
+      a missing session is `null`. Handle the null case, or call the new
+      `GetOrCreateSessionAsync` when a session must exist. Overrides must return `AgentSession?`.
+    example_before: |
+      AgentSession session = await store.GetSessionAsync(agent, conversationId, userId, ct);
+      await agent.RunAsync(input, session, cancellationToken: ct);
+    example_after: |
+      AgentSession session = await store.GetOrCreateSessionAsync(agent, conversationId, userId, ct);
+      await agent.RunAsync(input, session, cancellationToken: ct);
+    cs_warning: CS8602
+    guide_section: "N/A"
+    dotnet_inspect_detectable: true
+    applies_to_codebases: "pre-1.18.0"
+    notes: >-
+      Backfilled 2026-10-01 from a dotnet-inspect 0.9.1 diff of Microsoft.Agents.AI.Foundry.Hosting
+      1.17.0-preview.260804.1..1.18.0-preview.260818.1; the package was not diffed when 1.18 was
+      processed. Nullability-only change (binary compatible). In 1.22 these stores moved to
+      Microsoft.Agents.AI.AgentSessionStore (MAF122-FOUNDRY-HOSTING-*).
+
+  - id: MAF118-FOUNDRY-HOSTING-RESPONSES-001
+    package: Microsoft.Agents.AI.Foundry.Hosting
+    version_introduced: "1.18.0"
+    type: FoundryHostingExtensions
+    method: AddFoundryResponses
+    obsolete_signature: "Microsoft.Extensions.DependencyInjection.IServiceCollection AddFoundryResponses(Microsoft.Extensions.DependencyInjection.IServiceCollection services)"
+    replacement_signature: "Microsoft.Extensions.DependencyInjection.IServiceCollection AddFoundryResponses(Microsoft.Extensions.DependencyInjection.IServiceCollection services, System.Action<Microsoft.Agents.AI.Foundry.Hosting.FoundryResponsesOptions>? configure = null)"
+    argument_order_change: false
+    fix_description: >-
+      `AddFoundryResponses(services)` gained an optional `configure` callback for the new
+      `FoundryResponsesOptions`. Source calls compile unchanged, but assemblies built against
+      1.17 fail at runtime with MissingMethodException: rebuild against 1.18.
+    example_before: |
+      builder.Services.AddFoundryResponses();
+    example_after: |
+      builder.Services.AddFoundryResponses(options => { });
+    cs_warning: BINARY_BREAK
+    guide_section: "N/A"
+    dotnet_inspect_detectable: true
+    applies_to_codebases: "pre-1.18.0"
+    notes: >-
+      Backfilled 2026-10-01 from a dotnet-inspect 0.9.1 diff of Microsoft.Agents.AI.Foundry.Hosting
+      1.17.0-preview.260804.1..1.18.0-preview.260818.1. Optional parameter added; the old overload
+      no longer exists in the assembly.
+
+  - id: MAF118-FOUNDRY-HOSTING-RESPONSES-002
+    package: Microsoft.Agents.AI.Foundry.Hosting
+    version_introduced: "1.18.0"
+    type: FoundryHostingExtensions
+    method: AddFoundryResponses
+    obsolete_signature: "Microsoft.Extensions.DependencyInjection.IServiceCollection AddFoundryResponses(Microsoft.Extensions.DependencyInjection.IServiceCollection services, Microsoft.Agents.AI.AIAgent agent, Microsoft.Agents.AI.Foundry.Hosting.AgentSessionStore? agentSessionStore = null)"
+    replacement_signature: "Microsoft.Extensions.DependencyInjection.IServiceCollection AddFoundryResponses(Microsoft.Extensions.DependencyInjection.IServiceCollection services, Microsoft.Agents.AI.AIAgent agent, Microsoft.Agents.AI.Foundry.Hosting.AgentSessionStore? agentSessionStore = null, System.Action<Microsoft.Agents.AI.Foundry.Hosting.FoundryResponsesOptions>? configure = null)"
+    argument_order_change: false
+    fix_description: >-
+      The agent overload of `AddFoundryResponses` gained an optional trailing `configure`
+      callback for `FoundryResponsesOptions`. Source calls compile unchanged; rebuild assemblies
+      compiled against 1.17, which otherwise fail with MissingMethodException.
+    example_before: |
+      builder.Services.AddFoundryResponses(agent, sessionStore);
+    example_after: |
+      builder.Services.AddFoundryResponses(agent, sessionStore, options => { });
+    cs_warning: BINARY_BREAK
+    guide_section: "N/A"
+    dotnet_inspect_detectable: true
+    applies_to_codebases: "pre-1.18.0"
+    notes: >-
+      Backfilled 2026-10-01 from a dotnet-inspect 0.9.1 diff of Microsoft.Agents.AI.Foundry.Hosting
+      1.17.0-preview.260804.1..1.18.0-preview.260818.1. In 1.22 the store parameter type became
+      Microsoft.Agents.AI.AgentSessionStore (MAF122-FOUNDRY-HOSTING-EXTENSIO-001).
+
+  - id: MAF118-ASPNETCORE-ISOLATION-001
+    package: Microsoft.Agents.AI.Hosting.AspNetCore
+    version_introduced: "1.18.0"
+    type: ClaimsIdentitySessionIsolationKeyProvider
+    method: Microsoft.Agents.AI.Hosting.ClaimsIdentitySessionIsolationKeyProvider
+    obsolete_signature: "Microsoft.Agents.AI.Hosting.ClaimsIdentitySessionIsolationKeyProvider"
+    replacement_signature: "Microsoft.Agents.AI.Hosting.ClaimsIdentityAgentIsolationKeyProvider"
+    argument_order_change: false
+    fix_description: >-
+      Renamed with the 1.18 session-to-agent isolation rename (see MAF118-HOSTING-PROVIDER-001):
+      use `ClaimsIdentityAgentIsolationKeyProvider`.
+    example_before: |
+      var provider = services.GetRequiredService<ClaimsIdentitySessionIsolationKeyProvider>();
+    example_after: |
+      var provider = services.GetRequiredService<ClaimsIdentityAgentIsolationKeyProvider>();
+    cs_warning: CS0246
+    guide_section: "N/A"
+    dotnet_inspect_detectable: true
+    applies_to_codebases: "pre-1.18.0"
+    notes: >-
+      Backfilled 2026-10-01 from a dotnet-inspect 0.9.1 diff of Microsoft.Agents.AI.Hosting.AspNetCore
+      1.17.0-preview.260804.1..1.18.0-preview.260818.1; the package was not diffed when 1.18 was processed.
+
+  - id: MAF118-ASPNETCORE-ISOLATION-002
+    package: Microsoft.Agents.AI.Hosting.AspNetCore
+    version_introduced: "1.18.0"
+    type: ClaimsIdentitySessionIsolationKeyProviderOptions
+    method: Microsoft.Agents.AI.Hosting.ClaimsIdentitySessionIsolationKeyProviderOptions
+    obsolete_signature: "Microsoft.Agents.AI.Hosting.ClaimsIdentitySessionIsolationKeyProviderOptions"
+    replacement_signature: "Microsoft.Agents.AI.Hosting.ClaimsIdentityAgentIsolationKeyProviderOptions"
+    argument_order_change: false
+    fix_description: >-
+      Renamed with the 1.18 session-to-agent isolation rename: use
+      `ClaimsIdentityAgentIsolationKeyProviderOptions`.
+    example_before: |
+      var options = new ClaimsIdentitySessionIsolationKeyProviderOptions();
+    example_after: |
+      var options = new ClaimsIdentityAgentIsolationKeyProviderOptions();
+    cs_warning: CS0246
+    guide_section: "N/A"
+    dotnet_inspect_detectable: true
+    applies_to_codebases: "pre-1.18.0"
+    notes: >-
+      Backfilled 2026-10-01 from a dotnet-inspect 0.9.1 diff of Microsoft.Agents.AI.Hosting.AspNetCore
+      1.17.0-preview.260804.1..1.18.0-preview.260818.1.
+
+  - id: MAF118-ASPNETCORE-ISOLATION-003
+    package: Microsoft.Agents.AI.Hosting.AspNetCore
+    version_introduced: "1.18.0"
+    type: ServiceCollectionExtensions
+    method: UseClaimsBasedSessionIsolation
+    obsolete_signature: "Microsoft.Extensions.DependencyInjection.IServiceCollection UseClaimsBasedSessionIsolation(Microsoft.Extensions.DependencyInjection.IServiceCollection services, Microsoft.Agents.AI.Hosting.ClaimsIdentitySessionIsolationKeyProviderOptions? options = null)"
+    replacement_signature: "Microsoft.Extensions.DependencyInjection.IServiceCollection UseClaimsBasedAgentIsolation(Microsoft.Extensions.DependencyInjection.IServiceCollection services, Microsoft.Agents.AI.Hosting.ClaimsIdentityAgentIsolationKeyProviderOptions? options = null)"
+    argument_order_change: false
+    fix_description: >-
+      `UseClaimsBasedSessionIsolation` was renamed to `UseClaimsBasedAgentIsolation`, and its
+      options type to `ClaimsIdentityAgentIsolationKeyProviderOptions`.
+    example_before: |
+      builder.Services.UseClaimsBasedSessionIsolation();
+    example_after: |
+      builder.Services.UseClaimsBasedAgentIsolation();
+    cs_warning: CS1061
+    guide_section: "N/A"
+    dotnet_inspect_detectable: true
+    applies_to_codebases: "pre-1.18.0"
+    notes: >-
+      Backfilled 2026-10-01 from a dotnet-inspect 0.9.1 diff of Microsoft.Agents.AI.Hosting.AspNetCore
+      1.17.0-preview.260804.1..1.18.0-preview.260818.1.
+
   - id: MAF119-MCP-TASKS-001
     package: Microsoft.Agents.AI.Mcp
     version_introduced: "1.19.0"
@@ -4370,6 +4518,78 @@ entries:
     applies_to_codebases: pre-1.21.0
 
 # === Draft entries auto-appended by release-watcher on 2026-10-01. Review before merging. ===
+
+  - id: MAF121-HOSTING-A2A-RUNMODE-001
+    package: Microsoft.Agents.AI.Hosting.A2A
+    version_introduced: "1.21.0"
+    type: AgentRunMode
+    method: DisallowBackground
+    obsolete_signature: "Microsoft.Agents.AI.Hosting.A2A.AgentRunMode DisallowBackground { get; }"
+    replacement_signature: "Microsoft.Agents.AI.Hosting.A2A.AgentRunMode ReturnMessage { get; }"
+    argument_order_change: false
+    fix_description: >-
+      The A2A run modes were renamed to describe the response shape (microsoft/agent-framework#8032):
+      `DisallowBackground` is now `ReturnMessage` (the reply is aggregated into one A2A message).
+    example_before: |
+      var mode = AgentRunMode.DisallowBackground;
+    example_after: |
+      var mode = AgentRunMode.ReturnMessage;
+    cs_warning: CS0117
+    guide_section: "N/A"
+    dotnet_inspect_detectable: true
+    applies_to_codebases: "pre-1.21.0"
+    notes: >-
+      Backfilled 2026-10-01 from a dotnet-inspect 0.9.1 diff of Microsoft.Agents.AI.Hosting.A2A
+      1.20.0-preview.260831.1..1.21.0-preview.260911.1; the package was not diffed when 1.21 was
+      processed. Upstream PR 8032 "[BREAKING] Clarify A2A agent run modes".
+
+  - id: MAF121-HOSTING-A2A-RUNMODE-002
+    package: Microsoft.Agents.AI.Hosting.A2A
+    version_introduced: "1.21.0"
+    type: AgentRunMode
+    method: AllowBackgroundIfSupported
+    obsolete_signature: "Microsoft.Agents.AI.Hosting.A2A.AgentRunMode AllowBackgroundIfSupported { get; }"
+    replacement_signature: "Microsoft.Agents.AI.Hosting.A2A.AgentRunMode ReturnTask { get; }"
+    argument_order_change: false
+    fix_description: >-
+      `AllowBackgroundIfSupported` is now `ReturnTask`: the reply uses the A2A task lifecycle. The
+      new name drops the implied capability check, which the handler no longer performs; any
+      AIAgent can be hosted in task mode.
+    example_before: |
+      var mode = AgentRunMode.AllowBackgroundIfSupported;
+    example_after: |
+      var mode = AgentRunMode.ReturnTask;
+    cs_warning: CS0117
+    guide_section: "N/A"
+    dotnet_inspect_detectable: true
+    applies_to_codebases: "pre-1.21.0"
+    notes: >-
+      Backfilled 2026-10-01 from a dotnet-inspect 0.9.1 diff of Microsoft.Agents.AI.Hosting.A2A
+      1.20.0-preview.260831.1..1.21.0-preview.260911.1. Upstream PR 8032.
+
+  - id: MAF121-HOSTING-A2A-RUNMODE-003
+    package: Microsoft.Agents.AI.Hosting.A2A
+    version_introduced: "1.21.0"
+    type: AgentRunMode
+    method: AllowBackgroundWhen
+    obsolete_signature: "Microsoft.Agents.AI.Hosting.A2A.AgentRunMode AllowBackgroundWhen(System.Func<Microsoft.Agents.AI.Hosting.A2A.A2ARunDecisionContext, System.Threading.CancellationToken, System.Threading.Tasks.ValueTask<bool>> runInBackground)"
+    replacement_signature: "Microsoft.Agents.AI.Hosting.A2A.AgentRunMode ReturnTaskWhen(System.Func<Microsoft.Agents.AI.Hosting.A2A.A2ARunDecisionContext, System.Threading.CancellationToken, System.Threading.Tasks.ValueTask<bool>> returnTask)"
+    argument_order_change: false
+    fix_description: >-
+      `AllowBackgroundWhen(predicate)` is now `ReturnTaskWhen(predicate)` with the same delegate
+      shape; the predicate decides between an A2A task (true) and a single message (false).
+    example_before: |
+      var mode = AgentRunMode.AllowBackgroundWhen((context, ct) => ValueTask.FromResult(true));
+    example_after: |
+      var mode = AgentRunMode.ReturnTaskWhen((context, ct) => ValueTask.FromResult(true));
+    cs_warning: CS0117
+    guide_section: "N/A"
+    dotnet_inspect_detectable: true
+    applies_to_codebases: "pre-1.21.0"
+    notes: >-
+      Backfilled 2026-10-01 from a dotnet-inspect 0.9.1 diff of Microsoft.Agents.AI.Hosting.A2A
+      1.20.0-preview.260831.1..1.21.0-preview.260911.1. Upstream PR 8032.
+
   - id: MAF122-HOSTING-A-001
     package: Microsoft.Agents.AI.Hosting
     version_introduced: "1.22.0"

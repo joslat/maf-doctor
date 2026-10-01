@@ -362,3 +362,9 @@ None documented yet.
 
 <!-- Add notes, corrections, and refinements below this heading.
      Content under this heading is PRESERVED across re-runs of the watcher. -->
+
+### Packages diffed after the fact (added 2026-10-01)
+
+When 1.21.0 was processed the watcher diffed 9 package surfaces. A later backfill diffed the other 24 for 1.20.0 → 1.21.0 and found one more breaking change:
+
+- **`Microsoft.Agents.AI.Hosting.A2A`**: the A2A run modes were renamed to describe the response shape (microsoft/agent-framework#8032): `DisallowBackground` → `ReturnMessage`, `AllowBackgroundIfSupported` → `ReturnTask`, `AllowBackgroundWhen(predicate)` → `ReturnTaskWhen(predicate)` (MAF121-HOSTING-A2A-RUNMODE-001..003). This is the "A2A run-mode clarification" listed above as behavior-only; it is also an API break.

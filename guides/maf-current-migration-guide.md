@@ -6064,6 +6064,13 @@ None documented yet.
 <!-- Add notes, corrections, and refinements below this heading.
      Content under this heading is PRESERVED across re-runs of the watcher. -->
 
+### Packages diffed after the fact (added 2026-10-01)
+
+When 1.18.0 was processed the watcher diffed 8 package surfaces. A later backfill diffed the other 23 for 1.17.0 → 1.18.0 and found:
+
+- **`Microsoft.Agents.AI.Foundry.Hosting`**: `GetSessionAsync` on the session stores now returns `AgentSession?`; use the new `GetOrCreateSessionAsync` when a session must exist (MAF118-FOUNDRY-HOSTING-SESSION-001). Both `AddFoundryResponses` overloads gained an optional `configure` callback for the new `FoundryResponsesOptions`, so rebuild against 1.18 (MAF118-FOUNDRY-HOSTING-RESPONSES-001/002).
+- **`Microsoft.Agents.AI.Hosting.AspNetCore`**: the session-to-agent isolation rename also covers `ClaimsIdentitySessionIsolationKeyProvider` → `ClaimsIdentityAgentIsolationKeyProvider`, its options type, and `UseClaimsBasedSessionIsolation` → `UseClaimsBasedAgentIsolation` (MAF118-ASPNETCORE-ISOLATION-001..003).
+
 ---
 
 ## Migrating to MAF 1.19.0
@@ -7069,6 +7076,12 @@ None documented yet.
 
 <!-- Add notes, corrections, and refinements below this heading.
      Content under this heading is PRESERVED across re-runs of the watcher. -->
+
+### Packages diffed after the fact (added 2026-10-01)
+
+When 1.21.0 was processed the watcher diffed 9 package surfaces. A later backfill diffed the other 24 for 1.20.0 → 1.21.0 and found one more breaking change:
+
+- **`Microsoft.Agents.AI.Hosting.A2A`**: the A2A run modes were renamed to describe the response shape (microsoft/agent-framework#8032): `DisallowBackground` → `ReturnMessage`, `AllowBackgroundIfSupported` → `ReturnTask`, `AllowBackgroundWhen(predicate)` → `ReturnTaskWhen(predicate)` (MAF121-HOSTING-A2A-RUNMODE-001..003). This is the "A2A run-mode clarification" listed above as behavior-only; it is also an API break.
 
 ---
 
