@@ -13,6 +13,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`maf_generate_regression_plan` listed almost no changes.** Each step looked up
+  entries applicable to a codebase already *on* the target version. Migration entries
+  are marked `pre-<version>`, so every entry from registry-extract was dropped, and
+  steps from 1.4 on showed "no registry changes". Steps are now evaluated from their
+  source version.
+- **Registry hygiene.** All 162 entries now carry `applies_to_codebases`, and
+  `verify-registry` rejects a missing or malformed marker (a missing one silently meant
+  "applies to every version"). The two 1.5.0 `TodoProvider` entries, unfilled since
+  May, now document `GetAllTodosAsync`/`GetRemainingTodosAsync` (CS1061). The 1.11.0
+  `SearchFilesAsync` entries now say CS1503 rather than claiming a positional token
+  silently binds to `recursive`. MAF161-EXTENSIO-001 is marked `pre-1.6.1`
+  (was `1.6.1+`, which fired only on already-migrated code).
 - **Release watcher stalled since 2026-08-20 (7 failed runs).** The MAF 1.17
   Durable Task / Azure Functions repository externalization was modelled as a
   one-release exception, so every later train failed the complete-evidence gate.

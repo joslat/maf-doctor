@@ -107,14 +107,24 @@ public class RegressionPlanToolTests
     [Fact]
     public void Plan_OneStep_IncludesRegistryChangeCount()
     {
-        // 1.2 → 1.3 should mention the count of registry entries that fire
-        // at 1.3 (the MAF130-* entries). Several of the MAF130-* entries
-        // are marked applies_to_codebases: "pre-1.0.0" and so don't fire
-        // here, but the non-pre-1.0 ones (FAN-IN-001, EXEC-001/002,
-        // SESSION-001, INSTRUCTIONS-001, MIDDLEWARE-001) should.
+        // 1.2 → 1.3 should list the entries a 1.2 codebase meets at 1.3. They
+        // are marked pre-1.3.0, so they must be evaluated against the SOURCE
+        // version of the step; evaluating against 1.3.0 dropped all of them.
         var result = _tool.MafGenerateRegressionPlan("1.2.0", "1.3.0");
         Assert.Contains("change(s)", result);
-        Assert.Contains("MAF130", result);   // at least one MAF130-* ID in the table
+        Assert.Contains("`MAF130-FAN-IN-001`", result);
+        Assert.Contains("`MAF130-SESSION-001`", result);
+    }
+
+    [Fact]
+    public void Plan_LaterSteps_ListTheirPreMarkedEntries()
+    {
+        // Regression: every registry-extract entry is marked pre-<its version>,
+        // so before the fix no step from 1.4 on listed any change at all.
+        var result = _tool.MafGenerateRegressionPlan("1.10.0", "1.22.0");
+        Assert.Contains("`MAF111-AGENT-001`", result);
+        Assert.Contains("`MAF122-HOSTING-AGENT-001`", result);
+        Assert.DoesNotContain("1.22.0<br/>(no registry changes)", result);
     }
 
     [Fact]

@@ -188,17 +188,19 @@ public class RegistryServiceTests
     }
 
     /// <summary>
-    /// Entries without the field should load as null (default), preserving
-    /// backward compat with the existing 17 unmarked entries.
+    /// Q-03: every live entry carries a marker (verify-registry enforces it), so
+    /// the former unmarked MAF130/MAF140/MAF150 entries now load with pre-X.
     /// </summary>
     [Theory]
-    [InlineData("MAF130-FAN-IN-001")]   // has no applies_to_codebases
-    [InlineData("MAF130-EXEC-001")]
-    public void AppliesToCodebases_UnmarkedEntries_LoadAsNull(string id)
+    [InlineData("MAF130-FAN-IN-001", "pre-1.3.0")]
+    [InlineData("MAF130-EXEC-001", "pre-1.3.0")]
+    [InlineData("MAF140-AGENT-001", "pre-1.4.0")]
+    [InlineData("MAF150-PROVIDER-001", "pre-1.5.0")]
+    public void AppliesToCodebases_FormerlyUnmarkedEntries_NowCarryMarkers(string id, string marker)
     {
         var entry = _registry.FindById(id);
         Assert.NotNull(entry);
-        Assert.True(string.IsNullOrEmpty(entry!.AppliesToCodebases));
+        Assert.Equal(marker, entry!.AppliesToCodebases);
     }
 
     /// <summary>
@@ -225,18 +227,18 @@ public class RegistryServiceTests
 
     /// <summary>
     /// Entries without the marker apply to EVERY codebase version
-    /// (default = "applies to any").
+    /// (default = "applies to any"). The live registry has none any more
+    /// (Q-03), so the rule is pinned with a synthetic entry.
     /// </summary>
     [Theory]
     [InlineData("1.0.0")]
     [InlineData("1.3.0")]
     [InlineData("1.5.0")]
-    [InlineData("2.0.0-beta")]
-    public void GetEntriesForCodebaseVersion_UnmarkedEntries_AlwaysIncluded(string queryVersion)
+    [InlineData("2.0.0")]
+    public void AppliesTo_UnmarkedEntry_AppliesToEveryVersion(string queryVersion)
     {
-        var entries = _registry.GetEntriesForCodebaseVersion(queryVersion);
-        var fanInEntry = entries.FirstOrDefault(e => e.Id == "MAF130-FAN-IN-001");
-        Assert.NotNull(fanInEntry);
+        var entry = new RegistryEntry { Id = "SYNTHETIC-001", AppliesToCodebases = null };
+        Assert.True(RegistryService.AppliesTo(entry, Version.Parse(queryVersion)));
     }
 
     /// <summary>

@@ -113,7 +113,7 @@ public sealed class RegistryService
             .ToList();
     }
 
-    private static bool AppliesTo(RegistryEntry e, Version queryVersion)
+    internal static bool AppliesTo(RegistryEntry e, Version queryVersion)
     {
         var marker = e.AppliesToCodebases?.Trim();
         if (string.IsNullOrEmpty(marker))
