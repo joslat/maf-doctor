@@ -180,3 +180,63 @@ def test_obligations_are_branch_name_independent_and_recovered_from_history():
     assert "--head-ref" in delta["run"]
     workflow = WORKFLOW.read_text(encoding="utf-8")
     assert ".github/maf-scaffold-obligations/maf-" in workflow
+
+
+def _envelope_repo(tmp_path: Path, scaffold_files: dict[str, str]) -> tuple[Path, str, str]:
+    """A repo where main advanced (non-allowlisted files) after the scaffold branch was cut."""
+    repo = tmp_path / "pr"
+    _git(tmp_path, "init", "-b", "main", str(repo))
+    _git(repo, "config", "user.name", "MAF CI Test")
+    _git(repo, "config", "user.email", "ci@example.invalid")
+    (repo / ".maf-version").write_text("1.21.0\n", encoding="utf-8")
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-m", "base")
+    _git(repo, "checkout", "-b", "release-watcher/maf-1.22.0")
+    for rel, content in scaffold_files.items():
+        path = repo / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content, encoding="utf-8")
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-m", "scaffold")
+    head = _git(repo, "rev-parse", "HEAD")
+    _git(repo, "checkout", "main")
+    workflow_dir = repo / ".github" / "workflows"
+    workflow_dir.mkdir(parents=True)
+    (workflow_dir / "unrelated.yml").write_text("name: x\n", encoding="utf-8")
+    (repo / "CHANGELOG.md").write_text("main moved on\n", encoding="utf-8")
+    _git(repo, "add", ".")
+    _git(repo, "commit", "-m", "main advances after the branch was cut")
+    base = _git(repo, "rev-parse", "HEAD")
+    return repo, base, head
+
+
+def _run_envelope(tmp_path: Path, base: str, head: str) -> subprocess.CompletedProcess:
+    step = next(step for step in _steps() if step.get("id") == "envelope")
+    import os
+    env = {**os.environ, "BASE_SHA": base, "HEAD_SHA": head, "HEAD_REF": "release-watcher/maf-1.22.0"}
+    return subprocess.run(["bash", "-c", step["run"]], cwd=tmp_path, env=env, capture_output=True, text=True)
+
+
+def test_envelope_ignores_changes_main_gained_after_the_branch_was_cut(tmp_path):
+    # Regression: PR #196 failed because a two-dot diff against the current
+    # base tip listed main's newer workflow/script changes as PR changes.
+    _, base, head = _envelope_repo(tmp_path, {
+        ".maf-version": "1.22.0\n",
+        ".github/skills/maf-obsolete-api-registry/registry.yaml": "entries: []\n",
+        "guides/maf-current-migration-guide.md": "# guide\n",
+        "guides/maf-1.22.0-migration-guide.md": "# guide\n",
+        ".github/maf-scaffold-obligations/maf-1.22.0.json": "{}\n",
+    })
+    result = _run_envelope(tmp_path, base, head)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "Autonomy envelope OK" in result.stdout
+
+
+def test_envelope_rejects_a_scaffold_branch_that_edits_a_workflow(tmp_path):
+    _, base, head = _envelope_repo(tmp_path, {
+        ".maf-version": "1.22.0\n",
+        ".github/workflows/maf-ai-fill-verify.yml": "name: weakened\n",
+    })
+    result = _run_envelope(tmp_path, base, head)
+    assert result.returncode == 1
+    assert ".github/workflows/maf-ai-fill-verify.yml" in result.stdout
