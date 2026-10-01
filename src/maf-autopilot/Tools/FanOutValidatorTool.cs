@@ -125,7 +125,7 @@ public sealed class FanOutValidatorTool
     /// into each finding for grouping.
     /// </summary>
     public static IReadOnlyList<MessageHandlerFinding> AnalyzeSource(string source, string fileName = "<inline>")
-        => AnalyzeSource(CSharpSyntaxTree.ParseText(source).GetRoot(), fileName);
+        => AnalyzeSource(SourceParsing.Parse(source).GetRoot(), fileName);
 
     /// <summary>
     /// WM-16 overload: analyze an already-parsed <paramref name="root"/> so

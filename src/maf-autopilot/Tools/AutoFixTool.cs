@@ -430,7 +430,7 @@ public sealed class AutoFixTool
 
             try
             {
-                var root = CSharpSyntaxTree.ParseText(src).GetRoot();
+                var root = SourceParsing.Parse(src).GetRoot();
                 var changedBy = new List<string>();
                 foreach (var (ruleId, rewriter) in rewriters)
                 {

@@ -53,8 +53,12 @@
   <ItemGroup>
     <!-- Compiler / analyzer base. PrivateAssets keep these out of consumer projects.
          Versions pinned centrally in /Directory.Packages.props (CPM). -->
-    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" PrivateAssets="all" />
-    <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" PrivateAssets="all" />
+    <!-- R-03: the analyzer is loaded by the user's compiler, so it must not
+         reference a newer Roslyn than the oldest SDK/IDE we support. The tool
+         itself moved to Roslyn 5.x (C# 14 parsing); this pin keeps the
+         analyzer on 4.14 (with its matching 3.11 authoring analyzers). Guarded by test_analyzer_roslyn_floor.py. -->
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" VersionOverride="4.14.0" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" VersionOverride="3.11.0" PrivateAssets="all" />
   </ItemGroup>
 
   <ItemGroup>

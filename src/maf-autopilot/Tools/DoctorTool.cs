@@ -537,7 +537,7 @@ public sealed class DoctorTool
 
                 // WM-16: parse ONCE per file and share the tree across all four
                 // per-file scanners (was 4× redundant CSharpSyntaxTree.ParseText).
-                var root = CSharpSyntaxTree.ParseText(source).GetRoot();
+                var root = SourceParsing.Parse(source).GetRoot();
                 acc.Anti.AddRange(AntiPatternScannerTool.ScanFile(source, root, rel));
                 acc.Handlers.AddRange(FanOutValidatorTool.AnalyzeSource(root, rel));
                 acc.Prompts.AddRange(PromptLintTool.LintSource(root, rel));

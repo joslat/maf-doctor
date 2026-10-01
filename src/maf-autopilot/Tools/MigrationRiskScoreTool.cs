@@ -111,7 +111,7 @@ public sealed class MigrationRiskScoreTool
                 continue;
             }
 
-            var root = CSharpSyntaxTree.ParseText(source).GetRoot();
+            var root = SourceParsing.Parse(source).GetRoot();
             antiPatternFindings.AddRange(AntiPatternScannerTool.ScanFile(source, root, rel));
             handlers.AddRange(FanOutValidatorTool.AnalyzeSource(root, rel));
 
