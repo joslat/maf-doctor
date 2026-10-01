@@ -20,6 +20,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   while the SLO is breached or a package is untracked.
 - `CLAUDE.md` with the repository's working notes (it was referenced but missing).
 
+### Changed
+
+- **MCP C# SDK 2.2.0** (`ModelContextProtocol`, was 1.4.1). A drop-in for MAF Doctor:
+  same protocol version, tools, prompts, resources and templates (verified over stdio).
+- `xunit.runner.visualstudio` 4.0.0 (test-only).
+
 ### Fixed
 
 - **The fill agent was told to follow MAF 1.3.0 rules.** `.github/copilot-instructions.md`
