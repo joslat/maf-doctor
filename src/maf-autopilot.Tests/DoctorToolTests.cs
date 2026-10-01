@@ -154,7 +154,7 @@ public class DoctorToolTests
     {
         // Arrange — source that legitimately trips MAF-AP-SEC-001 (DefaultAzureCredential).
         const string source = """
-            using Azure.Identity;
+            using Azure.Identity; using Microsoft.Agents.AI;
             public class BadAgent
             {
                 public BadAgent()
@@ -270,7 +270,7 @@ public class DoctorToolTests
         try
         {
             File.WriteAllText(Path.Combine(tempDir, "Bad.cs"), """
-                using Azure.Identity;
+                using Azure.Identity; using Microsoft.Agents.AI;
                 public class Bad
                 {
                     public Bad() { var c = new DefaultAzureCredential(); }
@@ -317,7 +317,7 @@ public class DoctorToolTests
         try
         {
             File.WriteAllText(Path.Combine(tempDir, "Bad.cs"), """
-                using Azure.Identity;
+                using Azure.Identity; using Microsoft.Agents.AI;
                 public class Bad
                 {
                     public Bad() { var c = new DefaultAzureCredential(); }
@@ -347,7 +347,7 @@ public class DoctorToolTests
             // Same rule (MAF-AP-SEC-001) in two files → one group ×2 in --all.
             foreach (var name in new[] { "A.cs", "B.cs" })
                 File.WriteAllText(Path.Combine(tempDir, name), $$"""
-                    using Azure.Identity;
+                    using Azure.Identity; using Microsoft.Agents.AI;
                     public class {{name[..1]}}x
                     {
                         public {{name[..1]}}x() { var c = new DefaultAzureCredential(); }
@@ -379,7 +379,7 @@ public class DoctorToolTests
             // Two findings (same rule, two files) → two entries in the default top-fixes list.
             foreach (var name in new[] { "A.cs", "B.cs" })
                 File.WriteAllText(Path.Combine(tempDir, name), $$"""
-                    using Azure.Identity;
+                    using Azure.Identity; using Microsoft.Agents.AI;
                     public class {{name[..1]}}x
                     {
                         public {{name[..1]}}x() { var c = new DefaultAzureCredential(); }
@@ -408,7 +408,7 @@ public class DoctorToolTests
         try
         {
             File.WriteAllText(Path.Combine(tempDir, "Bad.cs"), """
-                using Azure.Identity;
+                using Azure.Identity; using Microsoft.Agents.AI;
                 public class Bad
                 {
                     public Bad() { var c = new DefaultAzureCredential(); }
@@ -547,7 +547,7 @@ public class DoctorToolTests
             // Five distinct findings: SEC-002 (key), SEC-001 (cred), SEC-003
             // (sensitive data), WF-001 (missing sealed+partial), fan-out (void).
             File.WriteAllText(Path.Combine(tempDir, "Bad.cs"), """
-                using Azure.Identity;
+                using Azure.Identity; using Microsoft.Agents.AI;
                 public class Inv : Executor
                 {
                     const string K = "sk-ABCDEF0123456789abcdef";
@@ -618,7 +618,7 @@ public class DoctorToolTests
     {
         // Regression: trivia-aware scan must inspect EVERY match on a line, not
         // just the first — a real call after a string-literal mention is real.
-        const string src = "class C { void M() { var x = \"new DefaultAzureCredential()\"; var y = new DefaultAzureCredential(); } }";
+        const string src = "using Microsoft.Agents.AI; class C { void M() { var x = \"new DefaultAzureCredential()\"; var y = new DefaultAzureCredential(); } }";
         var sec001 = AntiPatternScannerTool.ScanFile(src, "C.cs")
             .Where(f => f.RuleId == "MAF-AP-SEC-001").ToList();
         Assert.Single(sec001); // the real `new DefaultAzureCredential()`, not skipped
@@ -688,7 +688,7 @@ public class DoctorToolTests
         try
         {
             File.WriteAllText(Path.Combine(dir, "F.cs"),
-                "public class F { public F() { var c = new DefaultAzureCredential(); } } // rotate sk-BARESKabcdefghij1234567 now");
+                "using Microsoft.Agents.AI; public class F { public F() { var c = new DefaultAzureCredential(); } } // rotate sk-BARESKabcdefghij1234567 now");
             var output = new DoctorTool().Run(dir, "markdown", excludes: null, full: true);
             Assert.Contains("MAF-AP-SEC-001", output, StringComparison.Ordinal);
             Assert.DoesNotContain("sk-BARESKabcdefghij1234567", output, StringComparison.Ordinal); // bare token redacted
@@ -1276,7 +1276,7 @@ public class DoctorToolTests
         {
             // SEC-001 (error) + a real dictionary SEC-003 (error).
             File.WriteAllText(Path.Combine(tempDir, "Bad.cs"), """
-                using Azure.Identity;
+                using Azure.Identity; using Microsoft.Agents.AI;
                 using System.Collections.Generic;
                 class C { void M() {
                     var c = new DefaultAzureCredential();
@@ -1308,7 +1308,7 @@ public class DoctorToolTests
         {
             // Auto-fixable (SEC-001, SEC-003, WF-001) + semantic (SEC-002 key, fan-out void).
             File.WriteAllText(Path.Combine(tempDir, "Bad.cs"), """
-                using Azure.Identity;
+                using Azure.Identity; using Microsoft.Agents.AI;
                 public class Inv : Executor
                 {
                     const string K = "sk-ABCDEF0123456789abcdef";
@@ -1361,7 +1361,7 @@ public class DoctorToolTests
         {
             // Lone DefaultAzureCredential (SEC-001) — auto-fixable → Phase 1 only.
             File.WriteAllText(Path.Combine(tempDir, "Bad.cs"), """
-                using Azure.Identity;
+                using Azure.Identity; using Microsoft.Agents.AI;
                 public class Bad { public Bad() { var c = new DefaultAzureCredential(); } }
                 """);
             var output = new DoctorTool().Run(tempDir, "plan", excludes: null);
@@ -1381,7 +1381,7 @@ public class DoctorToolTests
         try
         {
             File.WriteAllText(Path.Combine(tempDir, "Bad.cs"), """
-                using Azure.Identity;
+                using Azure.Identity; using Microsoft.Agents.AI;
                 public class Inv : Executor
                 {
                     public Inv() { var c = new DefaultAzureCredential(); }
@@ -1518,7 +1518,7 @@ public class DoctorToolTests
         {
             // Bait under legacy/ — DefaultAzureCredential (MAF-AP-SEC-001 error).
             File.WriteAllText(Path.Combine(root, "legacy", "Bait.cs"), """
-                using Azure.Identity;
+                using Azure.Identity; using Microsoft.Agents.AI;
                 public class Bait
                 {
                     public Bait() { var a = new DefaultAzureCredential(); }

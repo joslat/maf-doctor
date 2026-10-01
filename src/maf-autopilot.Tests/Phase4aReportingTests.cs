@@ -80,13 +80,13 @@ public sealed class Phase4aReportingTests
         try
         {
             var file = Path.Combine(dir, "Prod.cs");
-            File.WriteAllText(file, "public class Prod {\n    void M() { var c = new DefaultAzureCredential(); }\n}\n");
+            File.WriteAllText(file, "using Microsoft.Agents.AI; public class Prod {\n    void M() { var c = new DefaultAzureCredential(); }\n}\n");
             var fp1 = FirstFingerprint(new DoctorTool().Run(dir, "json", excludes: null, full: true), "MAF-AP-SEC-001");
             Assert.False(string.IsNullOrEmpty(fp1));
 
             // Shift the finding down by prepending blank lines — the source line TEXT
             // is unchanged, so the drift-stable fingerprint must not move.
-            File.WriteAllText(file, "\n\n\npublic class Prod {\n    void M() { var c = new DefaultAzureCredential(); }\n}\n");
+            File.WriteAllText(file, "using Microsoft.Agents.AI;\n\n\npublic class Prod {\n    void M() { var c = new DefaultAzureCredential(); }\n}\n");
             var fp2 = FirstFingerprint(new DoctorTool().Run(dir, "json", excludes: null, full: true), "MAF-AP-SEC-001");
             Assert.Equal(fp1, fp2);
         }

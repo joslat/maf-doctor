@@ -21,7 +21,7 @@ public class ExplainFindingToolTests
         try
         {
             File.WriteAllText(Path.Combine(dir, "Bad.cs"), """
-                using Azure.Identity;
+                using Azure.Identity; using Microsoft.Agents.AI;
                 public class Bad
                 {
                     public Bad() { var c = new DefaultAzureCredential(); }
@@ -172,7 +172,7 @@ public class ExplainFindingToolTests
         {
             var fileBody = new System.Text.StringBuilder();
             for (var i = 1; i <= 80; i++)
-                fileBody.AppendLine(i == 1 ? "// FAR_MARKER_TOP"
+                fileBody.AppendLine(i == 1 ? "using Microsoft.Agents.AI; // FAR_MARKER_TOP"
                     : i == 40 ? "var c = new DefaultAzureCredential();"
                     : $"// filler {i}");
             File.WriteAllText(Path.Combine(dir, "Big.cs"), fileBody.ToString());
@@ -194,7 +194,7 @@ public class ExplainFindingToolTests
         try
         {
             File.WriteAllText(Path.Combine(dir, "Bad.cs"), """
-                // padding line 1
+                using Microsoft.Agents.AI; // padding line 1
                 // padding line 2
                 // padding line 3
                 var c = new DefaultAzureCredential();
@@ -218,7 +218,7 @@ public class ExplainFindingToolTests
         try
         {
             File.WriteAllText(Path.Combine(dir, "Bad.cs"), """
-                // padding line 1
+                using Microsoft.Agents.AI; // padding line 1
                 // padding line 2
                 // padding line 3
                 // padding line 4
@@ -238,7 +238,7 @@ public class ExplainFindingToolTests
         try
         {
             File.WriteAllText(Path.Combine(dir, "Bad.cs"),
-                "public class Bad { public Bad() { var c = new DefaultAzureCredential(); var k = \"sk-ABCDEF0123456789abcdef\"; } }");
+                "using Microsoft.Agents.AI; public class Bad { public Bad() { var c = new DefaultAzureCredential(); var k = \"sk-ABCDEF0123456789abcdef\"; } }");
             var output = new ExplainFindingTool().MafExplainFinding(dir, "Bad.cs", 1);
 
             Assert.Contains("2 findings at this line", output, StringComparison.Ordinal);
@@ -254,7 +254,7 @@ public class ExplainFindingToolTests
         try
         {
             File.WriteAllText(Path.Combine(dir, "Bad.cs"), """
-                // line before
+                using Microsoft.Agents.AI; // line before
                 var c = new DefaultAzureCredential();
                 // line after
                 """);
@@ -277,7 +277,7 @@ public class ExplainFindingToolTests
         try
         {
             File.WriteAllText(Path.Combine(dir, "Bad.cs"), """
-                var c = new DefaultAzureCredential();
+                using Microsoft.Agents.AI; var c = new DefaultAzureCredential();
                 const string K = "sk-ABCDEF0123456789abcdef";
                 """);
             var output = new ExplainFindingTool().MafExplainFinding(dir, "Bad.cs", 1); // ask about line 1 (SEC-001)

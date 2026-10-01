@@ -56,6 +56,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`DefaultAzureCredential` no longer flags non-AI code.** MAF-AP-SEC-001 now applies only
+  to files that use an agent/AI stack (MAF, Microsoft.Extensions.AI, Azure AI, OpenAI,
+  Semantic Kernel). A false-positive sweep of non-MAF repos graded CleanArchitecture "C"
+  (and offered an autofix) for a Key Vault configuration credential; it is now "A".
+  eShop and aspire-samples were already clean.
 - **Twenty 1.10.0 entries carried the wrong release.** They were drafted from one lumped
   1.6.1 → 1.10.0 diff; a per-release diff (and the new signature oracle) shows they
   shipped in 1.6.2, 1.7.0, 1.8.0 and 1.9.0. Their `version_introduced` and
