@@ -29,6 +29,35 @@ SHA_RE = re.compile(r"^[0-9a-f]{40,64}$")
 BRANCH_RE = re.compile(r"^[A-Za-z0-9._/-]+$")
 GUIDE_RE = re.compile(r"^maf-[0-9]+\.[0-9]+\.[0-9]+-migration-guide\.md$")
 REVIEW_RE = re.compile(r"^MAF[0-9]+-REVIEW-[0-9]+$", re.IGNORECASE)
+# Trusted copy (this script runs from the base checkout, never from PR data).
+SURFACE_MANIFEST = Path(__file__).resolve().parents[1] / "maf-package-surfaces.json"
+
+
+SURFACE_MANIFEST_REL = ".github/maf-package-surfaces.json"
+
+
+def _tracked_packages(raw: bytes | None = None) -> set[str]:
+    """Casefolded package ids in a package-surface manifest (default: trusted copy)."""
+    try:
+        text = raw.decode("utf-8") if raw is not None else SURFACE_MANIFEST.read_text(encoding="utf-8")
+        manifest = json.loads(text)
+        return {str(s["package"]).casefold() for s in manifest.get("surfaces", [])}
+    except (OSError, ValueError, KeyError, TypeError, UnicodeDecodeError) as exc:
+        raise ValueError(f"cannot read package-surface manifest: {exc}") from exc
+
+
+def tracked_packages_at(repo: Path, commit: str) -> set[str]:
+    """Packages the watcher diffed for a train: the manifest at its scaffold base.
+
+    The base commit is the PR merge-base already validated against the
+    obligations contract, so this is immutable history, not PR data. Bases that
+    predate the manifest fall back to the trusted current manifest.
+    """
+    if not SHA_RE.fullmatch(str(commit).lower()):
+        raise ValueError("scaffold base_commit must be a full hexadecimal object id")
+    if _has(repo, commit, SURFACE_MANIFEST_REL):
+        return _tracked_packages(_git(repo, "show", f"{commit}:{SURFACE_MANIFEST_REL}"))
+    return _tracked_packages()
 AUTO_START = "<!-- AUTO-GENERATED START — anything between AUTO-GENERATED START and AUTO-GENERATED END is overwritten on re-run -->"
 AUTO_END = "<!-- AUTO-GENERATED END -->"
 BREAKING_RE = re.compile(
@@ -345,7 +374,12 @@ def _check_hash(value: bytes | str, expected: Any, label: str, errors: list[str]
         errors.append(f"{label} changed outside the permitted fill region")
 
 
-def verify_obligations(doc: dict[str, Any], head_root: Path, canonical_raw: bytes) -> list[str]:
+def verify_obligations(
+    doc: dict[str, Any],
+    head_root: Path,
+    canonical_raw: bytes,
+    tracked_packages: set[str] | None = None,
+) -> list[str]:
     """Validate a PR HEAD tree against its canonical obligations blob."""
     errors: list[str] = []
     try:
@@ -427,10 +461,33 @@ def verify_obligations(doc: dict[str, Any], head_root: Path, canonical_raw: byte
             entry_id, package = _field(entry, "id"), _field(entry, "package")
             if entry_id and package and entry_id.casefold() not in expected_ids and not REVIEW_RE.fullmatch(entry_id):
                 replacements[package.casefold()] += 1
+        # A REVIEW sentinel means "classified breaking, but no tracked surface
+        # produced diff evidence". When the break lives in a MAF package the
+        # watcher does not diff (MAF 1.19: Microsoft.Agents.AI.Mcp), the
+        # sentinel's package is only the default guess. Concrete entries for
+        # untracked Microsoft.Agents.AI* packages may therefore satisfy any
+        # sentinel; entries for other *tracked* packages still may not, because
+        # those packages had their own diff evidence.
+        tracked = (tracked_packages if tracked_packages is not None else _tracked_packages()) if reviews else set()
+        remaining = Counter(replacements)
+        missing_by_package: dict[str, int] = {}
         for package, count in reviews.items():
-            if replacements[package] < count:
+            own = min(count, remaining[package])
+            remaining[package] -= own
+            missing_by_package[package] = count - own
+        untracked_left = sum(
+            count
+            for package, count in remaining.items()
+            if package not in tracked and package.startswith("microsoft.agents.ai")
+        )
+        for package, missing in missing_by_package.items():
+            used = min(missing, untracked_left)
+            untracked_left -= used
+            if missing - used > 0:
+                count = reviews[package]
                 errors.append(
-                    f"{count} REVIEW sentinel(s) for {package} require distinct new concrete same-package {target} entries; found {replacements[package]}"
+                    f"{count} REVIEW sentinel(s) for {package} require distinct new concrete same-package "
+                    f"(or untracked MAF package) {target} entries; found {count - (missing - used)}"
                 )
 
         guide = _text(_safe_file(head_root, str(guide_spec["path"]), "target guide"), "target guide")
@@ -666,7 +723,11 @@ def main(argv: list[str] | None = None) -> int:
             print("No watcher version bump/contract applies; ordinary verification remains in force.")
             return 0
         doc = json.loads(canonical.decode("utf-8"))
-        errors = verify_obligations(doc, args.head_root, canonical)
+        scaffold = doc.get("scaffold") if isinstance(doc, dict) else None
+        base_commit = str(scaffold.get("base_commit", "")) if isinstance(scaffold, dict) else ""
+        errors = verify_obligations(
+            doc, args.head_root, canonical, tracked_packages_at(args.repo, base_commit)
+        )
     except (UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
         errors = [str(exc)]
     if errors:

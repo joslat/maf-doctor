@@ -26,6 +26,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`Microsoft.Agents.AI.Mcp` is now a tracked package surface.** MAF 1.19's only
+  breaking change (`ListAgentToolsWithTaskSupportAsync` → `ListAgentToolsWithTasksAsync`,
+  `McpTaskOptions.DefaultTimeToLive` removed, MCP SDK floor 1.2.0 → 2.1.0) lived in
+  this alpha package, which the watcher did not diff. From 1.20 on it is diffed like
+  every other surface.
+- **REVIEW sentinels can be resolved in an untracked MAF package.** A sentinel means
+  "classified breaking, but no tracked surface produced diff evidence", so its
+  package is only a default guess. The fill gate now accepts concrete entries for an
+  untracked `Microsoft.Agents.AI*` package; entries in another *tracked* package (or
+  outside MAF) still don't count.
 - **Watcher replay harness** (`test_watcher_replay.py`): replays every adjacent
   MAF train 1.9 → 1.23 against a recorded nuget.org snapshot, so a manifest,
   lock, or planner change that would strand a train fails CI.

@@ -60,6 +60,12 @@
       "slug": "tools-shell",
       "package": "Microsoft.Agents.AI.Tools.Shell",
       "id_scope": "TOOLS-SHELL"
+    },
+    {
+      "order": 10,
+      "slug": "mcp",
+      "package": "Microsoft.Agents.AI.Mcp",
+      "id_scope": "MCP"
     }
   ],
   "lifecycle_events": [
