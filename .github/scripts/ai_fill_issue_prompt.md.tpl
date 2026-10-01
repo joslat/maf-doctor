@@ -188,6 +188,17 @@ else
   FAILURES=1
 fi
 
+# 11. The CI obligations gate: scaffold contract, train lock, and REVIEW
+# sentinel replacement. It reads committed history, so commit first.
+if git diff --quiet HEAD -- && python3 .github/scripts/verify_ai_fill_delta.py --repo . --head-root . \
+     --base-sha "$(git rev-parse origin/main)" --head-sha "$(git rev-parse HEAD)" \
+     --base-ref main --head-ref "{{BRANCH}}"; then
+  echo "11. obligations gate: OK"
+else
+  echo "11. obligations gate: FAIL (commit your changes first, then fix what it reports)"
+  FAILURES=1
+fi
+
 echo "=== END CHECKLIST ==="
 if [ "$FAILURES" -ne 0 ]; then
   echo "One or more mandatory release checks failed. Fix them before opening the PR."
@@ -240,8 +251,18 @@ guess merely because it is non-TODO.
 
 If the guide's generated **Package transitions** section contains a declared
 breaking split/rename that cannot be represented by a same-package API diff,
-ensure it has a concrete `{{TARGET}}` registry entry. Replace the watcher's
-generic `MAF{{ID_SEGMENT}}-REVIEW-*` sentinel when present; do not add a duplicate.
+ensure it has a concrete `{{TARGET}}` registry entry; that entry is the
+replacement for the watcher's `MAF{{ID_SEGMENT}}-REVIEW-*` sentinel of that package.
+
+**Every REVIEW sentinel needs its own NEW entry.** A `MAF{{ID_SEGMENT}}-REVIEW-NNN`
+sentinel marks structural breaking rows in its package's diff that the extractor
+could not draft (`Base type changed`, a `Type ... was removed` that is really a
+move, interface changes). Replace each sentinel with one additional concrete
+entry for the same package, with a new descriptive id, documenting those rows:
+who breaks (subclasses, casts, binaries compiled against the old version), the
+compiler error or `BINARY_BREAK`, and the fix. Filling the scaffolded entries
+does not satisfy a sentinel; deleting one without a replacement fails the gate
+(check 11).
 Informational repository moves do not get obsolete-API entries unless a
 validated API diff also proves a migration is required.
 
