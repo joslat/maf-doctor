@@ -27,7 +27,7 @@ entries:
     guide_section: "N/A"
     dotnet_inspect_detectable: true
     applies_to_codebases: "pre-1.1.0"
-    notes: "Backfilled 2026-10-01 from a dotnet-inspect 0.9.1 diff of Microsoft.Agents.AI 1.0.0..1.1.0; releases before the 1.3.0 baseline were never diffed release by release."
+    notes: "Backfilled 2026-10-01 from a dotnet-inspect 0.9.1 diff of Microsoft.Agents.AI 1.0.0..1.1.0; releases before the 1.3.0 baseline were never diffed release by release. The diff also shows the frontmatter overload changing: void .ctor(Microsoft.Agents.AI.AgentSkillFrontmatter frontmatter, string instructions) -> void .ctor(Microsoft.Agents.AI.AgentSkillFrontmatter frontmatter, string instructions, System.Text.Json.JsonSerializerOptions? serializerOptions = null)."
 
   - id: MAF11-SKILL-INLINE-002
     package: Microsoft.Agents.AI
@@ -84,7 +84,7 @@ entries:
     guide_section: "N/A"
     dotnet_inspect_detectable: true
     applies_to_codebases: "pre-1.1.0"
-    notes: "Backfilled 2026-10-01 from a dotnet-inspect 0.9.1 diff of Microsoft.Agents.AI 1.0.0..1.1.0; releases before the 1.3.0 baseline were never diffed release by release. The same release added AgentClassSkill<T>, which the base-type parameter accepts."
+    notes: "Backfilled 2026-10-01 from a dotnet-inspect 0.9.1 diff of Microsoft.Agents.AI 1.0.0..1.1.0; releases before the 1.3.0 baseline were never diffed release by release. The same release added AgentClassSkill<T>, which the base-type parameter accepts. The diff also shows the params overload changing: void .ctor(params Microsoft.Agents.AI.AgentInlineSkill[] skills) -> void .ctor(params Microsoft.Agents.AI.AgentSkill[] skills)."
 
   - id: MAF12-FOUNDRY-EXTENSIONS-001
     package: Microsoft.Agents.AI.Foundry
