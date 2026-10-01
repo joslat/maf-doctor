@@ -5,7 +5,7 @@
 # Format: see .github/skills/maf-obsolete-api-registry/SKILL.md
 
 schema_version: "1.0"
-target_maf_version: "1.18.0"
+target_maf_version: "1.19.0"
 last_updated: "2026-10-01"
 
 entries:
@@ -4206,3 +4206,71 @@ entries:
 
       Verdict: Type REMOVED in new version — direct type references fail to compile (typically CS0246). Requires human review before merging.
     applies_to_codebases: pre-1.18.0
+
+  - id: MAF119-MCP-TASKS-001
+    package: Microsoft.Agents.AI.Mcp
+    version_introduced: "1.19.0"
+    type: McpClientTaskExtensions
+    method: ListAgentToolsWithTaskSupportAsync
+    obsolete_signature: Task<IReadOnlyList<AIFunction>> ListAgentToolsWithTaskSupportAsync(this McpClient client, McpTaskOptions? options = null, CancellationToken cancellationToken = default)
+    replacement_signature: Task<IReadOnlyList<AIFunction>> ListAgentToolsWithTasksAsync(this McpClient client, McpTaskOptions? options = null, CancellationToken cancellationToken = default)
+    argument_order_change: false
+    fix_description: Rename `ListAgentToolsWithTaskSupportAsync(...)` to `ListAgentToolsWithTasksAsync(...)` on the `McpClient`; the parameters are unchanged.
+    example_before: |
+      IReadOnlyList<AIFunction> tools =
+          await mcpClient.ListAgentToolsWithTaskSupportAsync(
+              new McpTaskOptions(), cancellationToken);
+    example_after: |
+      IReadOnlyList<AIFunction> tools =
+          await mcpClient.ListAgentToolsWithTasksAsync(
+              new McpTaskOptions(), cancellationToken);
+    cs_warning: CS1061
+    guide_section: "N/A"
+    dotnet_inspect_detectable: false
+    notes: >-
+      Category: METHOD-RENAMED. Source: upstream microsoft/agent-framework PR 7774
+      ("[BREAKING] Migrate MCP long-running task support to the 2026-07-28 Tasks
+      extension"), file dotnet/src/Microsoft.Agents.AI.Mcp/McpClientTaskExtensions.cs.
+      Microsoft.Agents.AI.Mcp is an alpha package (1.19.0-alpha.260822.1) that the
+      watcher did not diff for 1.19.0, so a human reviewer wrote this entry from the
+      upstream source diff, not from dotnet-inspect evidence. The package is a tracked
+      surface from MAF 1.20 on. Wire level: long-running tasks now use the MCP
+      2026-07-28 `io.modelcontextprotocol/tasks` extension (per-request opt-in) instead
+      of per-tool `execution.taskSupport`. The two designs are not wire compatible, so
+      the MCP server must also speak 2026-07-28. MAF 1.19 builds against
+      ModelContextProtocol 2.1.0 (was 1.2.0).
+    applies_to_codebases: pre-1.19.0
+  - id: MAF119-MCP-TASKOPTIONS-001
+    package: Microsoft.Agents.AI.Mcp
+    version_introduced: "1.19.0"
+    type: McpTaskOptions
+    method: DefaultTimeToLive
+    obsolete_signature: TimeSpan? McpTaskOptions.DefaultTimeToLive { get; set; }
+    replacement_signature: removed; no direct replacement (new limits RemoteCancellationTimeout, MinimumPollingInterval, MaximumPollingInterval, MaxConsecutiveStuckPolls, MaxTotalInputRequests)
+    argument_order_change: false
+    fix_description: Delete the `McpTaskOptions.DefaultTimeToLive` assignment; the task time-to-live option was removed in 1.19.0 with no direct replacement.
+    example_before: |
+      var options = new McpTaskOptions
+      {
+          DefaultTimeToLive = TimeSpan.FromMinutes(10),
+      };
+    example_after: |
+      var options = new McpTaskOptions
+      {
+          MaxConsecutiveStuckPolls = 60,
+      };
+    cs_warning: CS0117
+    guide_section: "N/A"
+    dotnet_inspect_detectable: false
+    notes: >-
+      Category: SIGNATURE-CHANGED (property removed). Source: upstream
+      microsoft/agent-framework PR 7774, file
+      dotnet/src/Microsoft.Agents.AI.Mcp/McpTaskOptions.cs: `DefaultTimeToLive` removed;
+      added RemoteCancellationTimeout (default 5 s), MinimumPollingInterval,
+      MaximumPollingInterval, MaxConsecutiveStuckPolls (default 60) and
+      MaxTotalInputRequests (default 100). The example_after shows one of the new
+      limits; omitting the initializer entirely is equally valid. Written by a human
+      reviewer from the upstream source diff, because the alpha package was not yet a
+      tracked surface for 1.19.0. Assigning a removed property in an object initializer
+      fails with CS0117.
+    applies_to_codebases: pre-1.19.0

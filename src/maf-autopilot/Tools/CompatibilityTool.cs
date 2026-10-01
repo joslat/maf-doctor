@@ -63,6 +63,20 @@ public sealed class CompatibilityTool
     internal static readonly IReadOnlyDictionary<string, string> Matrix =
         new SortedDictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
+            ["1.19.0"] = """
+                ## MAF 1.19.0 Compatibility
+                
+                | Dependency                                | Version          | Notes |
+                |-------------------------------------------|------------------|-------|
+                | .NET runtime                              | `≥ 8.0` | net8.0, net9.0, net10.0 TFMs all supported |
+                | Microsoft.Extensions.AI                   | `≥ 10.7.0` | Carried from 1.18.0 |
+                | Azure.AI.OpenAI                           | _(not pinned by MAF — BYO via IChatClient)_ | |
+                | Microsoft.Agents.AI.Workflows.Generators  | `1.19.0` | Source-gen package |
+                | Identity                                  | `ManagedIdentityCredential` | NEVER `DefaultAzureCredential` in prod (analyzer rule MAF002) |
+                
+                **Breaking in the alpha `Microsoft.Agents.AI.Mcp` package**: MCP long-running tasks moved to the 2026-07-28 Tasks extension (`ListAgentToolsWithTaskSupportAsync` → `ListAgentToolsWithTasksAsync`, `McpTaskOptions.DefaultTimeToLive` removed); MAF now builds against `ModelContextProtocol` 2.1.0. **Additive** in Core and Workflows. See `guides/maf-1.19.0-migration-guide.md`.
+                """,
+
             ["1.18.0"] = """
                 ## MAF 1.18.0 Compatibility
                 
