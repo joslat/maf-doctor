@@ -698,11 +698,10 @@ jobs:
         run: |
           # C (2026-06-28): we no longer auto-dispatch a SEPARATE Copilot fill PR off main.
           # That PR's workflows are approval-gated and historically stalled (incident: the
-          # MAF 1.11.0 copilot/fill-todos PR sat unapproved for days). The scaffold now lives
-          # on THIS run's PR branch — fill it there (assign GitHub Copilot to the PR, or edit
-          # directly), confirm build-test is green, then merge. maf-ai-fill-todos.yml remains
-          # available for manual use if you retarget it to the branch.
-          echo "::notice::MAF $TARGET scaffold PR opened on branch $BRANCH — fill the registry/guide TODOs, confirm build-test is green, then merge."
+          # MAF 1.11.0 copilot/fill-todos PR sat unapproved for days). The scaffold lives on
+          # THIS run's PR branch; opening the PR triggers the maf-registry-fill agentic
+          # workflow, which fills it in place. maf-ai-fill-todos.yml is a manual fallback only.
+          echo "::notice::MAF $TARGET scaffold PR opened on branch $BRANCH; maf-registry-fill will fill it, then the PR gates decide."
 
       - name: Escalate MAJOR version bump for manual review
         # Phase 3.2 — major bumps (x.y → (x+1).0) carry the highest breaking-

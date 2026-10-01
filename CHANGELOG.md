@@ -9,6 +9,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **New MAF packages can no longer go unnoticed.** The daily `maf-freshness` job lists
+  every verified `Microsoft.Agents.AI*` package on nuget.org and keeps a rolling issue
+  open for any that is neither a watcher surface, a lifecycle-event package, nor
+  ignored with a reason in `.github/maf-package-discovery.json`. 24 of 35 packages had
+  gone undiffed for months.
+- **Freshness badge.** The README shows the `maf-freshness` status; the run now turns red
+  while the SLO is breached or a package is untracked.
+- `CLAUDE.md` with the repository's working notes (it was referenced but missing).
+
+### Changed
+
+- **MCP C# SDK 2.2.0** (`ModelContextProtocol`, was 1.4.1). A drop-in for MAF Doctor:
+  same protocol version, tools, prompts, resources and templates (verified over stdio).
+- `xunit.runner.visualstudio` 4.0.0 (test-only).
+
+### Fixed
+
+- **The fill agent was told to follow MAF 1.3.0 rules.** `.github/copilot-instructions.md`
+  was a stale `init` output ("NEVER introduce patterns not present in MAF 1.3.0") that
+  Copilot loads as repository instructions, including in the agentic fill. It now
+  describes this repository and points to the version-scoped constraints.
+- Docs describe the current self-update loop (agentic fill, required gates, freshness,
+  lock-file repair) instead of the retired Copilot-coding-agent issue flow:
+  `TROUBLESHOOTING.md`, `docs/setup.md`, the `maf-release-watcher` skill, the watcher's
+  commit message and notices.
+
 ## [1.16.0] - 2026-10-01
 
 **MAF 1.18 → 1.23, all 35 Agent Framework packages, and a release pipeline that

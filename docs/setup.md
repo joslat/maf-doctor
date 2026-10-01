@@ -6,24 +6,15 @@ This guide explains what you need to do — as a human — to use and maintain `
 
 ---
 
-## What's Already Done vs. What You Need to Do
+## Current state
 
-The toolkit code is fully implemented through step #24. Here is the current state:
-
-| Step | What | Status | Who does it |
-|------|------|--------|-------------|
-| #1–#20 | All agents, skills, guide, constraints | ✅ Done | — (shipped) |
-| #21 | MCP server MVP (3 tools) | ✅ Done | — |
-| #22 | MCP Resources (`maf://constraints`, etc.) | ✅ Done | — |
-| #23 | MCP Prompts (`/maf-audit`, `/maf-migrate`, etc.) | ✅ Done | — |
-| #24 | `maf-doctor init` CLI command | ✅ Done | — |
-| **#25** | **NuGet publish** | **❌ You must do this** | See [Section 3](#3-publishing-to-nugetorg-step-25) |
-| #26–#29 | Sampling tools, full analysis tools, Docker | ❌ Future work | — |
-| **#30** | **`registry.yaml` CI auto-update** | **❌ You must do this** | See [Section 4](#4-enabling-registry-auto-update-step-30) |
-| **#31** | **Feedback issue tool** | **❌ Prerequisite: #25** | After #25 |
-| #32 | Multi-version migration paths | ❌ Future work | — |
-
-**Steps 22–24 are fully implemented and build-verified.** Steps 25 and beyond are not started because they require external setup (NuGet account, GitHub repo secrets, organizational Copilot access) that only you can provide.
+MAF Doctor is published on NuGet (`maf-doctor`, `maf-doctor.Analyzers`) and keeps
+itself current: the release watcher, the agentic fill, the PR gates, the freshness
+SLO and Dependabot lock-file repair run in this repository's Actions (see
+[`TROUBLESHOOTING.md`](../TROUBLESHOOTING.md#self-update-workflows-github-actions)).
+To run that automation in a fork you need the two secrets below, plus repository
+auto-merge and the required checks (`verify`, `Build + test (net8/9/10)` and the six
+`ci-invariants` jobs) on `main`.
 
 ---
 
@@ -182,14 +173,15 @@ The repository automation uses two repository-level Actions secrets:
 | Secret | Where to get it | Required for |
 |--------|-----------------|-------------|
 | `NUGET_API_KEY` | [nuget.org → API Keys](https://www.nuget.org/account/apikeys) | The separate `release.yml` NuGet publish workflow |
-| `COPILOT_ASSIGN_PAT` | GitHub fine-grained PAT, scoped to this repository | Pushing watcher scaffold branches and assigning a Coding Agent from `maf-ai-fill-todos.yml` |
+| `COPILOT_ASSIGN_PAT` | GitHub fine-grained PAT, scoped to this repository | Pushing watcher scaffold branches, the `maf-registry-fill` agent's push to the PR branch, and Dependabot lock-file repairs (pushes made with `GITHUB_TOKEN` would not trigger CI) |
 
 The semantic-review workflow does not need another stored secret. It uses the
 run's short-lived `GITHUB_TOKEN` with only `copilot-requests: write`; for this
 personally owned repository, GitHub bills those requests to the repository
 owner's Copilot seat. Copilot tools are not enabled in that workflow.
-The workflow lets Copilot CLI choose the seat's supported default model rather
-than pinning a model that may not be available to every account.
+The workflow passes an empty `model` so Copilot CLI chooses the seat's supported
+default rather than a pinned model that may not be available to every account
+(`actions/ai-inference` v3 would otherwise default to gpt-4.1).
 
 **How to add:**
 1. GitHub repo → **Settings → Secrets and variables → Actions → New repository secret**
@@ -215,7 +207,7 @@ The file `.github/workflows/maf-release-watcher.yml` is already in the repo. Git
 1. **Runs weekly** (Thursday 06:00 UTC) — or manually via **Actions → MAF Release Watcher → Run workflow**.
 2. **`check-for-new-maf-release`** — reads the NuGet stable-version index and selects the oldest release newer than `.maf-version`. If any watcher scaffold PR is already open, it exits cleanly so updates stay sequential.
 3. **`analyze-and-update`** — runs adjacent-version `dotnet-inspect` diffs, updates the matrix/code matrix, writes a per-version guide, appends registry drafts, and opens `release-watcher/maf-X.Y.Z` as a PR. It never pushes the scaffold to `main`.
-4. For a breaking release, fill the TODOs directly or manually dispatch `maf-ai-fill-todos.yml` with `target_version` and `target_branch`. Merge the fill PR into the scaffold branch, then merge the green scaffold PR to advance `.maf-version`.
+4. **Opening the scaffold PR triggers `maf-registry-fill`**, an agentic workflow that fills the TODOs on the PR branch and runs the release checklist plus the obligations gate. `maf-ai-fill-verify` (required) then decides; releases without breaking changes auto-merge, breaking ones wait for review. `maf-ai-fill-todos.yml` remains a manual fallback.
 5. NuGet publication is separate: tags or a manual dispatch run `release.yml`; the watcher does not publish MAF Doctor.
 
 **Manual trigger with version override:**

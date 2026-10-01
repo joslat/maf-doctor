@@ -4,6 +4,10 @@
 
 # MAF Doctor — a toolkit for Microsoft Agent Framework
 
+[![NuGet](https://img.shields.io/nuget/v/maf-doctor.svg)](https://www.nuget.org/packages/maf-doctor)
+[![MAF knowledge freshness](https://github.com/joslat/maf-doctor/actions/workflows/maf-freshness.yml/badge.svg)](https://github.com/joslat/maf-doctor/actions/workflows/maf-freshness.yml)
+[![build-test](https://github.com/joslat/maf-doctor/actions/workflows/build-test.yml/badge.svg?branch=main)](https://github.com/joslat/maf-doctor/actions/workflows/build-test.yml)
+
 > Diagnose, explain, prescribe, verify — for MAF agents and workflows.
 
 **MAF Doctor** is a **.NET global tool** (installed from NuGet) that does three things in one install:

@@ -52,6 +52,43 @@ jobs:
             exit 1
           fi
 
+      - name: Discover untracked MAF packages (Z-06)
+        id: discover
+        # The watcher diffs only the surfaces in maf-package-surfaces.json; 24 of
+        # 35 MAF packages went undiffed for months because nothing looked.
+        run: |
+          set -uo pipefail
+          python3 .github/scripts/discover_maf_packages.py --report-out "$RUNNER_TEMP/discovery.md"
+          RC=$?
+          cat "$RUNNER_TEMP/discovery.md" >> "$GITHUB_STEP_SUMMARY"
+          echo "rc=$RC" >> "$GITHUB_OUTPUT"
+          if [ "$RC" -eq 2 ]; then
+            echo "::error::Package discovery is unknown (nuget.org unreadable or config invalid)."
+            exit 1
+          fi
+
+      - name: Open, update, or close the untracked-packages issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RC: ${{ steps.discover.outputs.rc }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          TITLE="🆕 New Microsoft.Agents.AI packages are not tracked"
+          NUM=$(gh issue list --label maf-release --state open --json number,title \
+            --jq ".[] | select(.title == \"${TITLE}\") | .number" | head -1)
+          { cat "$RUNNER_TEMP/discovery.md"; echo; echo "Latest check: ${RUN_URL}"; } > "$RUNNER_TEMP/discovery-issue.md"
+          if [ "$RC" = "1" ]; then
+            if [ -n "$NUM" ]; then
+              gh issue edit "$NUM" --body-file "$RUNNER_TEMP/discovery-issue.md"
+            else
+              gh issue create --title "$TITLE" --label maf-release --body-file "$RUNNER_TEMP/discovery-issue.md"
+            fi
+          elif [ -n "$NUM" ]; then
+            gh issue close "$NUM" --comment "All MAF packages are tracked or deliberately ignored: ${RUN_URL}"
+          fi
+
       - name: Open, update, or close the freshness issue
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -78,3 +115,16 @@ jobs:
             gh issue close "$NUM" --comment "Back within the freshness SLO: ${RUN_URL}"
             echo "Closed freshness issue #$NUM"
           fi
+
+      - name: Fail the run while the SLO is breached or packages are untracked
+        # A red scheduled run notifies the owner (O-01: a breach is a red run
+        # plus the rolling issue); the issues above carry the detail.
+        env:
+          FRESH_RC: ${{ steps.check.outputs.rc }}
+          DISCOVER_RC: ${{ steps.discover.outputs.rc }}
+        run: |
+          if [ "$FRESH_RC" != "0" ] || [ "$DISCOVER_RC" != "0" ]; then
+            echo "::error::Freshness SLO breached (rc=$FRESH_RC) or untracked MAF packages (rc=$DISCOVER_RC); see the issues."
+            exit 1
+          fi
+          echo "MAF knowledge is fresh and every package is accounted for."
