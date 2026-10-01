@@ -56,7 +56,7 @@ FAILURES=0
 echo "=== POST-IMPLEMENTATION CHECKLIST for MAF $TARGET ==="
 
 # 1. Version Tracking section: "Current tracked version" matches target
-N=$(grep -c "Current tracked version: \\*\\*\\\`$TARGET\\\`\\*\\*" docs/compatibility-matrix.md || true)
+N=$(grep -cF "Current tracked version: **\`$TARGET\`**" docs/compatibility-matrix.md || true)
 if [ "$N" = "1" ]; then
   echo "1. Version Tracking: OK"
 else
