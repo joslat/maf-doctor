@@ -64,6 +64,7 @@ def indexes_1_13_to_1_14() -> dict[str, list[str]]:
             "1.13.0-preview.260703.1",
             "1.14.0-preview.260721.1",
         ],
+        "Microsoft.Agents.AI.Mcp": ["1.13.0-alpha.260703.1", "1.14.0-alpha.260721.1"],
     }
 
 
@@ -93,6 +94,7 @@ def indexes_1_16_to_1_17() -> dict[str, list[str]]:
             "1.16.0-preview.260730.1",
             "1.17.0-preview.260804.1",
         ],
+        "Microsoft.Agents.AI.Mcp": ["1.16.0-alpha.260730.1", "1.17.0-alpha.260804.1"],
     }
 
 
@@ -100,7 +102,7 @@ def test_checked_in_manifest_is_valid_and_ordered():
     loaded = planner.load_manifest(MANIFEST_PATH)
     surfaces = loaded["surfaces"]
 
-    assert [surface["order"] for surface in surfaces] == list(range(10))
+    assert [surface["order"] for surface in surfaces] == list(range(11))
     assert [surface["slug"] for surface in surfaces] == [
         "core",
         "workflows",
@@ -112,6 +114,7 @@ def test_checked_in_manifest_is_valid_and_ordered():
         "azure-functions",
         "github-copilot",
         "tools-shell",
+        "mcp",
     ]
     assert surfaces[0]["id_scope"] == ""
     assert all(surface["id_scope"] for surface in surfaces[1:])
@@ -505,7 +508,7 @@ def test_dry_run_prints_plan_and_does_not_touch_output(tmp_path, monkeypatch, ca
     rendered = capsys.readouterr().out
     parsed = json.loads(rendered)
     assert parsed["release"]["new_version"] == "1.14.0"
-    assert len(parsed["surfaces"]) == 10
+    assert len(parsed["surfaces"]) == 11
 
 
 def test_non_dry_run_writes_selected_output(tmp_path, monkeypatch):
@@ -559,6 +562,7 @@ def _indexes_after_externalization(old: str, new: str) -> dict[str, list[str]]:
         "Microsoft.Agents.AI.Hosting.AzureFunctions": list(durable),
         "Microsoft.Agents.AI.GitHub.Copilot": [old, new],
         "Microsoft.Agents.AI.Tools.Shell": [aligned(old), aligned(new)],
+        "Microsoft.Agents.AI.Mcp": [aligned(old, "alpha.1"), aligned(new, "alpha.1")],
     }
 
 
@@ -571,7 +575,7 @@ def test_externalization_persists_for_every_later_train(old, new):
         assert by_slug[slug]["status"] == "informational"
         assert "Externalized since MAF 1.17.0" in by_slug[slug]["reason"]
         assert "microsoft/agent-framework-durable-extension" in by_slug[slug]["reason"]
-    assert sum(s["status"] == "diffable" for s in plan["surfaces"]) == 8
+    assert sum(s["status"] == "diffable" for s in plan["surfaces"]) == 9
     # Plan events stay scoped to the train itself (evidence-contract invariant).
     assert plan["lifecycle_events"] == []
 

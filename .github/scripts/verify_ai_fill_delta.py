@@ -29,6 +29,17 @@ SHA_RE = re.compile(r"^[0-9a-f]{40,64}$")
 BRANCH_RE = re.compile(r"^[A-Za-z0-9._/-]+$")
 GUIDE_RE = re.compile(r"^maf-[0-9]+\.[0-9]+\.[0-9]+-migration-guide\.md$")
 REVIEW_RE = re.compile(r"^MAF[0-9]+-REVIEW-[0-9]+$", re.IGNORECASE)
+# Trusted copy (this script runs from the base checkout, never from PR data).
+SURFACE_MANIFEST = Path(__file__).resolve().parents[1] / "maf-package-surfaces.json"
+
+
+def _tracked_packages() -> set[str]:
+    """Casefolded package ids the watcher diffs (the package-surface manifest)."""
+    try:
+        manifest = json.loads(SURFACE_MANIFEST.read_text(encoding="utf-8"))
+        return {str(s["package"]).casefold() for s in manifest.get("surfaces", [])}
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        raise ValueError(f"cannot read trusted package-surface manifest: {exc}") from exc
 AUTO_START = "<!-- AUTO-GENERATED START — anything between AUTO-GENERATED START and AUTO-GENERATED END is overwritten on re-run -->"
 AUTO_END = "<!-- AUTO-GENERATED END -->"
 BREAKING_RE = re.compile(
@@ -427,10 +438,33 @@ def verify_obligations(doc: dict[str, Any], head_root: Path, canonical_raw: byte
             entry_id, package = _field(entry, "id"), _field(entry, "package")
             if entry_id and package and entry_id.casefold() not in expected_ids and not REVIEW_RE.fullmatch(entry_id):
                 replacements[package.casefold()] += 1
+        # A REVIEW sentinel means "classified breaking, but no tracked surface
+        # produced diff evidence". When the break lives in a MAF package the
+        # watcher does not diff (MAF 1.19: Microsoft.Agents.AI.Mcp), the
+        # sentinel's package is only the default guess. Concrete entries for
+        # untracked Microsoft.Agents.AI* packages may therefore satisfy any
+        # sentinel; entries for other *tracked* packages still may not, because
+        # those packages had their own diff evidence.
+        tracked = _tracked_packages() if reviews else set()
+        remaining = Counter(replacements)
+        missing_by_package: dict[str, int] = {}
         for package, count in reviews.items():
-            if replacements[package] < count:
+            own = min(count, remaining[package])
+            remaining[package] -= own
+            missing_by_package[package] = count - own
+        untracked_left = sum(
+            count
+            for package, count in remaining.items()
+            if package not in tracked and package.startswith("microsoft.agents.ai")
+        )
+        for package, missing in missing_by_package.items():
+            used = min(missing, untracked_left)
+            untracked_left -= used
+            if missing - used > 0:
+                count = reviews[package]
                 errors.append(
-                    f"{count} REVIEW sentinel(s) for {package} require distinct new concrete same-package {target} entries; found {replacements[package]}"
+                    f"{count} REVIEW sentinel(s) for {package} require distinct new concrete same-package "
+                    f"(or untracked MAF package) {target} entries; found {count - (missing - used)}"
                 )
 
         guide = _text(_safe_file(head_root, str(guide_spec["path"]), "target guide"), "target guide")

@@ -492,3 +492,41 @@ def test_history_rejects_fill_that_changes_train_lock(tmp_path: Path):
         recover_canonical_obligations(
             repo, base_sha=base, head_sha=head, base_ref="main", head_ref="release-watcher/maf-1.14.0"
         )
+
+
+def _replace_review_with(root: Path, package: str) -> None:
+    path = root / ".github/skills/maf-obsolete-api-registry/registry.yaml"
+    doc = yaml.safe_load(path.read_text(encoding="utf-8"))
+    doc["entries"] = [entry for entry in doc["entries"] if entry["id"] != "MAF114-REVIEW-001"]
+    doc["entries"].append(
+        {
+            "id": "MAF114-EXTRA-001",
+            "package": package,
+            "version_introduced": "1.14.0",
+            "fix_description": "Concrete replacement",
+        }
+    )
+    path.write_text(yaml.safe_dump(doc, sort_keys=False), encoding="utf-8")
+
+
+def test_review_sentinel_can_be_resolved_in_an_untracked_maf_package(tmp_path: Path):
+    # MAF 1.19: the break lived in Microsoft.Agents.AI.Mcp, which the watcher
+    # did not diff, so the sentinel's package was only a default guess.
+    doc, raw = _scaffold(tmp_path)
+    _replace_review_with(tmp_path, "Microsoft.Agents.AI.SomeUntrackedSurface")
+    errors = verify_obligations(doc, tmp_path, raw)
+    assert not any("REVIEW sentinel" in error for error in errors)
+
+
+def test_review_sentinel_cannot_be_resolved_in_another_tracked_package(tmp_path: Path):
+    doc, raw = _scaffold(tmp_path)
+    _replace_review_with(tmp_path, "Microsoft.Agents.AI.Workflows")
+    errors = verify_obligations(doc, tmp_path, raw)
+    assert any("same-package" in error for error in errors)
+
+
+def test_review_sentinel_cannot_be_resolved_outside_maf(tmp_path: Path):
+    doc, raw = _scaffold(tmp_path)
+    _replace_review_with(tmp_path, "Contoso.Unrelated")
+    errors = verify_obligations(doc, tmp_path, raw)
+    assert any("same-package" in error for error in errors)
