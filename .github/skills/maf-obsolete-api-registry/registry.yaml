@@ -5406,3 +5406,93 @@ entries:
 
       Verdict: Member REMOVED in new version — compile against the target package to determine the exact diagnostic. Requires human review before merging.
     applies_to_codebases: pre-1.22.0
+  - id: MAF122-HOSTING-BASETYPE-001
+    package: Microsoft.Agents.AI.Hosting
+    version_introduced: "1.22.0"
+    type: AgentSessionStore
+    method: ".base"
+    obsolete_signature: "Microsoft.Agents.AI.Hosting.AgentSessionStore (and DelegatingAgentSessionStore) base types"
+    replacement_signature: "Microsoft.Agents.AI.AgentSessionStore (and Microsoft.Agents.AI.DelegatingAgentSessionStore) base types"
+    argument_order_change: false
+    fix_description: "Rebuild against 1.22.0 and import `Microsoft.Agents.AI` for `AgentSessionStore` and `DelegatingAgentSessionStore`; update custom subclasses and casts to the new base types."
+    example_before: |
+      using Microsoft.Agents.AI.Hosting;
+
+      sealed class MyStore : AgentSessionStore
+      {
+      }
+    example_after: |
+      using Microsoft.Agents.AI;
+
+      sealed class MyStore : AgentSessionStore
+      {
+      }
+    cs_warning: BINARY_BREAK
+    guide_section: "N/A"
+    dotnet_inspect_detectable: true
+    notes: >-
+      Replaces the MAF122-REVIEW sentinel for Microsoft.Agents.AI.Hosting. The validated diff
+      reports structural rows the extractor could not draft: type `Microsoft.Agents.AI.Hosting.AgentSessionStore` and `DelegatingAgentSessionStore` were removed (moved to `Microsoft.Agents.AI`); `InMemoryAgentSessionStore`, `NoopAgentSessionStore` and `IsolationKeyScopedAgentSessionStore` base types changed.
+      Subclasses, casts and binaries compiled against 1.21.0 break (BINARY_BREAK / TypeLoadException)
+      until rebuilt, because the session-store base types moved to the `Microsoft.Agents.AI` namespace.
+      Source that already imports `Microsoft.Agents.AI` usually recompiles unchanged.
+      Verify with the compiler against the 1.22.0 package.
+    applies_to_codebases: pre-1.22.0
+  - id: MAF122-FOUNDRY-HOSTING-BASETYPE-001
+    package: Microsoft.Agents.AI.Foundry.Hosting
+    version_introduced: "1.22.0"
+    type: AgentSessionStore
+    method: ".base"
+    obsolete_signature: "Microsoft.Agents.AI.Foundry.Hosting.AgentSessionStore base type"
+    replacement_signature: "Microsoft.Agents.AI.AgentSessionStore base type"
+    argument_order_change: false
+    fix_description: "Rebuild against 1.22.0 and use `Microsoft.Agents.AI.AgentSessionStore` instead of `Microsoft.Agents.AI.Foundry.Hosting.AgentSessionStore` in subclasses, casts and variables."
+    example_before: |
+      using Microsoft.Agents.AI.Foundry.Hosting;
+
+      AgentSessionStore store = new FoundryAgentSessionStore(client);
+    example_after: |
+      using Microsoft.Agents.AI;
+      using Microsoft.Agents.AI.Foundry.Hosting;
+
+      AgentSessionStore store = new FoundryAgentSessionStore(client);
+    cs_warning: BINARY_BREAK
+    guide_section: "N/A"
+    dotnet_inspect_detectable: true
+    notes: >-
+      Replaces the MAF122-REVIEW sentinel for Microsoft.Agents.AI.Foundry.Hosting. The validated diff
+      reports structural rows the extractor could not draft: type `Microsoft.Agents.AI.Foundry.Hosting.AgentSessionStore` was removed; `FileSystemAgentSessionStore`, `FoundryAgentSessionStore` and `InMemoryAgentSessionStore` base types changed to `Microsoft.Agents.AI.AgentSessionStore`.
+      Subclasses, casts and binaries compiled against 1.21.0 break (BINARY_BREAK / TypeLoadException)
+      until rebuilt, because the session-store base types moved to the `Microsoft.Agents.AI` namespace.
+      Source that already imports `Microsoft.Agents.AI` usually recompiles unchanged.
+      Verify with the compiler against the 1.22.0 package.
+    applies_to_codebases: pre-1.22.0
+  - id: MAF122-HOSTING-AZURESTORAGE-BASETYPE-001
+    package: Microsoft.Agents.AI.Hosting.AzureStorage
+    version_introduced: "1.22.0"
+    type: AzureBlobAgentSessionStore
+    method: ".base"
+    obsolete_signature: "AzureBlobAgentSessionStore : Microsoft.Agents.AI.Hosting.AgentSessionStore"
+    replacement_signature: "AzureBlobAgentSessionStore : Microsoft.Agents.AI.AgentSessionStore"
+    argument_order_change: false
+    fix_description: "Rebuild against 1.22.0 and treat `AzureBlobAgentSessionStore` as a `Microsoft.Agents.AI.AgentSessionStore`; update casts and variables that used the Hosting base type."
+    example_before: |
+      using Microsoft.Agents.AI.Hosting;
+
+      AgentSessionStore store = new AzureBlobAgentSessionStore(containerClient);
+    example_after: |
+      using Microsoft.Agents.AI;
+      using Microsoft.Agents.AI.Hosting;
+
+      AgentSessionStore store = new AzureBlobAgentSessionStore(containerClient);
+    cs_warning: BINARY_BREAK
+    guide_section: "N/A"
+    dotnet_inspect_detectable: true
+    notes: >-
+      Replaces the MAF122-REVIEW sentinel for Microsoft.Agents.AI.Hosting.AzureStorage. The validated diff
+      reports structural rows the extractor could not draft: `AzureBlobAgentSessionStore` base type changed from `Microsoft.Agents.AI.Hosting.AgentSessionStore` to `Microsoft.Agents.AI.AgentSessionStore`.
+      Subclasses, casts and binaries compiled against 1.21.0 break (BINARY_BREAK / TypeLoadException)
+      until rebuilt, because the session-store base types moved to the `Microsoft.Agents.AI` namespace.
+      Source that already imports `Microsoft.Agents.AI` usually recompiles unchanged.
+      Verify with the compiler against the 1.22.0 package.
+    applies_to_codebases: pre-1.22.0
