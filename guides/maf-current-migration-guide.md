@@ -6348,8 +6348,11 @@ Externalized since MAF 1.17.0 to microsoft/agent-framework-durable-extension (li
 
 ## Breaking Changes (requires human verification)
 
-- Release notes flag one `[BREAKING]` change: "Migrate MCP long-running task support to the 2026-07-28 Tasks extension" (upstream PR 7774). None of the validated public API diffs above show a removed or changed member for it, and no package lifecycle transitions are declared, so the affected symbols and fix are **unverified**. Review code that uses MCP long-running tasks against the 1.19.0 packages before relying on this release; the registry sentinel `MAF119-REVIEW-001` stays open for this reason.
-- No removed, renamed, or signature-changed public APIs were detected in the validated diffs (Core, Workflows, Harness, Hosting, Hosting.OpenAI, Hosting.AGUI, GitHub.Copilot, Tools.Shell).
+- `McpClientTaskExtensions.ListAgentToolsWithTaskSupportAsync` (`Microsoft.Agents.AI.Mcp`, alpha): Rename to `ListAgentToolsWithTasksAsync(...)` on the `McpClient`; the parameters are unchanged (`MAF119-MCP-TASKS-001`, CS1061).
+- `McpTaskOptions.DefaultTimeToLive` (`Microsoft.Agents.AI.Mcp`, alpha): Delete the assignment; the option was removed with no direct replacement. New limits: `RemoteCancellationTimeout`, `MinimumPollingInterval`, `MaximumPollingInterval`, `MaxConsecutiveStuckPolls`, `MaxTotalInputRequests` (`MAF119-MCP-TASKOPTIONS-001`, CS0117).
+- **Wire and dependency change:** MCP long-running tasks now use the MCP 2026-07-28 `io.modelcontextprotocol/tasks` extension (per-request opt-in) instead of per-tool `execution.taskSupport`. The two designs are not wire compatible, so your MCP servers must also speak 2026-07-28. MAF 1.19 builds against `ModelContextProtocol` 2.1.0 (was 1.2.0) and adds `ModelContextProtocol.Extensions.Tasks` 2.1.0.
+- Source: upstream microsoft/agent-framework PR 7774 ("[BREAKING] Migrate MCP long-running task support to the 2026-07-28 Tasks extension"). `Microsoft.Agents.AI.Mcp` was not a tracked surface for 1.19.0, so these entries come from the upstream source diff, reviewed by a human, not from dotnet-inspect. It's diffed from MAF 1.20 on.
+- No removed, renamed, or signature-changed public APIs were detected in the validated diffs of the tracked surfaces (Core, Workflows, Harness, Hosting, Hosting.OpenAI, Hosting.AGUI, GitHub.Copilot, Tools.Shell).
 
 ## New Patterns
 

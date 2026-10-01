@@ -74,7 +74,7 @@ public sealed class CompatibilityTool
                 | Microsoft.Agents.AI.Workflows.Generators  | `1.19.0` | Source-gen package |
                 | Identity                                  | `ManagedIdentityCredential` | NEVER `DefaultAzureCredential` in prod (analyzer rule MAF002) |
                 
-                **Breaking** — review required. See `guides/maf-1.19.0-migration-guide.md` and the registry entries. Transitive pins carried from 1.18.0 (verify).
+                **Breaking in the alpha `Microsoft.Agents.AI.Mcp` package**: MCP long-running tasks moved to the 2026-07-28 Tasks extension (`ListAgentToolsWithTaskSupportAsync` → `ListAgentToolsWithTasksAsync`, `McpTaskOptions.DefaultTimeToLive` removed); MAF now builds against `ModelContextProtocol` 2.1.0. **Additive** in Core and Workflows. See `guides/maf-1.19.0-migration-guide.md`.
                 """,
 
             ["1.18.0"] = """
