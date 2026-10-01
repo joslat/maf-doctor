@@ -1,7 +1,6 @@
 using System.ComponentModel;
 using System.Text;
 using System.Text.Json;
-using System.Xml.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -172,119 +171,19 @@ public sealed class SemanticKernelDetectorTool
         return new SkScanResult(packages, constructs, Truncated: pass1Budget.Truncated || pass2Budget.Truncated);
     }
 
+    // Shared with the MAF coverage-horizon check; see PackageVersionScanner.
+    internal const long MaxProjectFileBytes = PackageVersionScanner.MaxProjectFileBytes;
+
     /// <summary>
     /// Reads every .csproj under the repo and returns the Semantic Kernel package
     /// references it finds (id + version). Pure XML — no build/restore.
     /// </summary>
-    // Round-2 review fixup (F-10/F-20) — matches ExplainFindingTool.MaxFileBytes /
-    // DraftIssueTool.MaxCsprojBytes. XDocument.Load(path) reads AND parses the
-    // whole file with no size limit; a pathologically large .csproj or
-    // Directory.Packages.props would otherwise be fully materialized (twice
-    // over — raw bytes, then the XML DOM) before either read below runs.
-    internal const long MaxProjectFileBytes = 10 * 1024 * 1024; // 10 MB
-
-    internal static IReadOnlyList<SkPackage> DetectPackages(string repoPath)
-    {
-        var packages = new List<SkPackage>();
-        if (!Directory.Exists(repoPath))
-            return packages;
-
-        // Central Package Management: a csproj using CPM omits Version on its
-        // PackageReference and the pin lives in a Directory.Packages.props
-        // <PackageVersion Include="..." Version="..."/>. Read those first so a
-        // CPM-managed SK package resolves to its real version, not "(unpinned)".
-        var central = ReadCentralPackageVersions(repoPath);
-
-        foreach (var csproj in SourceFileWalker.EnumerateCsprojFiles(repoPath))
-        {
-            if (new FileInfo(csproj).Length > MaxProjectFileBytes) continue;
-            XDocument doc;
-            try { doc = XDocument.Load(csproj); }
-            catch { continue; } // malformed csproj — skip, don't fail the scan
-            foreach (var pr in doc.Descendants().Where(e => e.Name.LocalName == "PackageReference"))
-            {
-                var id = (string?)pr.Attribute("Include") ?? (string?)pr.Attribute("Update");
-                // NuGet package IDs are case-insensitive.
-                if (id is null || !id.StartsWith("Microsoft.SemanticKernel", StringComparison.OrdinalIgnoreCase))
-                    continue;
-                // VersionOverride beats the central pin under CPM; then a local
-                // Version attr/element; then the central pin; else genuinely unpinned.
-                var version = (string?)pr.Attribute("VersionOverride")
-                    ?? (string?)pr.Attribute("Version")
-                    ?? pr.Elements().FirstOrDefault(e => e.Name.LocalName == "Version")?.Value
-                    ?? (central.TryGetValue(id, out var cv) ? cv : null);
-                packages.Add(new SkPackage(id, version ?? "(unpinned)"));
-            }
-        }
-        return packages
-            // NuGet IDs are case-insensitive — group/order accordingly so casing variants
-            // collapse to one entry.
-            .GroupBy(p => p.Id, StringComparer.OrdinalIgnoreCase)
-            .Select(g =>
-            {
-                // Prefer a pinned version over "(unpinned)". If projects pin the SAME id to
-                // DIFFERENT versions, surface ALL of them (sorted, so the result is
-                // deterministic across machines / enumeration order) rather than silently
-                // picking whichever csproj happened to be walked first — a version mismatch
-                // is exactly what migration planning needs to see.
-                var pinned = g.Select(p => p.Version)
-                    .Where(v => v != "(unpinned)")
-                    .Distinct(StringComparer.Ordinal)
-                    .OrderBy(v => v, StringComparer.Ordinal)
-                    .ToList();
-                var version = pinned.Count switch
-                {
-                    0 => "(unpinned)",
-                    1 => pinned[0],
-                    _ => string.Join(", ", pinned),
-                };
-                return new SkPackage(g.Key, version);
-            })
-            .OrderBy(p => p.Id, StringComparer.OrdinalIgnoreCase)
+    internal static IReadOnlyList<SkPackage> DetectPackages(string repoPath) =>
+        PackageVersionScanner
+            // NuGet package IDs are case-insensitive.
+            .Detect(repoPath, id => id.StartsWith("Microsoft.SemanticKernel", StringComparison.OrdinalIgnoreCase))
+            .Select(p => new SkPackage(p.Id, p.Version))
             .ToList();
-    }
-
-    /// <summary>
-    /// Reads every <c>Directory.Packages.props</c> under the repo into an id→version
-    /// map (Central Package Management). Used to resolve the version of a CPM-pinned
-    /// package whose <c>PackageReference</c> deliberately omits <c>Version</c>.
-    /// </summary>
-    private static IReadOnlyDictionary<string, string> ReadCentralPackageVersions(string repoPath)
-    {
-        // NuGet IDs are case-insensitive, so a `PackageReference Include="microsoft.semantickernel"`
-        // still resolves against a `PackageVersion Include="Microsoft.SemanticKernel"` pin.
-        var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        List<string> propsFiles;
-        try
-        {
-            // Use the hardened shared walker (skips symlinks / hidden / system / bin / obj,
-            // ignores inaccessible subdirs) rather than a raw recursive EnumerateFiles.
-            // .OrderBy makes "first id wins" deterministic across machines when several
-            // Directory.Packages.props exist; .ToList() forces enumeration inside the try.
-            propsFiles = SourceFileWalker
-                .EnumerateFiles(repoPath, "Directory.Packages.props")
-                .OrderBy(p => p, StringComparer.Ordinal)
-                .ToList();
-        }
-        catch { return map; }
-
-        foreach (var props in propsFiles)
-        {
-            if (new FileInfo(props).Length > MaxProjectFileBytes) continue;
-            XDocument doc;
-            try { doc = XDocument.Load(props); }
-            catch { continue; }
-            foreach (var pv in doc.Descendants().Where(e => e.Name.LocalName == "PackageVersion"))
-            {
-                var id = (string?)pv.Attribute("Include") ?? (string?)pv.Attribute("Update");
-                var ver = (string?)pv.Attribute("Version")
-                    ?? pv.Elements().FirstOrDefault(e => e.Name.LocalName == "Version")?.Value;
-                if (id is not null && ver is not null)
-                    map.TryAdd(id, ver);
-            }
-        }
-        return map;
-    }
 
     /// <summary>
     /// Inventories the Semantic Kernel constructs in one C# file. Returns at most one
