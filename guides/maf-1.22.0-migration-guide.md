@@ -895,19 +895,28 @@ Automated API summary signals:
 
 - `35` breaking API change row(s)
 
-<!-- TODO: Review every package evidence block and lifecycle transition above -->
+- `AgentSessionStore` / `DelegatingAgentSessionStore` (Hosting, Foundry.Hosting): types removed from `Microsoft.Agents.AI.Hosting` and `Microsoft.Agents.AI.Foundry.Hosting`; replace with `Microsoft.Agents.AI.AgentSessionStore` / `Microsoft.Agents.AI.DelegatingAgentSessionStore`.
+- `AIHostAgent`, `HostedAgentBuilderExtensions.WithSessionStore`, `IsolationKeyScopedAgentSessionStore`, `FoundryHostingExtensions.AddFoundryResponses`: constructor and method parameters now use `Microsoft.Agents.AI.AgentSessionStore`; rebuild against 1.22.0.
+- `InMemory`/`Noop`/`IsolationKeyScoped`/`FileSystem`/`Foundry` session stores: `GetSessionAsync`/`SaveSessionAsync` now take an `AgentSessionStoreKey` instead of `sessionStoreId` (Hosting) or `conversationId` + `userId` (Foundry.Hosting); `GetSessionAsync` returns `AgentSession?`.
+- `DeleteSessionAsync` removed from `InMemoryAgentSessionStore`, `NoopAgentSessionStore`, `IsolationKeyScopedAgentSessionStore` and `AzureBlobAgentSessionStore`; the validated diff shows no direct replacement.
+- `AzureBlobAgentSessionStore`: base type is now `Microsoft.Agents.AI.AgentSessionStore` with the same key-based signatures.
+- `FoundryChatOptionsExtensions.WithFoundryHostedAgentUserIdentity` removed; `FoundryAgent.CreateFoundryHostedAgentSessionAsync` gained a `userIdentity` parameter (release notes: delegated user identity is now sticky on `AgentSession`).
 
 ## New Patterns
 
-<!-- TODO: Document any new recommended patterns from release notes -->
+- `Microsoft.Agents.AI.AgentSessionStore`, `AgentSessionStoreKey` and `DelegatingAgentSessionStore` are promoted into the Abstractions/Core packages; `AIHostAgent` and `IsolationKeyScopedAgentSessionStore` gain `GetOrCreateSessionAsync`, and `AIHostAgent` gains `SaveSessionAsync`.
+- `AIAgentExtensions.AsIChatClient` exposes an `AIAgent` as an `IChatClient`.
+- `OpenTelemetryAgent.DefaultSourceName` is now public.
+- `AgentModeProviderOptions.DisableModeSetTool` / `DisableModeGetTool` and `AgentModeProvider.SetModeAsync` give per-tool control of the mode provider.
+- Release notes flag further `[BREAKING]` items with no public-API diff: approval-binding for replay support, provider-backed MCP sessions scoped per invocation, and ChatClientAgent tools passed per run only. Review these behaviorally (persistence, approval, and MCP session tests).
 
 ## Obsolete APIs Added
 
-<!-- TODO: Use MafRunCs0618Hunt against a project pinned to 1.22.0 and document findings -->
+None detected in the validated public API diffs.
 
 ## Known Misalignments
 
-<!-- TODO: Document any discrepancies between official docs and assembly behavior -->
+None documented yet.
 
 <!-- AUTO-GENERATED END -->
 

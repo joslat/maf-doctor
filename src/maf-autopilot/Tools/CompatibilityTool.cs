@@ -74,7 +74,7 @@ public sealed class CompatibilityTool
                 | Microsoft.Agents.AI.Workflows.Generators  | `1.22.0` | Source-gen package |
                 | Identity                                  | `ManagedIdentityCredential` | NEVER `DefaultAzureCredential` in prod (analyzer rule MAF002) |
                 
-                **Breaking** — review required. Removed: `DeleteSessionAsync`, `WithFoundryHostedAgentUserIdentity`. API summary: 35 breaking. See `guides/maf-1.22.0-migration-guide.md` and the registry entries. Transitive pins carried from 1.21.0 (verify).
+                **Breaking** — review required, concentrated in the preview Hosting packages. `AgentSessionStore` and `DelegatingAgentSessionStore` moved from `Microsoft.Agents.AI.Hosting` / `Microsoft.Agents.AI.Foundry.Hosting` into `Microsoft.Agents.AI` (Abstractions); store implementations (`InMemory`, `Noop`, `IsolationKeyScoped`, `FileSystem`, `Foundry`, `AzureBlob`) now use `GetSessionAsync`/`SaveSessionAsync(agent, AgentSessionStoreKey, …)` and `DeleteSessionAsync` was removed. Foundry: `WithFoundryHostedAgentUserIdentity` removed; `CreateFoundryHostedAgentSessionAsync` gained `userIdentity`. API summary: 35 breaking. See `guides/maf-1.22.0-migration-guide.md` and the registry entries. Transitive pins carried from 1.21.0 (verify).
                 """,
 
             ["1.21.0"] = """
