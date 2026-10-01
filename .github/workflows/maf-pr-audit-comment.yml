@@ -177,7 +177,7 @@ jobs:
         # SHA-pinned per supply-chain hardening. Verify against tag with:
         #   gh api repos/marocchino/sticky-pull-request-comment/git/refs/tags/v2.9.2 --jq .object.sha
         # Update via Dependabot (.github/dependabot.yml).
-        uses: marocchino/sticky-pull-request-comment@0ea0beb66eb9baf113663a64ec522f60e49231c0  # v2.9.2
+        uses: marocchino/sticky-pull-request-comment@5770ad5eb8f42dd2c4f34da00c94c5381e49af88  # v2.9.2
         with:
           header: ${{ steps.producer.outputs.header }}
           path: ${{ steps.producer.outputs.body_file }}
