@@ -21,6 +21,7 @@
 
 | MAF Version | Microsoft.Extensions.AI | .NET | Azure.AI.OpenAI | Generators Package | Notes |
 |-------------|------------------------|------|-----------------|--------------------|-------|
+| **1.21.0** | `≥ 10.7.0` | `≥ 8.0` | _(not pinned by MAF — BYO via IChatClient)_ | `1.21.0` | **Breaking** — review required. API summary: 2 breaking. See `guides/maf-1.21.0-migration-guide.md` and the registry entries. Transitive pins carried from 1.20.0 (verify). |
 | **1.20.0** | `≥ 10.7.0` | `≥ 8.0` | _(not pinned by MAF — BYO via IChatClient)_ | `1.20.0` | Additive release — no `.NET … [BREAKING]` changes and no breaking or potentially-breaking API rows (source-compatible). New members: `WaitTimeout`. Transitive pins carried from 1.19.0. |
 | **1.19.0** | `≥ 10.7.0` | `≥ 8.0` | _(not pinned by MAF — BYO via IChatClient)_ | `1.19.0` | **Breaking in the alpha `Microsoft.Agents.AI.Mcp` package**: MCP long-running tasks moved to the 2026-07-28 Tasks extension (`ListAgentToolsWithTaskSupportAsync` → `ListAgentToolsWithTasksAsync`, `McpTaskOptions.DefaultTimeToLive` removed); MAF now builds against `ModelContextProtocol` 2.1.0. **Additive** in Core and Workflows. See `guides/maf-1.19.0-migration-guide.md`. |
 | **1.18.0** | `≥ 10.7.0` | `≥ 8.0` | _(not pinned by MAF — BYO via IChatClient)_ | `1.18.0` | **Breaking in the preview Hosting package** — `SessionIsolationKeyProvider` was renamed to `AgentIsolationKeyProvider`, which also changes the `IsolationKeyScopedAgentSessionStore` constructor's `keyProvider` parameter type. **Additive** in Core: `AllowConcurrentInvocation`, `EnableInvocableFunctionBypassing` / `UseInvocableFunctionBypassing`, bounded tool-approval auto-approval (`MaxAutoApprovalIterations`), and `BackgroundAgentsProvider.ReleaseSessionAsync`. Transitive pins carried from 1.17.0. See `guides/maf-1.18.0-migration-guide.md` and the registry entries. |
@@ -76,7 +77,7 @@
 
 The `.maf-version` file at the repository root records the latest MAF version this toolkit's data covers. The `maf-release-watcher` GitHub Actions workflow compares this against the NuGet feed to detect new releases.
 
-Current tracked version: **`1.20.0`** (see `.maf-version`)
+Current tracked version: **`1.21.0`** (see `.maf-version`)
 
 ---
 
