@@ -79,3 +79,14 @@ def test_unreadable_upstream_is_never_reported_fresh(tmp_path):
     bad.write_text("not json", encoding="utf-8")
     rc = cf.main(["--main-version", "1.23.0", "--releases-json", str(bad), "--report-out", str(report)])
     assert rc == 2 and "Freshness unknown" in report.read_text(encoding="utf-8")
+
+
+def test_main_writes_behind_counts_to_github_output(tmp_path, monkeypatch):
+    out = tmp_path / "github_output"
+    monkeypatch.setenv("GITHUB_OUTPUT", str(out))
+    cf.main([
+        "--main-version", "1.22.0", "--shipped-version", "1.17.0", "--today", "2026-10-01",
+        "--releases-json", str(_releases_file(tmp_path)), "--report-out", str(tmp_path / "r.md"),
+    ])
+    lines = out.read_text(encoding="utf-8").splitlines()
+    assert "main_behind=1" in lines and "shipped_behind=4" in lines

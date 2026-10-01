@@ -19,6 +19,7 @@ import argparse
 import datetime as dt
 import gzip
 import json
+import os
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -151,6 +152,13 @@ def main(argv: list[str] | None = None) -> int:
     report = render(levels, releases[-1][0], args.max_lag, args.max_age_days)
     args.report_out.write_text(report, encoding="utf-8")
     print(report)
+    # Z-09: the workflow dispatches the watcher as soon as main is behind at
+    # all, before the SLO is breached, so detection takes a day, not a week.
+    github_output = os.environ.get("GITHUB_OUTPUT")
+    if github_output:
+        with open(github_output, "a", encoding="utf-8") as handle:
+            for level in levels:
+                handle.write(f"{level.name}_behind={len(level.behind)}\n")
     return 0 if all(level.ok for level in levels) else 1
 
 
