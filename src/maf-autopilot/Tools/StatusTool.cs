@@ -14,9 +14,10 @@ public sealed class StatusTool
 {
     [McpServerTool(ReadOnly = true, Destructive = false, OpenWorld = true)]
     [Description("""
-        Check maf-doctor package freshness and workspace init freshness. Use this
-        when the user asks whether the MCP server itself needs an update or whether
-        they only need to rerun `maf-doctor init` for this workspace.
+        Check maf-doctor package freshness, MAF knowledge freshness, and workspace
+        init freshness. Use this when the user asks whether the MCP server itself
+        needs an update, whether its registry knows the latest MAF releases, or
+        whether they only need to rerun `maf-doctor init` for this workspace.
 
         Input:
           - repoPath: repository/workspace root to inspect. Defaults to the
@@ -47,7 +48,21 @@ public sealed class StatusTool
         var update = await UpdateAdvisor.CheckForUpdateAsync(timeout: TimeSpan.FromSeconds(3));
         var init = InitCommand.GetWorkspaceInitStatus(targetDir);
         var markdown = UpdateAdvisor.BuildMarkdown(update, init, targetDir);
-        return markdown + "\n\n" + BuildWorkspacePolicySection();
+
+        // U-02: also report whether the installed *knowledge* is current with MAF,
+        // and whether this workspace is past it (coverage horizon, U-01).
+        var knowledge = string.Empty;
+        string? registryTarget = null;
+        try { registryTarget = new Data.RegistryService().TargetVersion; }
+        catch { /* registry unavailable: skip the knowledge section */ }
+        if (!string.IsNullOrWhiteSpace(registryTarget))
+        {
+            var status = await MafKnowledgeAdvisor.CheckAsync(registryTarget, timeout: TimeSpan.FromSeconds(3));
+            var gap = CoverageHorizon.Evaluate(targetDir, registryTarget);
+            knowledge = MafKnowledgeAdvisor.BuildMarkdown(status, gap) + "\n\n";
+        }
+
+        return markdown + "\n\n" + knowledge + BuildWorkspacePolicySection();
     }
 
     /// <summary>

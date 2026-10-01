@@ -256,7 +256,7 @@ internal static class UpdateAdvisor
         return status;
     }
 
-    private static bool IsDisabled()
+    internal static bool IsDisabled()
     {
         var value = Environment.GetEnvironmentVariable("MAF_DOCTOR_UPDATE_CHECK");
         return value is not null && value.Trim().ToLowerInvariant() is "0" or "false" or "off" or "no";
@@ -300,7 +300,7 @@ internal static class UpdateAdvisor
         }
     }
 
-    private static string CacheRoot
+    internal static string CacheRoot
     {
         get
         {

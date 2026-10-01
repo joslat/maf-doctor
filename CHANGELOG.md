@@ -26,6 +26,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`MafDoctorStatus` reports knowledge freshness.** Besides tool and init
+  freshness, it now shows which MAF version the installed registry covers, how many
+  stable MAF releases on nuget.org are newer (cached 24 h, 3 s timeout, honors
+  `MAF_DOCTOR_UPDATE_CHECK`), and the workspace's coverage horizon.
 - **Additive MAF releases merge themselves.** The watcher enables auto-merge on
   additive scaffold PRs. They land once every required check passes (build-test,
   ci-invariants, `verify`). Breaking releases keep human review.
