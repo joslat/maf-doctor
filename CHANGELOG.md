@@ -50,6 +50,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Nine breaking changes in MAF 1.18 and 1.21 were missing.** Those releases were
+  processed while the watcher diffed only 8–9 packages. A backfill diff of the other
+  packages found them: Foundry.Hosting session stores return `AgentSession?` and
+  `AddFoundryResponses` gained `configure` (1.18), the AspNetCore claims-isolation types
+  and `UseClaimsBasedSessionIsolation` were renamed (1.18), and the A2A `AgentRunMode`
+  members were renamed to `ReturnMessage`/`ReturnTask`/`ReturnTaskWhen` (1.21). Added as
+  registry entries with exact signatures and noted in the 1.18 and 1.21 guides.
 - **The fill agent was told to follow MAF 1.3.0 rules.** `.github/copilot-instructions.md`
   was a stale `init` output ("NEVER introduce patterns not present in MAF 1.3.0") that
   Copilot loads as repository instructions, including in the agentic fill. It now
