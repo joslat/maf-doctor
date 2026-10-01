@@ -73,6 +73,13 @@ CLASSES: tuple[FailureClass, ...] = (
         ("Process releases sequentially", "already exists; refusing", "appeared after selection"),
     ),
     FailureClass(
+        "stalled-pr",
+        "A watcher scaffold PR has been open too long; the release chain is stalled",
+        "Fill, verify and merge (or close) the open release-watcher PR; the next train "
+        "is only processed after it lands.",
+        ("has been open for",),
+    ),
+    FailureClass(
         "registry-extraction",
         "Registry extraction or de-duplication failed",
         "Inspect the extraction ledger artifact on the run.",

@@ -26,6 +26,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Additive MAF releases merge themselves.** The watcher enables auto-merge on
+  additive scaffold PRs. They land once every required check passes (build-test,
+  ci-invariants, `verify`). Breaking releases keep human review.
+- **Autonomy envelope in the required `verify` check.** A `release-watcher/maf-*` PR
+  that touches anything outside the scaffold/fill data paths (registry, guides,
+  compatibility matrix and its code mirror, `.maf-version`, train lock, obligations)
+  fails `verify` and can never auto-merge.
+- **Freshness SLO (`maf-freshness`, daily).** Compares the MAF release covered on
+  `main` and in the latest release tag with nuget.org. More than one release or ten
+  days behind keeps a rolling "MAF knowledge is stale" issue open, which closes
+  itself once fresh again.
+- **Stalled watcher PRs fail.** An open scaffold PR warns after 7 days and fails the
+  watcher after 14, with a new `stalled-pr` failure class and runbook section.
 - **Coverage horizon (honest verdicts past the registry).** `doctor` (markdown, plan
   and JSON) and `MafApiSafety` now compare the project's `Microsoft.Agents.AI*`
   package versions (including Central Package Management pins) with the embedded

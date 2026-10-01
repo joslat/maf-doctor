@@ -124,6 +124,30 @@ jobs:
             echo "::notice title=verify-registry trivially passes::PR doesn't touch watcher-managed files — reporting success."
           fi
 
+      - name: Autonomy envelope for release-watcher PRs (Z-02)
+        # Release-watcher scaffold PRs may auto-merge (A-02), so this required
+        # check also proves they touch ONLY the scaffold/fill data paths. Any
+        # change to workflows, scripts, or product code on such a branch fails
+        # here and blocks merging, including auto-merge.
+        env:
+          BASE_SHA: ${{ steps.trusted_base.outputs.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          set -euo pipefail
+          case "$HEAD_REF" in
+            release-watcher/maf-*) ;;
+            *) echo "Not a release-watcher PR; envelope not applicable."; exit 0 ;;
+          esac
+          ALLOWED='^(\.github/skills/maf-obsolete-api-registry/registry\.yaml|\.github/maf-scaffold-obligations/maf-[0-9]+\.[0-9]+\.[0-9]+\.json|\.github/maf-train-lock\.json|docs/compatibility-matrix\.md|guides/maf-[0-9a-z.-]+-migration-guide\.md|src/maf-autopilot/Tools/CompatibilityTool\.cs|\.maf-version)$'
+          OUTSIDE=$(git -C pr diff --name-only "$BASE_SHA" "$HEAD_SHA" | grep -vE "$ALLOWED" || true)
+          if [ -n "$OUTSIDE" ]; then
+            echo "::error title=Autonomy envelope violated::A release-watcher PR changed files outside the scaffold/fill allowlist:"
+            echo "$OUTSIDE" | sed 's/^/  /'
+            exit 1
+          fi
+          echo "Autonomy envelope OK: only scaffold/fill data paths changed."
+
       - name: Setup .NET
         # Round-3 review fixup — continue-on-error so a transient setup-dotnet
         # failure doesn't skip every downstream step via the implicit

@@ -139,12 +139,24 @@ jobs:
           # parallel cumulative deltas and skip the per-release chain. A non-empty
           # push_target remains the explicit maintainer dry-run escape hatch.
           if [ -z "$PUSH_TARGET" ]; then
-            OPEN_WATCHER=$(gh pr list --state open --json number,headRefName \
-              --jq '[.[] | select(.headRefName | startswith("release-watcher/maf-"))][0] | if . then "#\(.number) (\(.headRefName))" else "" end' 2>/dev/null)
+            OPEN_WATCHER=$(gh pr list --state open --json number,headRefName,createdAt \
+              --jq '[.[] | select(.headRefName | startswith("release-watcher/maf-"))][0] | if . then "#\(.number) (\(.headRefName))|\(.createdAt)" else "" end' 2>/dev/null)
           else
             OPEN_WATCHER=""
           fi
           if [ -n "$OPEN_WATCHER" ]; then
+            OPENED_AT="${OPEN_WATCHER##*|}"
+            OPEN_WATCHER="${OPEN_WATCHER%|*}"
+            # O-03: a waiting PR is waiting, not success. The 2026-07/08 stall was
+            # 25 days of green no-ops. Warn after 7 days, fail after 14 (the
+            # failure issue then classifies it as stalled-pr with a runbook link).
+            AGE_DAYS=$(( ( $(date -u +%s) - $(date -u -d "$OPENED_AT" +%s) ) / 86400 ))
+            if [ "$AGE_DAYS" -ge 14 ]; then
+              echo "::error::Watcher scaffold PR $OPEN_WATCHER has been open for $AGE_DAYS days (limit 14); the release chain is stalled."
+              exit 1
+            elif [ "$AGE_DAYS" -ge 7 ]; then
+              echo "::warning::Watcher scaffold PR $OPEN_WATCHER has been open for $AGE_DAYS days; it fails the watcher at 14."
+            fi
             echo "ℹ️ Watcher scaffold PR $OPEN_WATCHER is already open — clean no-op until it is merged or closed."
             echo "old_version=$CURRENT" >> $GITHUB_OUTPUT
             echo "new_version=$LATEST" >> $GITHUB_OUTPUT
@@ -667,6 +679,14 @@ jobs:
               gh label create additive-auto-green --color 0E8A16 \
                 --description "Watcher PR: additive release, scaffold auto-filled & green" 2>/dev/null || true
               gh pr edit "$BRANCH" --add-label additive-auto-green 2>/dev/null || true
+              # A-02: additive trains merge themselves once every REQUIRED check
+              # passes (build-test, ci-invariants, verify incl. the autonomy
+              # envelope). Breaking trains keep human review.
+              if gh pr merge "$BRANCH" --auto --merge 2>/dev/null; then
+                echo "✅ Auto-merge enabled for additive train ${NEW_VERSION}."
+              else
+                echo "::warning::Could not enable auto-merge for ${BRANCH}; it needs a manual merge."
+              fi
             fi
           fi
 

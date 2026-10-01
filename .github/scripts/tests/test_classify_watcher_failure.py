@@ -105,3 +105,10 @@ def test_every_failure_class_has_a_runbook_section():
     runbook = (REPO_ROOT / cwf.RUNBOOK).read_text(encoding="utf-8")
     for failure in (*cwf.CLASSES, cwf.UNKNOWN):
         assert f"\n## {failure.key}\n" in runbook, failure.key
+
+
+def test_stalled_scaffold_pr_is_classified():
+    log = "2026-10-15T06:00:00Z ##[error]Watcher scaffold PR #196 (release-watcher/maf-1.22.0) has been open for 15 days (limit 14); the release chain is stalled."
+    failure, evidence = cwf.classify(log)
+    assert failure.key == "stalled-pr"
+    assert "15 days" in evidence[0]
