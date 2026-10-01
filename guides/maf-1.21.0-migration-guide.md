@@ -337,19 +337,24 @@ Automated API summary signals:
 
 - `2` breaking API change row(s)
 
-<!-- TODO: Review every package evidence block and lifecycle transition above -->
+- `HostedWorkflowBuilderExtensions.AddAsAIAgent(builder, lifetime)`: Rebuild against 1.21.0 and use the new `AddAsAIAgent(builder, lifetime, includeWorkflowOutputsInResponse)` metadata signature (preview Hosting package; the new parameter defaults to `false`, so source still compiles but prebuilt consumers break).
+- `HostedWorkflowBuilderExtensions.AddAsAIAgent(builder, name, lifetime)`: Rebuild against 1.21.0 and use the new `AddAsAIAgent(builder, name, lifetime, includeWorkflowOutputsInResponse)` metadata signature.
 
 ## New Patterns
 
-<!-- TODO: Document any new recommended patterns from release notes -->
+- Hosted workflow agents can include workflow outputs in responses by passing `includeWorkflowOutputsInResponse: true` to `AddAsAIAgent` (default `false`).
+- `AgentFileStore` gains `SplitLines`/`ScanContent` and `FileAccessProvider` gains a `ReadLinesToolName` (`file_access_read_lines`); `FileLineEdit` gains `ExpectedLine`. The release notes mark this line-numbering contract change as `[BREAKING]`, but the validated diff shows additive members only; review custom `AgentFileStore` consumers.
+- `OpenAIResponsesMapOptions.DangerouslyAllowClientFunctionTools` opts in to client function-tool forwarding for Responses hosting; keep it off unless callers are trusted.
+- Release notes flag further `[BREAKING]` items with no public-API diff: A2A run-mode clarification, LocalCodeAct subprocess environment isolation, and MCP skill archives limited to ZIP. Review these behaviorally.
+- Release notes mention dependency changes: Azure.AI.OpenAI dependency removed, Azure.AI.Projects moved to 3.0.0 beta, and the Bedrock MEAI package replaced.
 
 ## Obsolete APIs Added
 
-<!-- TODO: Use MafRunCs0618Hunt against a project pinned to 1.21.0 and document findings -->
+None detected in the validated public API diffs.
 
 ## Known Misalignments
 
-<!-- TODO: Document any discrepancies between official docs and assembly behavior -->
+None documented yet.
 
 <!-- AUTO-GENERATED END -->
 

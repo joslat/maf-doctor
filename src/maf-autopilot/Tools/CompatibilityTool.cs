@@ -74,7 +74,7 @@ public sealed class CompatibilityTool
                 | Microsoft.Agents.AI.Workflows.Generators  | `1.21.0` | Source-gen package |
                 | Identity                                  | `ManagedIdentityCredential` | NEVER `DefaultAzureCredential` in prod (analyzer rule MAF002) |
                 
-                **Breaking** — review required. API summary: 2 breaking. See `guides/maf-1.21.0-migration-guide.md` and the registry entries. Transitive pins carried from 1.20.0 (verify).
+                **Breaking** — review required. Breaking only in the preview Hosting package: two `HostedWorkflowBuilderExtensions.AddAsAIAgent` overloads gained an optional `includeWorkflowOutputsInResponse` parameter (binary break; rebuild required, source still compiles). See `guides/maf-1.21.0-migration-guide.md` and the registry entries. Transitive pins carried from 1.20.0 (verify).
                 """,
 
             ["1.20.0"] = """
