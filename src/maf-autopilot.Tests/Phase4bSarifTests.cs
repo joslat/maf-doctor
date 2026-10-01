@@ -23,7 +23,7 @@ public sealed class Phase4bSarifTests
     private static JsonDocument AntiPatternSarif()
     {
         var findings = AntiPatternScannerTool.ScanFile(
-            "public class Prod { void M() { var c = new DefaultAzureCredential(); } }", "Prod.cs");
+            "using Microsoft.Agents.AI; public class Prod { void M() { var c = new DefaultAzureCredential(); } }", "Prod.cs");
         return JsonDocument.Parse(SarifExportTool.EmitAntiPatternsSarif(findings));
     }
 

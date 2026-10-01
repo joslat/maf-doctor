@@ -190,6 +190,16 @@ public sealed class AntiPatternScannerTool
     /// </summary>
     internal static bool LooksLikeSecret(string text) => SecretRedactionPattern.IsMatch(text);
 
+    private static readonly string[] AiNamespaces =
+        ["Microsoft.Agents.AI", "Microsoft.Extensions.AI", "Azure.AI", "OpenAI", "Microsoft.SemanticKernel"];
+
+    /// <summary>True when the file imports an agent/AI stack (MAF, MEAI, Azure AI, OpenAI, SK).</summary>
+    internal static bool UsesAiStack(Microsoft.CodeAnalysis.SyntaxNode root) =>
+        root.DescendantNodes()
+            .OfType<UsingDirectiveSyntax>()
+            .Select(u => u.NamespaceOrType?.ToString() ?? string.Empty)
+            .Any(name => AiNamespaces.Any(ns => name == ns || name.StartsWith(ns + ".", StringComparison.Ordinal)));
+
     internal static readonly IReadOnlyList<AntiPatternRule> AllRules = new AntiPatternRule[]
     {
         new RegexRule(
@@ -197,7 +207,12 @@ public sealed class AntiPatternScannerTool
             name: "DefaultAzureCredential in production code",
             severity: AntiPatternSeverity.Error,
             pattern: new Regex(@"\bnew\s+DefaultAzureCredential\s*\(", RegexHygiene, RegexBudget),
-            skipInTestFiles: true),
+            skipInTestFiles: true,
+            // Q-04: the rule is about credentials for agent/AI clients. A false-
+            // positive sweep of non-MAF repos (CleanArchitecture: a Key Vault
+            // config source) graded a repo with no MAF code "C" and offered to
+            // rewrite it. Only files that use an AI stack are in scope.
+            appliesToFile: UsesAiStack),
 
         new RegexRule(
             id: "MAF-AP-SEC-002",
@@ -921,12 +936,14 @@ internal sealed class RegexRule : AntiPatternRule
     private readonly Regex? _pattern;
     private readonly Func<string, Microsoft.CodeAnalysis.SyntaxNode, string, IEnumerable<AntiPatternFinding>>? _custom;
     private readonly bool _matchesStringContent;
+    private readonly Func<Microsoft.CodeAnalysis.SyntaxNode, bool>? _appliesToFile;
 
     public RegexRule(
         string id, string name, AntiPatternSeverity severity,
         Regex? pattern, bool skipInTestFiles = false,
         Func<string, Microsoft.CodeAnalysis.SyntaxNode, string, IEnumerable<AntiPatternFinding>>? customScan = null,
-        bool matchesStringContent = false)
+        bool matchesStringContent = false,
+        Func<Microsoft.CodeAnalysis.SyntaxNode, bool>? appliesToFile = null)
     {
         Id = id;
         Name = name;
@@ -935,10 +952,14 @@ internal sealed class RegexRule : AntiPatternRule
         _pattern = pattern;
         _custom = customScan;
         _matchesStringContent = matchesStringContent;
+        _appliesToFile = appliesToFile;
     }
 
     public override IEnumerable<AntiPatternFinding> Scan(string source, Microsoft.CodeAnalysis.SyntaxNode root, string file)
     {
+        if (_appliesToFile is not null && !_appliesToFile(root))
+            return [];
+
         if (_custom is not null)
             return _custom(source, root, file);
 

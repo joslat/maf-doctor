@@ -97,7 +97,7 @@ public sealed class ConfidenceTriageTests
     {
         using var repo = new TempRepo(
             ("Program.cs", """
-                using Azure.Identity;
+                using Azure.Identity; using Microsoft.Agents.AI;
                 public class Program
                 {
                     public static async System.Threading.Tasks.Task Main(dynamic agent)

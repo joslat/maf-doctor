@@ -15,10 +15,40 @@ public class AntiPatternScannerToolTests
     // -------------------------------------------------------------------------
 
     [Fact]
+    public void Sec001_OutsideAiCode_DoesNotFlag()
+    {
+        // Q-04: a non-MAF repo (CleanArchitecture) was graded "C" for a Key Vault
+        // configuration credential. SEC-001 targets agent/AI client credentials.
+        const string source = """
+            using Azure.Identity;
+            using Azure.Extensions.AspNetCore.Configuration.Secrets;
+            public static class DependencyInjection
+            {
+                public static void AddKeyVault(ConfigurationManager config, Uri vault) =>
+                    config.AddAzureKeyVault(vault, new DefaultAzureCredential());
+            }
+            """;
+        var findings = AntiPatternScannerTool.ScanFile(source, "src/Web/DependencyInjection.cs");
+        Assert.DoesNotContain(findings, f => f.RuleId == "MAF-AP-SEC-001");
+    }
+
+    [Theory]
+    [InlineData("using Microsoft.Agents.AI;")]
+    [InlineData("using Microsoft.Extensions.AI;")]
+    [InlineData("using Azure.AI.OpenAI;")]
+    [InlineData("using OpenAI.Chat;")]
+    public void Sec001_InAiCode_Flags(string aiUsing)
+    {
+        var source = aiUsing + "\nusing Azure.Identity;\npublic class Agents { public void Setup() { var cred = new DefaultAzureCredential(); } }";
+        var findings = AntiPatternScannerTool.ScanFile(source, "src/Agents.cs");
+        Assert.Contains(findings, f => f.RuleId == "MAF-AP-SEC-001");
+    }
+
+    [Fact]
     public void Sec001_DefaultAzureCredentialInProduction_Flags()
     {
         const string source = """
-            using Azure.Identity;
+            using Azure.Identity; using Microsoft.Agents.AI;
             public class Auth
             {
                 public void Setup() { var cred = new DefaultAzureCredential(); }

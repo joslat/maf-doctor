@@ -12,7 +12,7 @@ namespace MafDoctor.Tests;
 public class SourceParsingTests
 {
     private const string CSharp14 = """
-        using Azure.Identity;
+        using Azure.Identity; using Microsoft.Agents.AI;
 
         public static class TextExtensions
         {
