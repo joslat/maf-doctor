@@ -25,6 +25,17 @@ updates:
     commit-message:
       prefix: "deps(nuget)"
       include: scope
+    # One PR per week for minor/patch bumps instead of five separate PRs that fill
+    # the open-PR limit and block everything else (2026-07 → 10 queue jam).
+    groups:
+      nuget-minor-patch:
+        update-types: ["minor", "patch"]
+    ignore:
+      # The Roslyn analyzer package must keep a low Microsoft.CodeAnalysis floor so it
+      # loads in older SDKs/VS (ROADMAP R-03: the tool moves to 5.x via VersionOverride,
+      # the analyzer stays on 4.x). Majors are bumped deliberately, not by Dependabot.
+      - dependency-name: "Microsoft.CodeAnalysis*"
+        update-types: ["version-update:semver-major"]
 
   # GitHub Actions — Dependabot will rewrite the SHA + the `# vX.Y.Z` comment together,
   # keeping the audit trail intact.
@@ -42,6 +53,9 @@ updates:
     commit-message:
       prefix: "deps(actions)"
       include: scope
+    groups:
+      github-actions:
+        patterns: ["*"]
 
   # Docker base image (mcr.microsoft.com/dotnet/sdk + runtime).
   - package-ecosystem: docker
@@ -58,3 +72,6 @@ updates:
     commit-message:
       prefix: "deps(docker)"
       include: scope
+    groups:
+      docker-base-images:
+        patterns: ["*"]

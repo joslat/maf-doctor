@@ -41,6 +41,6 @@
     <!-- SourceLink (W.14 / AgentEval parity) — embedded source maps so
          consumers can step into the nupkg's source under the debugger.
          Pinned to the same version AgentEval pins. -->
-    <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.300" />
+    <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.303" />
   </ItemGroup>
 </Project>
