@@ -76,3 +76,11 @@ General rules:
 **Meaning:** no known signature matched. The issue shows the last error lines from the failed job.
 
 **Fix:** read the run log. Once it's understood, add the signature to `CLASSES` in `classify_watcher_failure.py` and a section to this runbook, so the next occurrence is diagnosed automatically.
+
+## fill-repair-exhausted
+
+**Signature:** a release-watcher PR labelled `needs-human`, with a comment saying `verify` still fails after N automatic repair(s).
+
+**Meaning:** the fill agent's commit failed the required `verify` check, `maf-fill-repair` re-ran the agent up to `MAF_FILL_MAX_REPAIRS` times (default 1), and it still fails. Typical causes: the release needs judgement the evidence can't settle (a REVIEW sentinel with no clear API change), or a gate itself is wrong (check whether the same check fails on other PRs).
+
+**Fix:** read the latest `verify` comment on the PR and the agent's summary. Finish the entries by hand on the branch (data paths only; keep history linear and never merge `main` into it), run the checks from `CLAUDE.md` locally, push, and merge once green. If a gate is wrong, fix it on `main` first, then push a commit to the branch so its checks re-run on a fresh merge ref.
