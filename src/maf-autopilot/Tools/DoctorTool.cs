@@ -85,7 +85,16 @@ public sealed class DoctorTool
     internal string Run(string repoPath, string format, IReadOnlyList<string>? excludes, bool full, out DoctorSummary? summary)
         => RunCore(repoPath, format, excludes, full, out summary);
 
-    private string RunCore(string repoPath, string format, IReadOnlyList<string>? excludes, bool full, out DoctorSummary? summary)
+    /// <summary>
+    /// F-03: <paramref name="baseline"/> holds fingerprints from an earlier
+    /// <c>doctor --all --json</c>; matching findings are dropped before grading.
+    /// </summary>
+    internal string Run(string repoPath, string format, IReadOnlyList<string>? excludes, bool full,
+        IReadOnlySet<string>? baseline, out DoctorSummary? summary)
+        => RunCore(repoPath, format, excludes, full, out summary, baseline);
+
+    private string RunCore(string repoPath, string format, IReadOnlyList<string>? excludes, bool full,
+        out DoctorSummary? summary, IReadOnlySet<string>? baseline = null)
     {
         summary = null;
 
@@ -104,7 +113,7 @@ public sealed class DoctorTool
             return err;
         }
 
-        var s = AnalyzeRepo(repoPath, excludes);
+        var s = AnalyzeRepo(repoPath, excludes, budget: null, baseline);
         summary = s;
         var gap = _registryTarget.Value is { } target ? CoverageHorizon.Evaluate(repoPath, target) : null;
 
@@ -357,7 +366,8 @@ public sealed class DoctorTool
                     gap.RegistryMafVersion,
                     gap.ProjectMafVersion,
                     gap.NewerPackages.Select(p => $"{p.Id}@{p.Version}").ToList(),
-                    CoverageGap.UpdateCommand));
+                    CoverageGap.UpdateCommand),
+            BaselineSuppressed: s.BaselineSuppressed);
     }
 
     /// <summary>
@@ -488,7 +498,8 @@ public sealed class DoctorTool
     /// invokes this directly "for convenience" would skip that check entirely.
     /// </summary>
     internal static DoctorSummary AnalyzeRepo(
-        string repoPath, IReadOnlyList<string>? excludes, SourceFileWalker.ScanBudget? budget = null)
+        string repoPath, IReadOnlyList<string>? excludes, SourceFileWalker.ScanBudget? budget = null,
+        IReadOnlySet<string>? baseline = null)
     {
         var antiPatterns = new List<AntiPatternFinding>();
         var handlers = new List<MessageHandlerFinding>();
@@ -555,12 +566,31 @@ public sealed class DoctorTool
                 }
             });
 
+        // F-03: drop findings a baseline (an earlier `doctor --all --json`) already
+        // reported, BEFORE grading, so the grade, the counts and --fail-on see only
+        // new findings. Same fingerprint as the JSON output (rule | file | line text,
+        // drift-stable across line moves).
+        int? suppressed = null;
+        if (baseline is not null)
+        {
+            var cache = new Dictionary<string, string[]?>(StringComparer.Ordinal);
+            bool Known(string ruleId, string file, int line) =>
+                baseline.Contains(Fingerprint(repoPath, ruleId, file, line, cache));
+            suppressed = antiPatterns.RemoveAll(a => Known(a.RuleId, a.File, a.Line))
+                + promptFindings.RemoveAll(p => Known(p.RuleId, p.File, p.Line))
+                + handlers.RemoveAll(h => (h.Verdict == FanOutVerdict.SilentStarvationRisk
+                                           || h.Verdict == FanOutVerdict.LikelyInvalid)
+                                          && Known("MAF001", h.File, h.Line))
+                + costFindings.RemoveAll(c => c.HasCapWarning && Known("COST-001", c.File, c.Line));
+        }
+
         var summary = Grade(antiPatterns, handlers, promptFindings, costFindings);
         return summary with
         {
             FilesScanned = budget.FilesSeen,
             FilesSkippedOversized = budget.FilesSkippedOversized,
             ScanTruncated = budget.Truncated,
+            BaselineSuppressed = suppressed,
         };
     }
 
@@ -609,6 +639,11 @@ public sealed class DoctorTool
         sb.AppendLine();
         sb.AppendLine($"**Repo:** `{LlmFencing.MdInline(repoPath)}`");
         sb.AppendLine();
+        if (s.BaselineSuppressed is int baselined)
+        {
+            sb.AppendLine($"**Baseline:** {baselined} finding(s) matched `--baseline` and are not counted; the grade covers new findings only.");
+            sb.AppendLine();
+        }
         if (gap is not null)
         {
             // U-01: the grade only reflects what the registry knows about.
@@ -1079,7 +1114,10 @@ public sealed record DoctorSummary(
     // per-file size cap — the walk still covered every other file).
     int FilesScanned = 0,
     bool ScanTruncated = false,
-    int FilesSkippedOversized = 0)
+    int FilesSkippedOversized = 0,
+    // F-03 — findings dropped because a --baseline already reported them; null
+    // when no baseline was given (so "0 suppressed" and "no baseline" differ).
+    int? BaselineSuppressed = null)
 {
     /// <summary>True if the scan did NOT cover every file in the repo, for any reason.</summary>
     public bool ScanIncomplete => ScanTruncated || FilesSkippedOversized > 0;
@@ -1123,7 +1161,10 @@ public sealed record DoctorJsonResult(
     [property: JsonPropertyName("files_scanned")] int FilesScanned = 0,
     // U-01 — additive within schema_version "1": non-null when the repo references a
     // newer MAF than the registry covers (findings past that version are unknown).
-    [property: JsonPropertyName("coverage_gap")] DoctorCoverageGap? CoverageGap = null);
+    [property: JsonPropertyName("coverage_gap")] DoctorCoverageGap? CoverageGap = null,
+    // F-03 — additive within schema_version "1": number of findings a --baseline
+    // suppressed; absent when no baseline was used.
+    [property: JsonPropertyName("baseline_suppressed")] int? BaselineSuppressed = null);
 
 /// <summary>Coverage-horizon gap in <see cref="DoctorJsonResult"/> (U-01).</summary>
 public sealed record DoctorCoverageGap(

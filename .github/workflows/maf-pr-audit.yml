@@ -190,9 +190,24 @@ jobs:
             # REP-29: capture stdout (the markdown report) and stderr SEPARATELY so a
             # stray runtime warning can't corrupt the sticky comment. `|| true` keeps
             # the job alive so we still post diagnostic content.
+            # F-03: baseline = the same product-scoped scan of the BASE branch, so the
+            # comment reports what THIS PR introduces (pre-existing findings are
+            # counted, not listed). Any failure here falls back to the whole-repo report.
+            BASELINE_ARGS=()
+            if git worktree add --detach "$RUNNER_TEMP/base-tree" "refs/heads/$BASE_REF" >/dev/null 2>&1 \
+               && dotnet "$MAF_DOCTOR" doctor "$RUNNER_TEMP/base-tree" \
+                    --exclude samples/ --exclude .Tests/ --exclude find-the-bug/ \
+                    --all --json > "$RUNNER_TEMP/base-doctor.json" 2>/dev/null \
+               && python3 -c "import json,sys; json.load(open(sys.argv[1]))['top_fixes']" "$RUNNER_TEMP/base-doctor.json" 2>/dev/null; then
+              BASELINE_ARGS=(--baseline "$RUNNER_TEMP/base-doctor.json")
+              echo "Baseline: findings already on $BASE_REF are counted, not listed."
+            else
+              echo "::notice::No base-branch baseline (scan or checkout failed); posting the whole-repo report."
+            fi
             rc=0
             dotnet "$MAF_DOCTOR" doctor "$GITHUB_WORKSPACE" \
               --exclude samples/ --exclude .Tests/ --exclude find-the-bug/ \
+              "${BASELINE_ARGS[@]}" \
               > pr-audit-full.md 2> doctor-stderr.txt || rc=$?
             # On failure / empty report, append the stderr as a COLLAPSED diagnostics
             # block (delimited, not interleaved). On success it's only in the job log below.

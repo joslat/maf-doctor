@@ -57,6 +57,7 @@ Pass `format: "json"` to get machine-readable output.
 - `scan_truncated`: `true` if the repo-size cap (file count or per-file size) meant the scan did NOT cover every file — the verdict/findings above reflect a partial repo, not the whole one. Additive within schema v1; consumers that don't recognize it can ignore it, but a CI gate reading only the typed fields (not `summary_md`) should check it before trusting a clean verdict.
 - `files_scanned`: how many files were actually included in the scan (integer).
 - `coverage_gap`: `null`, or an object when the repo references a newer MAF than the embedded registry covers: `registry_maf_version`, `project_maf_version` (the highest train any `Microsoft.Agents.AI*` package reference resolves to, including Central Package Management pins), `newer_packages` (`Id@Version` strings past the registry) and `update_command`. When non-null, findings for APIs changed after `registry_maf_version` are **unknown**, not clean: treat an A grade as "clean against what the registry knows". Additive within schema v1.
+- `baseline_suppressed`: absent (`null`) unless `doctor --baseline <file>` was used; then the number of findings that matched the baseline and were dropped before grading. Counts, `verdict` and `--fail-on` then cover only new findings. The baseline file is the output of an earlier `maf-doctor doctor --all --json`; findings are matched by `fingerprint` (rule, file and source-line text), so a finding that only moves lines stays baselined. Additive within schema v1.
 
 ### Usage in CI
 
