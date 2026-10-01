@@ -108,7 +108,7 @@ jobs:
           echo "Resolved: PR #$PR_NUM (base=$BASE head=$HEAD)"
 
       - name: Checkout trusted PR base (so the scripts are present)
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           # Deliberately NOT checking out the PR head — the PR branch (created
           # by the filler bot) doesn't contain the rung-2 review scripts. We
@@ -137,7 +137,7 @@ jobs:
             echo "$SHA reachable."
           done
 
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6.3.0
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
         with:
           python-version: '3.12'
 
@@ -175,7 +175,7 @@ jobs:
       - name: AI inference (GitHub Copilot)
         if: steps.build.outputs.skip != 'true'
         id: ai
-        uses: actions/ai-inference@a7805884c80886efc241e94a5351df715968a0ad  # v2.1.1
+        uses: actions/ai-inference@2c43c91ae16266ca159d311430343c67a5ffa222  # v3
         with:
           provider: copilot
           prompt-file: .ai-review-prompt.txt
