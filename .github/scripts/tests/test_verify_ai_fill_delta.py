@@ -465,3 +465,30 @@ def test_prior_release_contract_on_main_does_not_block_next_release(tmp_path: Pa
         base_ref="main",
         head_ref="release-watcher/maf-1.15.0",
     ) == new_raw
+
+
+def _add_contract_with_lock(repo: Path, base: str, target: str, branch: str) -> tuple[str, bytes]:
+    _write(repo, ".github/maf-train-lock.json", '{"schema_version": 1, "trains": {"%s": {"A": "%s"}}}\n' % (target, target))
+    head, raw, _ = _add_contract(repo, base, target, branch)
+    return head, raw
+
+
+def test_history_accepts_fill_that_leaves_train_lock_untouched(tmp_path: Path):
+    repo, base = _history_repo(tmp_path)
+    _, raw = _add_contract_with_lock(repo, base, "1.14.0", "release-watcher/maf-1.14.0")
+    _write(repo, "guides/maf-1.14.0-migration-guide.md", "filled\n")
+    head = _commit(repo, "fill")
+    assert recover_canonical_obligations(
+        repo, base_sha=base, head_sha=head, base_ref="main", head_ref="release-watcher/maf-1.14.0"
+    ) == raw
+
+
+def test_history_rejects_fill_that_changes_train_lock(tmp_path: Path):
+    repo, base = _history_repo(tmp_path)
+    _add_contract_with_lock(repo, base, "1.14.0", "release-watcher/maf-1.14.0")
+    _write(repo, ".github/maf-train-lock.json", '{"schema_version": 1, "trains": {"1.14.0": {"A": "9.9.9"}}}\n')
+    head = _commit(repo, "tamper lock")
+    with pytest.raises(ValueError, match="train lock changed"):
+        recover_canonical_obligations(
+            repo, base_sha=base, head_sha=head, base_ref="main", head_ref="release-watcher/maf-1.14.0"
+        )

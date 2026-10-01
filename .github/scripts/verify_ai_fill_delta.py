@@ -18,6 +18,7 @@ import yaml
 
 SCHEMA_VERSION = 1
 OBLIGATIONS_DIR = ".github/maf-scaffold-obligations"
+TRAIN_LOCK_REL = ".github/maf-train-lock.json"
 REGISTRY_REL = ".github/skills/maf-obsolete-api-registry/registry.yaml"
 MATRIX_REL = "docs/compatibility-matrix.md"
 TOOL_REL = "src/maf-autopilot/Tools/CompatibilityTool.cs"
@@ -617,6 +618,12 @@ def recover_canonical_obligations(
         raise ValueError("obligations filename does not match its target version")
     if head_version != target:
         raise ValueError("HEAD .maf-version does not match the scaffold contract target")
+    # The watcher records the train's resolved package versions in the train
+    # lock in the same first scaffold commit. A filler (human or agent) may
+    # never change it afterwards: it pins the next train's diff baseline.
+    scaffold_lock = (
+        _git(repo, "show", f"{first}:{TRAIN_LOCK_REL}") if _has(repo, first, TRAIN_LOCK_REL) else None
+    )
     for commit in commits:
         parents = _git_text(repo, "show", "-s", "--format=%P", commit).split()
         if parents != [previous]:
@@ -625,6 +632,11 @@ def recover_canonical_obligations(
             raise ValueError(f"obligations artifact is missing at commit {commit}")
         if _git(repo, "show", f"{commit}:{contract_rel}") != canonical:
             raise ValueError(f"obligations artifact changed at commit {commit}")
+        if scaffold_lock is not None and (
+            not _has(repo, commit, TRAIN_LOCK_REL)
+            or _git(repo, "show", f"{commit}:{TRAIN_LOCK_REL}") != scaffold_lock
+        ):
+            raise ValueError(f"train lock changed after the watcher scaffold commit (at {commit})")
         previous = commit
     return canonical
 
