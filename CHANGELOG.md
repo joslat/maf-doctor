@@ -50,6 +50,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Regression plans dropped changes from releases the matrix skips.** A step lists the
+  entries introduced after its source version up to its target. Before, it listed only
+  entries introduced exactly at the target, so a 1.7.0 → 1.10.0 plan (one step: the
+  matrix has no 1.8.0/1.9.0 rows) left out the 1.8.0 and 1.9.0 changes.
 - **The first public releases (MAF 1.1–1.3) gain registry coverage.** A per-release diff
   from 1.0.0 found 10 breaking changes with no entry: skill APIs (1.1.0), Foundry
   `AsAIAgent` (1.2.0), and the 1.3.0 A2A client and hosting redesign (`IA2AClient`,

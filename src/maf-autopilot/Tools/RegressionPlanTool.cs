@@ -174,15 +174,28 @@ public sealed class RegressionPlanTool
     /// </summary>
     /// <summary>
     /// Registry entries a codebase meets when it moves from <paramref name="source"/>
-    /// to <paramref name="step"/>: introduced at the step, and applicable to a
-    /// codebase still on the source version. Migration entries are marked
-    /// <c>pre-STEP</c> (they describe code written before the change), so
-    /// evaluating them against the TARGET version dropped every one of them.
+    /// to <paramref name="step"/>: introduced after the source and at or before
+    /// the step, and applicable to a codebase still on the source version.
+    /// Migration entries are marked <c>pre-X</c> (they describe code written
+    /// before the change), so they are evaluated against the SOURCE version.
+    /// The range matters because the step list follows the compatibility matrix,
+    /// which skips releases (no 1.6.2-1.9.0 rows): an exact "introduced == step"
+    /// match silently dropped every entry introduced in a skipped release.
     /// </summary>
-    private List<RegistryEntry> EntriesForStep(string source, string step) =>
-        _registry.GetEntriesForCodebaseVersion(source)
-            .Where(e => e.VersionIntroduced == step)
+    private List<RegistryEntry> EntriesForStep(string source, string step)
+    {
+        if (!TryParseRelease(source, out var from) || !TryParseRelease(step, out var to))
+            return [];
+        return _registry.GetEntriesForCodebaseVersion(source)
+            .Where(e => TryParseRelease(e.VersionIntroduced, out var introduced) && introduced > from && introduced <= to)
             .ToList();
+    }
+
+    private static bool TryParseRelease(string? version, out Version parsed)
+    {
+        var core = (version ?? string.Empty).Split('-', 2)[0];
+        return Version.TryParse(core, out parsed!);
+    }
 
     internal static string SanitizeNodeId(string version)
     {
