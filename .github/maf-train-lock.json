@@ -1,0 +1,124 @@
+{
+  "schema_version": 1,
+  "description": "Exact package versions each processed MAF train resolved to (written by the release watcher via update_train_lock.py; seeded 2026-10-01 from nuget.org for 1.9.0-1.17.0, with 1.16.0 durable/azure-functions pinned to the pre-externalization build recorded in lifecycle event maf-1.17.0-durable-extension-externalization). The planner pins the old side of the next train to these values. Recorded trains are immutable.",
+  "trains": {
+    "1.9.0": {
+      "Microsoft.Agents.AI": "1.9.0",
+      "Microsoft.Agents.AI.DurableTask": "1.9.0-preview.260603.1",
+      "Microsoft.Agents.AI.GitHub.Copilot": "1.9.0-preview.260603.1",
+      "Microsoft.Agents.AI.Harness": "1.9.0-preview.260603.1",
+      "Microsoft.Agents.AI.Hosting": "1.9.0-preview.260603.1",
+      "Microsoft.Agents.AI.Hosting.AGUI.AspNetCore": "1.9.0-preview.260603.1",
+      "Microsoft.Agents.AI.Hosting.AzureFunctions": "1.9.0-preview.260603.1",
+      "Microsoft.Agents.AI.Hosting.OpenAI": "1.9.0-alpha.260603.1",
+      "Microsoft.Agents.AI.Tools.Shell": "1.9.0-preview.260603.1",
+      "Microsoft.Agents.AI.Workflows": "1.9.0"
+    },
+    "1.10.0": {
+      "Microsoft.Agents.AI": "1.10.0",
+      "Microsoft.Agents.AI.DurableTask": "1.10.0-preview.260610.1",
+      "Microsoft.Agents.AI.GitHub.Copilot": "1.10.0-rc1",
+      "Microsoft.Agents.AI.Harness": "1.10.0-preview.260610.1",
+      "Microsoft.Agents.AI.Hosting": "1.10.0-preview.260610.1",
+      "Microsoft.Agents.AI.Hosting.AGUI.AspNetCore": "1.10.0-preview.260610.1",
+      "Microsoft.Agents.AI.Hosting.AzureFunctions": "1.10.0-preview.260610.1",
+      "Microsoft.Agents.AI.Hosting.OpenAI": "1.10.0-alpha.260610.1",
+      "Microsoft.Agents.AI.Tools.Shell": "1.10.0-preview.260610.1",
+      "Microsoft.Agents.AI.Workflows": "1.10.0"
+    },
+    "1.11.0": {
+      "Microsoft.Agents.AI": "1.11.0",
+      "Microsoft.Agents.AI.DurableTask": "1.11.0-preview.260623.1",
+      "Microsoft.Agents.AI.GitHub.Copilot": "1.11.0-rc1",
+      "Microsoft.Agents.AI.Harness": "1.11.0-preview.260623.1",
+      "Microsoft.Agents.AI.Hosting": "1.11.0-preview.260623.1",
+      "Microsoft.Agents.AI.Hosting.AGUI.AspNetCore": "1.11.0-preview.260623.1",
+      "Microsoft.Agents.AI.Hosting.AzureFunctions": "1.11.0-preview.260623.1",
+      "Microsoft.Agents.AI.Hosting.OpenAI": "1.11.0-alpha.260623.1",
+      "Microsoft.Agents.AI.Tools.Shell": "1.11.0-preview.260623.1",
+      "Microsoft.Agents.AI.Workflows": "1.11.0"
+    },
+    "1.11.1": {
+      "Microsoft.Agents.AI": "1.11.1",
+      "Microsoft.Agents.AI.DurableTask": "1.11.1-preview.260625.1",
+      "Microsoft.Agents.AI.GitHub.Copilot": "1.11.1-rc1",
+      "Microsoft.Agents.AI.Harness": "1.11.1-preview.260625.1",
+      "Microsoft.Agents.AI.Hosting": "1.11.1-preview.260625.1",
+      "Microsoft.Agents.AI.Hosting.AGUI.AspNetCore": "1.11.1-preview.260625.1",
+      "Microsoft.Agents.AI.Hosting.AzureFunctions": "1.11.1-preview.260625.1",
+      "Microsoft.Agents.AI.Hosting.OpenAI": "1.11.1-alpha.260625.1",
+      "Microsoft.Agents.AI.Tools.Shell": "1.11.1-preview.260625.1",
+      "Microsoft.Agents.AI.Workflows": "1.11.1"
+    },
+    "1.12.0": {
+      "Microsoft.Agents.AI": "1.12.0",
+      "Microsoft.Agents.AI.DurableTask": "1.12.0-preview.260629.1",
+      "Microsoft.Agents.AI.GitHub.Copilot": "1.12.0-rc1",
+      "Microsoft.Agents.AI.Harness": "1.12.0-preview.260629.1",
+      "Microsoft.Agents.AI.Hosting": "1.12.0-preview.260629.1",
+      "Microsoft.Agents.AI.Hosting.AGUI.AspNetCore": "1.12.0-preview.260629.1",
+      "Microsoft.Agents.AI.Hosting.AzureFunctions": "1.12.0-preview.260629.1",
+      "Microsoft.Agents.AI.Hosting.OpenAI": "1.12.0-alpha.260629.1",
+      "Microsoft.Agents.AI.Tools.Shell": "1.12.0-preview.260629.1",
+      "Microsoft.Agents.AI.Workflows": "1.12.0"
+    },
+    "1.13.0": {
+      "Microsoft.Agents.AI": "1.13.0",
+      "Microsoft.Agents.AI.DurableTask": "1.13.0-preview.260703.1",
+      "Microsoft.Agents.AI.GitHub.Copilot": "1.13.0-rc1",
+      "Microsoft.Agents.AI.Harness": "1.13.0-preview.260703.1",
+      "Microsoft.Agents.AI.Hosting": "1.13.0-preview.260703.1",
+      "Microsoft.Agents.AI.Hosting.AGUI.AspNetCore": "1.13.0-preview.260703.1",
+      "Microsoft.Agents.AI.Hosting.AzureFunctions": "1.13.0-preview.260703.1",
+      "Microsoft.Agents.AI.Hosting.OpenAI": "1.13.0-alpha.260703.1",
+      "Microsoft.Agents.AI.Tools.Shell": "1.13.0-preview.260703.1",
+      "Microsoft.Agents.AI.Workflows": "1.13.0"
+    },
+    "1.14.0": {
+      "Microsoft.Agents.AI": "1.14.0",
+      "Microsoft.Agents.AI.DurableTask": "1.14.0-preview.260721.1",
+      "Microsoft.Agents.AI.GitHub.Copilot": "1.14.0-rc1",
+      "Microsoft.Agents.AI.Harness": "1.14.0",
+      "Microsoft.Agents.AI.Hosting": "1.14.0-preview.260721.1",
+      "Microsoft.Agents.AI.Hosting.AGUI.AspNetCore": "1.14.0-preview.260721.1",
+      "Microsoft.Agents.AI.Hosting.AzureFunctions": "1.14.0-preview.260721.1",
+      "Microsoft.Agents.AI.Hosting.OpenAI": "1.14.0-alpha.260721.1",
+      "Microsoft.Agents.AI.Tools.Shell": "1.14.0-preview.260721.1",
+      "Microsoft.Agents.AI.Workflows": "1.14.0"
+    },
+    "1.15.0": {
+      "Microsoft.Agents.AI": "1.15.0",
+      "Microsoft.Agents.AI.DurableTask": "1.15.0-preview.260722.1",
+      "Microsoft.Agents.AI.GitHub.Copilot": "1.15.0-rc1",
+      "Microsoft.Agents.AI.Harness": "1.15.0",
+      "Microsoft.Agents.AI.Hosting": "1.15.0-preview.260722.1",
+      "Microsoft.Agents.AI.Hosting.AGUI.AspNetCore": "1.15.0-preview.260722.1",
+      "Microsoft.Agents.AI.Hosting.AzureFunctions": "1.15.0-preview.260722.1",
+      "Microsoft.Agents.AI.Hosting.OpenAI": "1.15.0-alpha.260722.1",
+      "Microsoft.Agents.AI.Tools.Shell": "1.15.0-preview.260722.1",
+      "Microsoft.Agents.AI.Workflows": "1.15.0"
+    },
+    "1.16.0": {
+      "Microsoft.Agents.AI": "1.16.0",
+      "Microsoft.Agents.AI.DurableTask": "1.16.0-preview.260730.1",
+      "Microsoft.Agents.AI.GitHub.Copilot": "1.16.0",
+      "Microsoft.Agents.AI.Harness": "1.16.0",
+      "Microsoft.Agents.AI.Hosting": "1.16.0-preview.260730.1",
+      "Microsoft.Agents.AI.Hosting.AGUI.AspNetCore": "1.16.0-preview.260730.1",
+      "Microsoft.Agents.AI.Hosting.AzureFunctions": "1.16.0-preview.260730.1",
+      "Microsoft.Agents.AI.Hosting.OpenAI": "1.16.0-alpha.260730.1",
+      "Microsoft.Agents.AI.Tools.Shell": "1.16.0-preview.260730.1",
+      "Microsoft.Agents.AI.Workflows": "1.16.0"
+    },
+    "1.17.0": {
+      "Microsoft.Agents.AI": "1.17.0",
+      "Microsoft.Agents.AI.GitHub.Copilot": "1.17.0",
+      "Microsoft.Agents.AI.Harness": "1.17.0",
+      "Microsoft.Agents.AI.Hosting": "1.17.0-preview.260804.1",
+      "Microsoft.Agents.AI.Hosting.AGUI.AspNetCore": "1.17.0-preview.260804.1",
+      "Microsoft.Agents.AI.Hosting.OpenAI": "1.17.0-alpha.260804.1",
+      "Microsoft.Agents.AI.Tools.Shell": "1.17.0-preview.260804.1",
+      "Microsoft.Agents.AI.Workflows": "1.17.0"
+    }
+  }
+}

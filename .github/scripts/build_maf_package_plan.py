@@ -13,7 +13,9 @@ and only one aligned ``X.Y.Z-*`` version is accepted. Missing, ambiguous, or
 unreachable package evidence is recorded as ``unverifiable`` and is never
 guessed away. Explicit lifecycle events can turn an expected missing target
 into ``informational`` (for example, the MAF 1.17 Durable/Azure Functions
-repository externalization).
+repository externalization). An externalization is a lasting state: every later
+train treats the moved surfaces as informational unless both sides happen to
+resolve again, in which case they are diffed normally.
 """
 from __future__ import annotations
 
@@ -31,6 +33,7 @@ from urllib.request import Request, urlopen
 
 SCHEMA_VERSION = 1
 DEFAULT_MANIFEST = Path(__file__).resolve().parents[1] / "maf-package-surfaces.json"
+DEFAULT_TRAIN_LOCK = Path(__file__).resolve().parents[1] / "maf-train-lock.json"
 DEFAULT_OUTPUT = Path("maf-package-plan.json")
 NUGET_INDEX = "https://api.nuget.org/v3-flatcontainer/{package}/index.json"
 MAX_NUGET_INDEX_BYTES = 2 * 1024 * 1024
@@ -52,6 +55,10 @@ _EVENT_IMPACTS = {"breaking", "informational"}
 
 class ManifestValidationError(ValueError):
     """Raised when the checked-in package-surface manifest is malformed."""
+
+
+class TrainLockError(ValueError):
+    """Raised when the checked-in train lock is malformed."""
 
 
 class NuGetIndexError(RuntimeError):
@@ -432,13 +439,136 @@ def _informational_externalization(
     return matches[0] if matches else None
 
 
+def _pinned_source_resolution(
+    event: dict,
+    package: str,
+    fallback: VersionResolution,
+    available: list[str] | None,
+) -> VersionResolution:
+    """Use the exact source version an externalization event records.
+
+    Upstream may republish another prerelease for the source train after the
+    move (Microsoft re-released ``1.16.0-preview.*`` from the new repository),
+    which makes train alignment ambiguous. The manifest's pinned
+    ``source_packages[].version`` is explicit evidence, not a guess, so it wins
+    when it exists in the package index.
+    """
+
+    if not available:
+        return fallback
+    for ref in event.get("source_packages", []):
+        pinned = ref.get("version")
+        if ref["package"].casefold() != package.casefold() or not pinned:
+            continue
+        if pinned in available:
+            return VersionResolution(
+                pinned,
+                "resolved",
+                f"source version {pinned} pinned by lifecycle event {event['id']}",
+            )
+    return fallback
+
+
+def load_train_lock(path: Path | None) -> dict:
+    """Load and validate the train lock; a missing file is an empty lock.
+
+    The lock records the exact package versions the watcher resolved when it
+    processed each MAF train. Upstream can republish another prerelease for an
+    already-processed train later (Microsoft re-released 1.16.0-preview.* from
+    a new repository), which turns train alignment ambiguous after the fact.
+    Recorded versions are evidence of what was actually diffed, so they win
+    for the *old* side of the next train.
+    """
+
+    if path is None or not path.exists():
+        return {"schema_version": SCHEMA_VERSION, "trains": {}}
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise TrainLockError(f"{path} is not valid JSON: {exc}") from exc
+    if not isinstance(raw, dict) or raw.get("schema_version") != SCHEMA_VERSION:
+        raise TrainLockError(f"train lock schema_version must be {SCHEMA_VERSION}")
+    trains = raw.get("trains")
+    if not isinstance(trains, dict):
+        raise TrainLockError("train lock trains must be an object")
+    for train, packages in trains.items():
+        if not isinstance(train, str) or not _VERSION_RE.fullmatch(train) or "-" in train:
+            raise TrainLockError(f"train lock key {train!r} is not a stable X.Y.Z train")
+        if not isinstance(packages, dict) or not packages:
+            raise TrainLockError(f"train lock entry {train} must be a non-empty object")
+        for package, version in packages.items():
+            if not isinstance(package, str) or not _PACKAGE_RE.fullmatch(package):
+                raise TrainLockError(f"train lock {train}: invalid package id {package!r}")
+            if not isinstance(version, str) or not _VERSION_RE.fullmatch(version):
+                raise TrainLockError(
+                    f"train lock {train}/{package}: invalid version {version!r}"
+                )
+    return raw
+
+
+def _locked_resolution(
+    lock: dict | None,
+    train: str,
+    package: str,
+    available: list[str] | None,
+    fallback: VersionResolution,
+) -> VersionResolution:
+    if not lock or available is None:
+        return fallback
+    entry = lock.get("trains", {}).get(train, {})
+    pinned = next(
+        (version for name, version in entry.items() if name.casefold() == package.casefold()),
+        None,
+    )
+    if pinned is None or pinned not in available:
+        return fallback
+    return VersionResolution(
+        pinned, "resolved", f"version {pinned} recorded in the train lock for MAF {train}"
+    )
+
+
+def _prior_externalizations(manifest: dict, new_version: str) -> dict[str, dict]:
+    """Map each surface slug to the earliest externalization before ``new_version``.
+
+    An externalization is a lasting lifecycle state, not a one-release event:
+    once a surface leaves the MAF release train, later trains must not expect
+    a train-aligned package for it. Only events from strictly earlier trains
+    qualify; the transition train itself keeps the stricter
+    ``_informational_externalization`` rule (old side resolved, new missing).
+    """
+
+    new_key = _release_train_key(new_version)
+    prior: dict[str, dict] = {}
+    for event in manifest["lifecycle_events"]:
+        if event["kind"] != "repository_externalization":
+            continue
+        if event["impact"] != "informational":
+            continue
+        if _release_train_key(event["release_version"]) >= new_key:
+            continue
+        for slug in event["related_surfaces"]:
+            current = prior.get(slug)
+            if current is None or _release_train_key(
+                event["release_version"]
+            ) < _release_train_key(current["release_version"]):
+                prior[slug] = event
+    return prior
+
+
 def build_plan(
     manifest: dict,
     old_version: str,
     new_version: str,
     fetch_versions: Callable[[str], Iterable[str]] | None = None,
+    train_lock: dict | None = None,
+    lock_new_side: bool = False,
 ) -> dict:
-    """Build a deterministic plan; ``fetch_versions`` is injectable for tests."""
+    """Build a deterministic plan; ``fetch_versions`` is injectable for tests.
+
+    ``train_lock`` pins the old side to the versions recorded when that train
+    was processed. ``lock_new_side`` also pins the new side and is only meant
+    for replaying already-processed trains (the replay harness).
+    """
 
     validate_manifest(manifest)
     _validate_version(old_version, "old_version")
@@ -451,10 +581,12 @@ def build_plan(
 
     fetch = fetch_versions or fetch_nuget_versions
     selected_events = _events_for_release(manifest, new_version)
+    prior_externalizations = _prior_externalizations(manifest, new_version)
     planned_surfaces: list[dict] = []
 
     for surface in manifest["surfaces"]:
         package = surface["package"]
+        available: list[str] | None = None
         try:
             available = list(fetch(package))
             old_resolution = resolve_train_version(available, old_version)
@@ -462,15 +594,46 @@ def build_plan(
         except Exception as exc:
             old_resolution = _network_failure_resolution(package, exc)
             new_resolution = old_resolution
+        old_resolution = _locked_resolution(
+            train_lock, old_version, package, available, old_resolution
+        )
+        if lock_new_side:
+            new_resolution = _locked_resolution(
+                train_lock, new_version, package, available, new_resolution
+            )
 
         externalization = _informational_externalization(
             selected_events, surface["slug"]
         )
+        if externalization is not None and old_resolution.state != "resolved":
+            old_resolution = _pinned_source_resolution(
+                externalization, package, old_resolution, available
+            )
+        prior_externalization = prior_externalizations.get(surface["slug"])
         if old_resolution.state == "resolved" and new_resolution.state == "resolved":
             status = "diffable"
             reason = (
                 f"Resolved {package} from {old_resolution.value} to "
                 f"{new_resolution.value}."
+            )
+        elif prior_externalization is not None:
+            # The surface left the MAF train in an earlier release. Missing,
+            # ambiguous, or unreachable train-aligned evidence is expected and
+            # must never block a later train; it is visible, not gating.
+            status = "informational"
+            unresolved = "; ".join(
+                dict.fromkeys(
+                    resolution.reason
+                    for resolution in (old_resolution, new_resolution)
+                    if resolution.state != "resolved"
+                )
+            )
+            reason = (
+                f"Externalized since MAF {prior_externalization['release_version']} "
+                f"to {prior_externalization['target_repository']} "
+                f"(lifecycle event {prior_externalization['id']}); not part of the "
+                f"MAF {new_version} release train, so train-aligned evidence is not "
+                f"required ({unresolved})."
             )
         elif (
             externalization is not None
@@ -524,6 +687,12 @@ def render_plan(plan: dict) -> str:
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST)
+    parser.add_argument(
+        "--train-lock",
+        type=Path,
+        default=DEFAULT_TRAIN_LOCK,
+        help="recorded per-train package versions; pins the old side when present",
+    )
     parser.add_argument("--old-version", required=True)
     parser.add_argument("--new-version", required=True)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
@@ -539,7 +708,10 @@ def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     try:
         manifest = load_manifest(args.manifest)
-        plan = build_plan(manifest, args.old_version, args.new_version)
+        train_lock = load_train_lock(args.train_lock)
+        plan = build_plan(
+            manifest, args.old_version, args.new_version, train_lock=train_lock
+        )
     except (ManifestValidationError, ValueError, OSError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2

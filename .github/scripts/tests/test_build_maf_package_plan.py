@@ -534,3 +534,142 @@ def test_non_dry_run_writes_selected_output(tmp_path, monkeypatch):
         "old_version": "1.14.0",
         "new_version": "1.15.0",
     }
+
+
+# ---------------------------------------------------------------------------
+# P-01 / P-05: externalization is lasting state; the train lock pins the old side
+# ---------------------------------------------------------------------------
+
+
+def _indexes_after_externalization(old: str, new: str) -> dict[str, list[str]]:
+    """Every in-train surface resolves for old/new; durable packages stop at 1.16."""
+
+    def aligned(train: str, tag: str = "preview.260901.1") -> str:
+        return f"{train}-{tag}"
+
+    durable = ["1.16.0-preview.260730.1", "1.16.0-preview.260922.1"]
+    return {
+        "Microsoft.Agents.AI": [old, new],
+        "Microsoft.Agents.AI.Workflows": [old, new],
+        "Microsoft.Agents.AI.Harness": [old, new],
+        "Microsoft.Agents.AI.Hosting": [aligned(old), aligned(new)],
+        "Microsoft.Agents.AI.Hosting.OpenAI": [aligned(old, "alpha.1"), aligned(new, "alpha.1")],
+        "Microsoft.Agents.AI.Hosting.AGUI.AspNetCore": [aligned(old), aligned(new)],
+        "Microsoft.Agents.AI.DurableTask": list(durable),
+        "Microsoft.Agents.AI.Hosting.AzureFunctions": list(durable),
+        "Microsoft.Agents.AI.GitHub.Copilot": [old, new],
+        "Microsoft.Agents.AI.Tools.Shell": [aligned(old), aligned(new)],
+    }
+
+
+@pytest.mark.parametrize(("old", "new"), [("1.17.0", "1.18.0"), ("1.22.0", "1.23.0")])
+def test_externalization_persists_for_every_later_train(old, new):
+    plan = planner.build_plan(manifest(), old, new, fetch_from(_indexes_after_externalization(old, new)))
+    by_slug = {s["slug"]: s for s in plan["surfaces"]}
+
+    for slug in ("durable", "azure-functions"):
+        assert by_slug[slug]["status"] == "informational"
+        assert "Externalized since MAF 1.17.0" in by_slug[slug]["reason"]
+        assert "microsoft/agent-framework-durable-extension" in by_slug[slug]["reason"]
+    assert sum(s["status"] == "diffable" for s in plan["surfaces"]) == 8
+    # Plan events stay scoped to the train itself (evidence-contract invariant).
+    assert plan["lifecycle_events"] == []
+
+
+def test_externalized_surface_that_realigns_is_diffed_normally():
+    indexes = _indexes_after_externalization("1.18.0", "1.19.0")
+    indexes["Microsoft.Agents.AI.DurableTask"] += ["1.18.0-preview.1", "1.19.0-preview.1"]
+    plan = planner.build_plan(manifest(), "1.18.0", "1.19.0", fetch_from(indexes))
+    durable = next(s for s in plan["surfaces"] if s["slug"] == "durable")
+    assert durable["status"] == "diffable"
+    assert (durable["old_package_version"], durable["new_package_version"]) == (
+        "1.18.0-preview.1",
+        "1.19.0-preview.1",
+    )
+
+
+def test_externalization_does_not_relax_other_surfaces():
+    indexes = _indexes_after_externalization("1.17.0", "1.18.0")
+    indexes["Microsoft.Agents.AI.Harness"] = ["1.17.0"]
+    plan = planner.build_plan(manifest(), "1.17.0", "1.18.0", fetch_from(indexes))
+    harness = next(s for s in plan["surfaces"] if s["slug"] == "harness")
+    assert harness["status"] == "unverifiable"
+
+
+def test_externalization_never_applies_before_its_release():
+    indexes = _indexes_after_externalization("1.15.0", "1.16.0")
+    indexes["Microsoft.Agents.AI.DurableTask"] = ["1.15.0-preview.1"]
+    plan = planner.build_plan(manifest(), "1.15.0", "1.16.0", fetch_from(indexes))
+    durable = next(s for s in plan["surfaces"] if s["slug"] == "durable")
+    assert durable["status"] == "unverifiable"
+
+
+def test_transition_train_uses_event_pinned_source_after_upstream_republish():
+    indexes = _indexes_after_externalization("1.16.0", "1.17.0")
+    plan = planner.build_plan(manifest(), "1.16.0", "1.17.0", fetch_from(indexes))
+    durable = next(s for s in plan["surfaces"] if s["slug"] == "durable")
+    assert durable["status"] == "informational"
+    assert durable["old_package_version"] == "1.16.0-preview.260730.1"
+
+
+def test_train_lock_pins_old_side_over_ambiguous_alignment():
+    indexes = _indexes_after_externalization("1.18.0", "1.19.0")
+    indexes["Microsoft.Agents.AI.Hosting"] = [
+        "1.18.0-preview.260818.1",
+        "1.18.0-preview.260930.1",
+        "1.19.0-preview.260901.1",
+    ]
+    lock = {"schema_version": 1, "trains": {"1.18.0": {
+        "Microsoft.Agents.AI.Hosting": "1.18.0-preview.260818.1"}}}
+    without = planner.build_plan(manifest(), "1.18.0", "1.19.0", fetch_from(indexes))
+    with_lock = planner.build_plan(
+        manifest(), "1.18.0", "1.19.0", fetch_from(indexes), train_lock=lock
+    )
+    hosting = lambda plan: next(s for s in plan["surfaces"] if s["slug"] == "hosting")  # noqa: E731
+    assert hosting(without)["status"] == "unverifiable"
+    assert hosting(with_lock)["status"] == "diffable"
+    assert hosting(with_lock)["old_package_version"] == "1.18.0-preview.260818.1"
+
+
+def test_train_lock_does_not_pin_new_side_unless_replaying():
+    indexes = _indexes_after_externalization("1.18.0", "1.19.0")
+    indexes["Microsoft.Agents.AI.Hosting"] += ["1.19.0-preview.260930.1"]
+    lock = {"schema_version": 1, "trains": {"1.19.0": {
+        "Microsoft.Agents.AI.Hosting": "1.19.0-preview.260901.1"}}}
+    live = planner.build_plan(manifest(), "1.18.0", "1.19.0", fetch_from(indexes), train_lock=lock)
+    replay = planner.build_plan(
+        manifest(), "1.18.0", "1.19.0", fetch_from(indexes), train_lock=lock, lock_new_side=True
+    )
+    hosting = lambda plan: next(s for s in plan["surfaces"] if s["slug"] == "hosting")  # noqa: E731
+    assert hosting(live)["status"] == "unverifiable"
+    assert hosting(replay)["new_package_version"] == "1.19.0-preview.260901.1"
+
+
+def test_lock_version_missing_from_index_falls_back_to_alignment():
+    indexes = _indexes_after_externalization("1.18.0", "1.19.0")
+    lock = {"schema_version": 1, "trains": {"1.18.0": {"Microsoft.Agents.AI": "1.18.0-gone"}}}
+    plan = planner.build_plan(manifest(), "1.18.0", "1.19.0", fetch_from(indexes), train_lock=lock)
+    core = next(s for s in plan["surfaces"] if s["slug"] == "core")
+    assert core["old_package_version"] == "1.18.0"
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"schema_version": 2, "trains": {}},
+        {"schema_version": 1, "trains": []},
+        {"schema_version": 1, "trains": {"1.18.0-rc.1": {"A": "1.0.0"}}},
+        {"schema_version": 1, "trains": {"1.18.0": {}}},
+        {"schema_version": 1, "trains": {"1.18.0": {"bad id!": "1.0.0"}}},
+        {"schema_version": 1, "trains": {"1.18.0": {"A": "not-a-version"}}},
+    ],
+)
+def test_train_lock_validation_rejects_malformed_documents(tmp_path, payload):
+    path = tmp_path / "lock.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    with pytest.raises(planner.TrainLockError):
+        planner.load_train_lock(path)
+
+
+def test_missing_train_lock_file_is_an_empty_lock(tmp_path):
+    assert planner.load_train_lock(tmp_path / "absent.json")["trains"] == {}
