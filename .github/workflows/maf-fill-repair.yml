@@ -1,0 +1,74 @@
+name: MAF fill repair
+
+# A-01 (ROADMAP): when the required verify check fails on the fill agent's own
+# commit, give the agent another attempt instead of waiting for a person; it
+# re-runs the release checklist and the obligations gate and fixes what fails.
+# On MAF 1.22.0 one re-run fixed exactly such a failure. Attempts are bounded
+# (repository variable MAF_FILL_MAX_REPAIRS, default 1: each costs Copilot
+# credits); after that the PR is labelled needs-human with the runbook link.
+#
+# Only acts when the failing run's head commit is the agent's fill
+# ("chore: AI-filled TODOs ..."): the watcher's scaffold commit fails verify
+# by design (keep-breaking-red) while the first fill is still running.
+
+on:
+  workflow_run:
+    workflows: ["MAF AI-Fill PR Verify"]
+    types: [completed]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: maf-fill-repair-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: false
+
+jobs:
+  repair:
+    if: >-
+      github.event.workflow_run.conclusion == 'failure' &&
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.head_repository.full_name == github.repository &&
+      startsWith(github.event.workflow_run.head_branch, 'release-watcher/maf-') &&
+      startsWith(github.event.workflow_run.head_commit.message, 'chore: AI-filled TODOs')
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Re-run the fill agent, or hand the release to a human
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          BRANCH: ${{ github.event.workflow_run.head_branch }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+          MAX_REPAIRS: ${{ vars.MAF_FILL_MAX_REPAIRS || '1' }}
+        run: |
+          set -euo pipefail
+          PR=$(gh pr list --head "$BRANCH" --state open --json number --jq '.[0].number // empty')
+          if [ -z "$PR" ]; then
+            echo "No open PR for $BRANCH; nothing to repair."
+            exit 0
+          fi
+          CURRENT=$(gh pr view "$PR" --json headRefOid --jq .headRefOid)
+          if [ "$CURRENT" != "$HEAD_SHA" ]; then
+            echo "verify ran on an older head ($HEAD_SHA, now $CURRENT); skipping."
+            exit 0
+          fi
+          # Each fill run posts exactly one summary comment carrying this marker.
+          FILLS=$(gh pr view "$PR" --json comments \
+            --jq '[.comments[] | select(.body | contains("workflow_id: maf-registry-fill"))] | length')
+          REPAIRS=$(( FILLS > 0 ? FILLS - 1 : 0 ))
+          if [ "$REPAIRS" -lt "$MAX_REPAIRS" ]; then
+            gh pr comment "$PR" --body "🔁 \`verify\` failed on the agent's fill ([run]($RUN_URL)). Re-running the fill agent (repair $((REPAIRS + 1)) of $MAX_REPAIRS); it re-runs the release checklist and the obligations gate and fixes what fails."
+            gh workflow run maf-registry-fill.lock.yml --ref main -f scaffold_branch="$BRANCH"
+            echo "Dispatched repair $((REPAIRS + 1)) of $MAX_REPAIRS for #$PR."
+          else
+            gh label create needs-human --color B60205 \
+              --description "Automation could not finish this; a maintainer must" 2>/dev/null || true
+            gh pr edit "$PR" --add-label needs-human
+            gh pr comment "$PR" --body "🧑 \`verify\` still fails after $MAX_REPAIRS automatic repair(s) ([run]($RUN_URL)). A maintainer needs to finish this release; see [the runbook](../blob/main/docs/runbooks/self-update.md#fill-repair-exhausted)."
+            echo "::warning::Repairs exhausted for #$PR; labelled needs-human."
+          fi
