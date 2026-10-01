@@ -55,7 +55,7 @@ public class AntiPatternScannerToolTests
             }
             """;
         var findings = AntiPatternScannerTool.ScanFile(source, "src/Auth.cs");
-        Assert.Contains(findings, f => f.RuleId == "MAF-AP-SEC-001" && f.Severity == AntiPatternSeverity.Error);
+        Assert.Contains(findings, f => f.RuleId == "MAF-AP-SEC-001" && f.Severity == AntiPatternSeverity.Warning);
     }
 
     [Fact]

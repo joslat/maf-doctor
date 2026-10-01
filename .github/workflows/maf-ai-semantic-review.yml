@@ -68,17 +68,20 @@ jobs:
     # (no inputs to validate). The workflow_dispatch path requires validate-inputs
     # to have succeeded.
     needs: [validate-inputs]
-    # Task 4.6 — scope is decided downstream by the build-prompt step (skip=true
-    # when no registry ENTRIES changed), NOT by a self-applied `ai-fill` label or
-    # a bot branch prefix. Relying on those silently skipped fill PRs that forgot
-    # the label / used an unexpected branch. Now ANY non-draft PR runs the job;
-    # non-registry PRs no-op cheaply before the (paid) AI inference step.
+    # Scope: automatic reviews run only on release-watcher PRs (budget decision,
+    # 2026-10-01: Copilot credits are limited). The old warning about branch-prefix
+    # scoping (fill PRs on unexpected branches were silently skipped) no longer
+    # applies: the agentic fill only works on release-watcher/maf-* branches; its
+    # pre-step enforces the prefix. Any other PR can still be reviewed on demand
+    # with workflow_dispatch (pr_number). Within scope, the build-prompt step still
+    # no-ops (skip=true) when no registry entries changed.
     if: >
       always() &&
       (needs.validate-inputs.result == 'success' || needs.validate-inputs.result == 'skipped') &&
       (
         github.event_name == 'workflow_dispatch' ||
-        github.event.pull_request.draft == false
+        (github.event.pull_request.draft == false &&
+         startsWith(github.event.pull_request.head.ref, 'release-watcher/maf-'))
       )
     runs-on: ubuntu-latest
     steps:

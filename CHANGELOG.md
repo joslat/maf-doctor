@@ -20,7 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Every new entry's API claims are checked against the real packages in the train lock:
   the obsolete member must exist in the old package and the replacement member in the
   new one. Across MAF 1.10–1.23 its only findings were real mis-attributions, now fixed.
-- **The watcher runs within a day of a MAF release.** The daily freshness job dispatches
+- **The watcher runs within about four days of a MAF release.** The weekly (Monday) freshness job dispatches
   it as soon as `main` is behind and no watcher PR is open (was: Thursdays only).
 - **The fill agent repairs its own failed fill once.** When the required `verify` check
   fails on the agent's commit, `maf-fill-repair` re-runs the agent (bounded by
@@ -39,7 +39,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   packed tool from the local `.nupkg`, checks `--version`, runs an MCP stdio smoke test
   (handshake, capability lists, a real tool call) and `verify-registry` against the
   registry embedded in the package.
-- **New MAF packages can no longer go unnoticed.** The daily `maf-freshness` job lists
+- **New MAF packages can no longer go unnoticed.** The weekly `maf-freshness` job lists
   every verified `Microsoft.Agents.AI*` package on nuget.org and keeps a rolling issue
   open for any that is neither a watcher surface, a lifecycle-event package, nor
   ignored with a reason in `.github/maf-package-discovery.json`. 24 of 35 packages had
@@ -50,6 +50,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **MAF-AP-SEC-001 (`DefaultAzureCredential` in AI code) is a warning, not an error.** It is
+  hardening advice (Azure Identity: prefer a deterministic credential in production), not
+  a defect; as an error it graded an official Azure OpenAI sample "F" (now "B"). The
+  bundled samples move one finding from errors to warnings (6/4, still "F").
+- **The tool rolls forward to newer .NET runtimes** (`RollForward=Major`). .NET 8 and 9
+  reach end of support on 2026-11-10; the net8/net9/net10 builds keep shipping while MAF
+  supports them, and a machine with only a newer runtime (e.g. .NET 11) can still run it.
+- CI budget: `maf-freshness` runs weekly (Mondays; with the watcher's Thursday run a new
+  MAF release is picked up within about four days), and the Copilot semantic review runs
+  automatically only on release-watcher PRs (any PR can still be reviewed on demand with
+  `workflow_dispatch`).
 - **C# 14 code is parsed correctly.** The scanners and rewriters moved to Roslyn 5.6
   (was 4.14) and parse at the latest language version through one helper, so extension
   blocks, null-conditional assignment and the `field` keyword no longer produce syntax

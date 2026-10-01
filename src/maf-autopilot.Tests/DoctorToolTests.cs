@@ -152,15 +152,14 @@ public class DoctorToolTests
     [Fact]
     public void Grade_AggregatesFromAllFourRealScanners_SurfacesSecurityError()
     {
-        // Arrange — source that legitimately trips MAF-AP-SEC-001 (DefaultAzureCredential).
+        // Arrange — source that legitimately trips MAF-AP-SEC-002 (hard-coded API key).
+        // SEC-001 (DefaultAzureCredential) is a warning since 2026-10-01, so the
+        // security ERROR this test needs comes from a hard-coded key.
         const string source = """
-            using Azure.Identity; using Microsoft.Agents.AI;
+            using Microsoft.Agents.AI;
             public class BadAgent
             {
-                public BadAgent()
-                {
-                    var cred = new DefaultAzureCredential();
-                }
+                private const string Key = "sk-abc123def456ghi789jkl";
             }
             """;
 
@@ -174,10 +173,10 @@ public class DoctorToolTests
 
         // Assert — the security error propagates to the grade AND the top-fix list.
         Assert.True(summary.AntiPatternErrors >= 1,
-            "DefaultAzureCredential should have tripped MAF-AP-SEC-001 — composition is broken.");
+            "A hard-coded key should have tripped MAF-AP-SEC-002 — composition is broken.");
         Assert.NotEqual('A', summary.Grade);
         Assert.Contains(summary.TopFixes,
-            fix => fix.Description.Contains("MAF-AP-SEC-001", StringComparison.Ordinal));
+            fix => fix.Description.Contains("MAF-AP-SEC-002", StringComparison.Ordinal));
     }
 
     [Fact]

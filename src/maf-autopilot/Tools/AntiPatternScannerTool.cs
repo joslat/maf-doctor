@@ -205,7 +205,10 @@ public sealed class AntiPatternScannerTool
         new RegexRule(
             id: "MAF-AP-SEC-001",
             name: "DefaultAzureCredential in production code",
-            severity: AntiPatternSeverity.Error,
+            // Warning, not error (decision 2026-10-01): it is hardening advice (Azure
+            // Identity: prefer a deterministic credential in production), not a
+            // defect. As an error it graded an official Azure OpenAI sample "F".
+            severity: AntiPatternSeverity.Warning,
             pattern: new Regex(@"\bnew\s+DefaultAzureCredential\s*\(", RegexHygiene, RegexBudget),
             skipInTestFiles: true,
             // Q-04: the rule is about credentials for agent/AI clients. A false-

@@ -8,6 +8,13 @@
     <RootNamespace>MafDoctor</RootNamespace>
     <AssemblyName>maf-doctor</AssemblyName>
 
+    <!-- R-01 (decided 2026-10-01): .NET 8 and 9 reach end of support on
+         2026-11-10. We keep shipping net8/net9/net10 builds (MAF still supports
+         net8), and roll forward across majors so the tool also runs on machines
+         that only have a newer runtime (e.g. .NET 11) installed. Revisit net8/net9
+         when MAF drops them. -->
+    <RollForward>Major</RollForward>
+
     <!-- .NET Global Tool packaging -->
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>maf-doctor</ToolCommandName>
