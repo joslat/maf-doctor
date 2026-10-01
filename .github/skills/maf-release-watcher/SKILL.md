@@ -1,6 +1,6 @@
 ---
 name: maf-release-watcher
-description: "Detects new MAF releases, extracts breaking changes, and keeps the toolkit's registry/matrix/guide current. Pipeline: (1) deterministic data extraction via GitHub Actions + Python helpers + dotnet-inspect, opens a PR with raw data and TODOs on a per-version branch (never commits direct to main), (2) optionally, a maintainer manually runs a sibling workflow that opens a GitHub issue for GitHub Copilot Coding Agent to fill the TODOs, (3) Copilot opens a PR with the fills. This skill documents the whole loop end-to-end."
+description: "Detects new MAF releases and keeps the registry, matrix and guides current. Pipeline: (1) the watcher diffs every tracked package surface and opens a scaffold PR on a per-version branch, (2) the maf-registry-fill agentic workflow fills the TODOs inside Actions, (3) required PR gates decide; releases without breaking changes auto-merge, breaking ones wait for review. This skill documents the loop end to end."
 ---
 
 # maf-release-watcher
@@ -15,7 +15,7 @@ When Microsoft ships a new MAF version, this pipeline keeps the toolkit's three 
 - **`guides/maf-current-migration-guide.md`** — auto-regenerated cumulative reference
 - **`.github/skills/maf-obsolete-api-registry/registry.yaml`** — append-only breaking-change registry
 
-Two of those (`compatibility-matrix.md` row contents, per-version guide TODO sections, registry-entry TODO fields) require *judgement* the deterministic pipeline can't fully automate — release notes have to be interpreted, before/after C# examples written, etc. That work is delegated to **GitHub Copilot Coding Agent** via a second workflow (`maf-ai-fill-todos.yml`) that opens an issue with a structured prompt and assigns the bot.
+Three of those (matrix row contents, per-version guide sections, registry-entry TODO fields) need *judgement* the deterministic pipeline can't automate: release notes have to be interpreted and before/after C# examples written. That work runs in the **`maf-registry-fill`** agentic workflow (GitHub Agentic Workflows, Copilot engine), which fills the scaffold PR in place.
 
 ---
 
@@ -60,61 +60,37 @@ TRIGGER (cron or gh workflow run)
 │  1.9  git checkout -b release-watcher/maf-X.Y.Z                    │
 │       git commit + git push (per-version branch, NOT main)         │
 │  1.10 gh pr create --base main --head release-watcher/maf-X.Y.Z    │
-│          (2026-06-28 "C" refactor — an unfilled scaffold turned    │
-│           main RED and blocked every downstream PR; Stage 1 now    │
-│           always opens a PR instead of committing direct-to-main.  │
-│           No longer auto-dispatches Stage 2 below — that's now a   │
-│           maintainer's manual, optional next step, targeting the   │
-│           branch this PR is on.)                                   │
+│       (never commits to main; one watcher PR open at a time; an    │
+│        open one warns after 7 days and fails the watcher at 14)    │
 │                                                                    │
 └────────────────────────────────────────────────────────────────────┘
-                                  │ manual, optional
+                                  │ pull_request: opened
                                   ▼
 ┌────────────────────────────────────────────────────────────────────┐
-│  STAGE 2 — AI-fill dispatch (manual, optional)                     │
-│  Maintainer runs: gh workflow run maf-ai-fill-todos.yml            │
-│                      -f target_version=X.Y.Z                       │
-│  .github/workflows/maf-ai-fill-todos.yml                           │
-│  Runs on ANOTHER fresh Ubuntu VM                                   │
-│  Still no LLM — just creates an issue + assigns Copilot            │
+│  STAGE 2 — Agentic fill                                            │
+│  .github/workflows/maf-registry-fill.md (compiled .lock.yml)       │
+│  Copilot engine inside the workflow; THIS is the LLM part          │
 ├────────────────────────────────────────────────────────────────────┤
-│                                                                    │
-│  2.1  Ensure `maf-release` and `ai-fill` labels exist (idempotent) │
-│  2.2  Open a GitHub issue:                                         │
-│          - Title: "Fill TODOs for MAF X.Y.Z"                       │
-│          - Body: full filling prompt (the prompt the maintainer    │
-│                  wrote — what to fill, style anchor, constraints)  │
-│          - Labels: maf-release,ai-fill                             │
-│  2.3  Assign Copilot Coding Agent via GraphQL                      │
-│          - bot ID: BOT_kgDOC9w8XQ (stable across all repos)        │
-│          - mutation: addAssigneesToAssignable (additive)           │
-│          (gh CLI's --assignee doesn't work — REST `/users/Copilot` │
-│           doesn't return the bot. GraphQL does.)                   │
-│                                                                    │
+│  2.1  Follows .github/scripts/ai_fill_issue_prompt.md.tpl          │
+│  2.2  Fills registry TODOs, guide sections, matrix row,            │
+│       CompatibilityTool.cs; replaces each REVIEW sentinel with a   │
+│       NEW same-package entry                                       │
+│  2.3  Runs the release checklist (checks 1-11, incl. the CI        │
+│       obligations gate) and iterates until it passes               │
+│  2.4  Pushes to the PR branch via safe outputs (data files only)   │
+│       and comments a summary for the reviewer                      │
 └────────────────────────────────────────────────────────────────────┘
-                                  │ issue assignment
+                                  │ pull_request: synchronize
                                   ▼
 ┌────────────────────────────────────────────────────────────────────┐
-│  STAGE 3 — GitHub Copilot Coding Agent                             │
-│  Runs on GitHub's own infrastructure (NOT our workflow VM)         │
-│  THIS is the LLM/agent part                                        │
+│  STAGE 3 — Gates and merge                                         │
 ├────────────────────────────────────────────────────────────────────┤
-│                                                                    │
-│  3.1  Reads the issue body (the prompt)                            │
-│  3.2  Reads the repo (registry.yaml, matrix, guide, release notes) │
-│  3.3  Creates a branch (e.g. copilot/fill-todos-for-maf-1-4-0)     │
-│  3.4  Makes file edits — fills the TODOs:                          │
-│          - registry: fix_description, example_before/after,        │
-│            guide_section (N/A if no parallel in 1.3 guide)         │
-│          - compat matrix: real version constraints if release      │
-│            notes mention them, else `unknown` + TODO comment       │
-│          - per-version guide: Breaking Changes, New Patterns,      │
-│            Obsolete APIs, Known Misalignments sections             │
-│          - clean up terminal-escape artefacts in diff summary      │
-│  3.5  Opens a draft PR titled                                      │
-│        "chore: AI-filled TODOs for MAF X.Y.Z"                      │
-│        labelled `maf-release,ai-fill`                              │
-│                                                                    │
+│  3.1  maf-ai-fill-verify (required): obligations contract, train   │
+│       lock immutability, sentinel rule, verify-registry, cross-    │
+│       file consistency, autonomy envelope (data paths only)        │
+│  3.2  build-test + ci-invariants (required)                        │
+│  3.3  Additive release: auto-merge. Breaking: maintainer review.   │
+│  3.4  maf-doctor release: push a vX.Y.Z tag → release.yml          │
 └────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -150,7 +126,7 @@ They exist because the data transformation is **deterministic** (parse JSON, ins
 
 ## Files modified by a successful run
 
-After Stage 1, before Stage 3:
+After Stage 1 (the scaffold):
 
 | File | Modification |
 |---|---|
@@ -160,38 +136,39 @@ After Stage 1, before Stage 3:
 | `guides/maf-current-migration-guide.md` | Regenerated cumulative file |
 | `.github/skills/maf-obsolete-api-registry/registry.yaml` | New entries appended (with TODO placeholders for `fix_description`, `example_before`, `example_after`, `guide_section`) |
 
-After Stage 3 (Copilot's PR):
+After Stage 2 (the agentic fill, pushed to the same PR):
 
 | File | Modification |
 |---|---|
 | `registry.yaml` | TODO placeholders filled in for that version's entries |
-| `compatibility-matrix.md` | `unknown` cells filled OR explicit `unknown + TODO comment` if the release notes don't reveal them |
+| `compatibility-matrix.md` and `CompatibilityTool.cs` | `unknown` cells filled where the release notes or packages reveal them |
 | Per-version guide | `Breaking Changes`, `New Patterns`, `Obsolete APIs`, `Known Misalignments` sections filled; terminal-escape artefacts cleaned |
 
 ---
 
-## Human review checklist (when Copilot's PR opens)
+## Human review checklist (breaking releases, after the fill comment)
 
-- [ ] **Registry entries**: spot-check 1-2 of Copilot's `example_before`/`example_after` snippets against the real MAF surface. Compile if you can.
-- [ ] **Compat matrix**: if cells are still `unknown`, you'll need to look up versions from the MAF csproj on NuGet — Copilot left them when release notes were ambiguous.
+- [ ] **Registry entries**: spot-check the entries the agent flags in its comment (it says which `cs_warning` values are inferred) against the upstream `dotnet-X.Y.Z` source. Compile if you can.
+- [ ] **Compat matrix**: if cells are still `unknown`, you'll need to look up versions from the MAF csproj on NuGet — the agent leaves them when release notes are ambiguous.
 - [ ] **Migration guide "Breaking Changes"**: confirm one bullet per registry entry; no breaking change in the diff is missed.
 - [ ] **Migration guide "New Patterns"**: confirm each PR # mentioned corresponds to a real MAF PR (cross-reference at `https://github.com/microsoft/agent-framework/pull/<N>`).
-- [ ] **`guide_section`**: for entries on a new MAF surface, value should be `N/A` (not `TBD`, not `TODO`). If Copilot used `TBD`, fix to `N/A`.
+- [ ] **`guide_section`**: for entries on a new MAF surface, value should be `N/A` (not `TBD`, not `TODO`). `TBD` is rejected by `verify-registry`.
 - [ ] **`## Human additions` heading**: should be untouched.
 
 ---
 
 ## Limitations the pipeline can't solve
 
-- **Obsolete-by-attribute APIs not in the diff**: the pinned `dotnet-inspect` surfaces `[Obsolete]` at the type/member level. But the COMPILER is still ground-truth for transitive obsoletions, overload-resolution surprises, and project-local `[Obsolete]` decorations. Run `MafRunCs0618Hunt` against a real project pinned to the new version after the watcher commits to catch these.
-- **Behavioural changes the diff can't see**: a method whose signature is identical but whose runtime semantics changed (e.g. "now returns ValueTask<T> instead of starving silently") is invisible to `dotnet-inspect`. Release-notes interpretation by Copilot in Stage 3 catches some of these but not all.
+- **Obsolete-by-attribute APIs not in the diff**: the pinned `dotnet-inspect` surfaces `[Obsolete]` at the type/member level. But the COMPILER is still ground-truth for transitive obsoletions, overload-resolution surprises, and project-local `[Obsolete]` decorations. Run `MafRunCs0618Hunt` against a real project pinned to the new version to catch these.
+- **Behavioural changes the diff can't see**: a method whose signature is identical but whose runtime semantics changed (e.g. "now returns ValueTask<T> instead of starving silently") is invisible to `dotnet-inspect`. The agent records `[BREAKING]` release-note items with no API diff as behavioral reviews in the guide; it catches some of these but not all.
 - **Whether the new version is actually *good***: the pipeline tells you what changed, not whether you should upgrade. That call is human.
 
 ---
 
 ## Related artefacts
 
-- **Workflows**: `.github/workflows/maf-release-watcher.yml`, `.github/workflows/maf-ai-fill-todos.yml`
+- **Workflows**: `.github/workflows/maf-release-watcher.yml`, `.github/workflows/maf-registry-fill.md`, `.github/workflows/maf-ai-fill-verify.yml`, `.github/workflows/maf-freshness.yml` (`maf-ai-fill-todos.yml` is a manual fallback)
+- **Runbook**: `docs/runbooks/self-update.md` (one section per watcher failure class)
 - **Python helpers**: `.github/scripts/gen_guide_section.py`, `.github/scripts/update_compat_matrix.py`
 - **CLI used by Stage 1**: `maf-doctor registry-extract` (from the published NuGet tool)
 - **MCP tool for multi-version paths**: `MafMigrationPath(currentVer, targetVer)` — returns the ordered chain of per-version guide sections to read

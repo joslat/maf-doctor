@@ -139,14 +139,18 @@ The MCP tools verify that PATH installation before every diff, accepting `0.9.1`
 
 ## Self-update workflows (GitHub Actions)
 
-Two scheduled workflows keep the repo in sync with MAF:
+These workflows keep the repo in sync with MAF:
 
-- **MAF Release Watcher** (`maf-release-watcher.yml`) — Thursdays 06:00 UTC (aligned with MAF's ship cadence); checks NuGet for a new **stable** MAF, then commits matrix/guide/registry updates **directly to `main`** (no PR gate — a deliberate solo-maintainer trade-off) and dispatches the Copilot AI-fill flow. Prereleases and major bumps are manual-dispatch only.
+- **MAF Release Watcher** (`maf-release-watcher.yml`) — Thursdays 06:00 UTC. Detects the next stable MAF on NuGet (oldest pending first), diffs every package surface in `.github/maf-package-surfaces.json`, records the train in `.github/maf-train-lock.json`, and opens a scaffold PR on `release-watcher/maf-X.Y.Z`. Only one watcher PR is open at a time; an open one warns after 7 days and fails the watcher after 14. Major bumps open a tracking issue instead.
+- **Fill a MAF release-watcher scaffold** (`maf-registry-fill.md`, an agentic workflow) — runs when the scaffold PR opens, fills the TODOs in Actions, runs the release checklist plus the obligations gate, and pushes to the PR branch (data files only).
+- **MAF AI-Fill PR Verify** (`maf-ai-fill-verify.yml`, required check) — the obligations contract, train-lock immutability, REVIEW-sentinel replacement, `verify-registry`, cross-file consistency, and the autonomy envelope (watcher PRs may only touch data paths). Releases without breaking changes then auto-merge; breaking ones wait for review.
+- **MAF Knowledge Freshness** (`maf-freshness.yml`) — daily. Compares the MAF release covered on `main` and in the latest release tag with nuget.org (SLO: ≤ 1 release and ≤ 10 days behind), and lists any new `Microsoft.Agents.AI*` package that is not tracked. Keeps a rolling issue open for each and turns the run red.
 - **MAF Drift Detector** (`maf-drift-detector.yml`) — Mondays; runs `MafDoctor` and opens/updates a `maf-drift` issue when the grade drops below A.
+- **Dependabot lockfile repair** (`dependabot-lockfile-repair.yml`) — regenerates NuGet lock files for all target frameworks on Dependabot PRs (Dependabot writes them for one framework only).
 
 ### How do I know if a scheduled run failed?
 
-Each workflow has a `notify-on-failure` job: on any failure it opens (or comments onto) **one rolling issue** titled `🔴 Self-update workflow failed: <name>`, labelled `maf-release`. You'll get a normal GitHub notification; close the issue once the cause is fixed.
+Each workflow has a `notify-on-failure` job: on any failure it opens (or updates) **one rolling issue** titled `🔴 Self-update workflow failed: <name>`, labelled `maf-release`. The issue names the failure class, the first failure, the streak, and the matching section of [`docs/runbooks/self-update.md`](docs/runbooks/self-update.md); from the second consecutive failure it is labelled `p0` and mentions the owner. Close the issue once the cause is fixed.
 
 **Optional belt-and-suspenders:** enable *Settings → Notifications → "Send notifications for failed workflows you've created"* for a native email. It only emails on the **first** failure of a streak, which is why the issue-based notifier above is the primary signal.
 

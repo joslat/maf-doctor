@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "_comment": "Microsoft.Agents.AI* packages on NuGet that are deliberately NOT diffed by the watcher. discover_maf_packages.py alerts on any verified package that is neither a surface in maf-package-surfaces.json, a lifecycle-event package, nor listed here. Every entry needs a reason.",
+  "ignored": {
+    "Microsoft.Agents.AI.AzureAI": "Pre-GA name; renamed to Microsoft.Agents.AI.Foundry. Last version 1.0.0-rc5.",
+    "Microsoft.Agents.AI.Workflows.Declarative.AzureAI": "Pre-GA name; renamed to Microsoft.Agents.AI.Workflows.Declarative.Foundry. Last version 1.0.0-rc5.",
+    "Microsoft.Agents.AI.FoundryMemory": "Abandoned preview (last 1.0.0-preview.260330.1, March 2026); never shipped stable.",
+    "Microsoft.Agents.AI.ProjectTemplates": "dotnet new templates; no public API to diff."
+  }
+}
