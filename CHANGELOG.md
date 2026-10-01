@@ -11,6 +11,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Automatic releases.** When a watcher PR merges (`.maf-version` changes on `main`),
+  `auto-release` tags the next minor version, so each MAF train ships as a maf-doctor
+  release with no human step. Switched by the `AUTO_RELEASE` repository variable.
+- **Release canary.** Before anything is pushed to NuGet, `release.yml` installs the
+  packed tool from the local `.nupkg`, checks `--version`, runs an MCP stdio smoke test
+  (handshake, capability lists, a real tool call) and `verify-registry` against the
+  registry embedded in the package.
 - **New MAF packages can no longer go unnoticed.** The daily `maf-freshness` job lists
   every verified `Microsoft.Agents.AI*` package on nuget.org and keeps a rolling issue
   open for any that is neither a watcher surface, a lifecycle-event package, nor

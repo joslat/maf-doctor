@@ -1,0 +1,72 @@
+name: Auto-release on MAF train merge
+
+# A-03 (ROADMAP): the last manual step of the self-update loop was pushing the
+# release tag. When a watcher PR lands on main (.maf-version changes), this
+# tags the next minor version so release.yml tests, canary-installs, and
+# publishes it. Each MAF train becomes one maf-doctor minor release.
+#
+# Kill switch: the repository variable AUTO_RELEASE must be "true"; any other
+# value (or none) only reports what would be released. Manual dispatch is a
+# dry run unless dry_run is unchecked.
+#
+# The tag is pushed with the PAT: tags pushed with GITHUB_TOKEN do not trigger
+# release.yml. release.yml still refuses tags whose commit is not on main.
+
+on:
+  push:
+    branches: [main]
+    paths: ['.maf-version']
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Only report the release that would be cut'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: auto-release
+  cancel-in-progress: false
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Decide whether a release is due
+        id: decide
+        run: python3 .github/scripts/next_release_version.py --repo .
+
+      - name: Push the release tag
+        if: steps.decide.outputs.release == 'true'
+        env:
+          VERSION: ${{ steps.decide.outputs.version }}
+          REASON: ${{ steps.decide.outputs.reason }}
+          AUTO_RELEASE: ${{ vars.AUTO_RELEASE }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          PUSH_TOKEN: ${{ secrets.COPILOT_ASSIGN_PAT }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          echo "Release due: v$VERSION ($REASON)"
+          if [ "$DRY_RUN" = "true" ] || [ "$AUTO_RELEASE" != "true" ]; then
+            echo "::notice title=Auto-release not tagged::Would tag v$VERSION ($REASON). Dry run, or the AUTO_RELEASE variable is not 'true'."
+            exit 0
+          fi
+          if [ -z "$PUSH_TOKEN" ]; then
+            echo "::error::COPILOT_ASSIGN_PAT is not set; a GITHUB_TOKEN tag would not trigger release.yml."
+            exit 1
+          fi
+          git config user.name "maf-doctor-bot"
+          git config user.email "maf-doctor-bot@users.noreply.github.com"
+          git tag -a "v$VERSION" "$GITHUB_SHA" -m "maf-doctor v$VERSION (automatic): $REASON"
+          git push "https://x-access-token:${PUSH_TOKEN}@github.com/${REPO}.git" "refs/tags/v$VERSION"
+          echo "::notice title=Release tagged::v$VERSION pushed; release.yml will test, canary-install and publish it."

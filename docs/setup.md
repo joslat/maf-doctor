@@ -15,6 +15,9 @@ SLO and Dependabot lock-file repair run in this repository's Actions (see
 To run that automation in a fork you need the two secrets below, plus repository
 auto-merge and the required checks (`verify`, `Build + test (net8/9/10)` and the six
 `ci-invariants` jobs) on `main`.
+Releases are cut automatically when a MAF train merges if the repository variable
+`AUTO_RELEASE` is `true` (`gh variable set AUTO_RELEASE --body true`); otherwise push a
+`vX.Y.Z` tag yourself.
 
 ---
 

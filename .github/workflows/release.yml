@@ -232,6 +232,38 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
         run: python3 .github/scripts/verify_release_packages.py --dist src/dist --version "$VERSION"
 
+      - name: Canary — install the packed tool and smoke-test it (A-03)
+        # Nothing is published unless the exact package about to be pushed
+        # installs as a global tool, reports the release version, completes an
+        # MCP handshake with a real tool call, and passes verify-registry
+        # against the registry EMBEDDED in the package. A nuget.config with only
+        # the local dist folder makes sure the local package is what we test.
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          CANARY="$RUNNER_TEMP/canary"
+          mkdir -p "$CANARY"
+          cat > "$CANARY/nuget.config" <<EOF
+          <?xml version="1.0" encoding="utf-8"?>
+          <configuration>
+            <packageSources>
+              <clear />
+              <add key="dist" value="$GITHUB_WORKSPACE/src/dist" />
+            </packageSources>
+          </configuration>
+          EOF
+          dotnet tool install maf-doctor --version "$VERSION" \
+            --configfile "$CANARY/nuget.config" --tool-path "$CANARY/tool"
+          REPORTED=$("$CANARY/tool/maf-doctor" --version)
+          echo "Installed: $REPORTED"
+          if [ "$REPORTED" != "maf-doctor $VERSION" ]; then
+            echo "::error::Canary reports '$REPORTED', expected 'maf-doctor $VERSION'."
+            exit 1
+          fi
+          python3 .github/scripts/mcp_smoke.py --expect-version "$VERSION" -- "$CANARY/tool/maf-doctor"
+          (cd "$CANARY" && env -u MAF_REGISTRY_PATH "$CANARY/tool/maf-doctor" verify-registry)
+
       - name: Attest build provenance (SEC-13)
         # Signed provenance over the exact packages this run produced — makes a
         # published package attributable to this workflow run + commit. Runs before
