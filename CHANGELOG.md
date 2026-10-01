@@ -50,6 +50,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The first public releases (MAF 1.1–1.3) gain registry coverage.** A per-release diff
+  from 1.0.0 found 10 breaking changes with no entry: skill APIs (1.1.0), Foundry
+  `AsAIAgent` (1.2.0), and the 1.3.0 A2A client and hosting redesign (`IA2AClient`,
+  `AddA2AServer` + `MapA2AJsonRpc`/`MapA2AHttpJson`, `RequestContext`). The historical
+  `MAF130-A2A-001/002` notes are corrected: `MapA2A` did ship in the 1.2.0 hosting
+  previews, and `A2AServerRegistrationOptions` has no `AgentCard` property.
 - **Sixteen breaking changes in MAF 1.6–1.10 had no registry entry.** The watcher
   used to jump from 1.6.1 to 1.10.0, so those releases were never diffed one by one. A
   per-release diff of all 35 packages found them: Foundry toolbox removal and client
