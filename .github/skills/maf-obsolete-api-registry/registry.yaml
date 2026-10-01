@@ -1393,7 +1393,7 @@ entries:
     obsolete_signature: "Microsoft.Agents.AI.SubTaskInfo"
     replacement_signature: "Microsoft.Agents.AI.BackgroundTaskInfo"
     argument_order_change: false
-    fix_description: "`SubTaskInfo` was renamed `BackgroundTaskInfo` in 1.6.2, together with the rest of the sub-agent API (`SubAgentsProvider` -> `BackgroundAgentsProvider`, `SubAgentsProviderOptions` -> `BackgroundAgentsProviderOptions`, `SubTaskInfo` -> `BackgroundTaskInfo`, `SubTaskStatus` -> `BackgroundTaskStatus`). Rename the type; the provider constructor keeps the same parameters."
+    fix_description: "`SubTaskInfo` was renamed `BackgroundTaskInfo` in 1.6.2, together with the rest of the sub-agent API (`SubAgentsProvider` -> `BackgroundAgentsProvider`, `SubAgentsProviderOptions` -> `BackgroundAgentsProviderOptions`, `SubTaskInfo` -> `BackgroundTaskInfo`, `SubTaskStatus` -> `BackgroundTaskStatus`). Rename the type; its members are unchanged in the diff."
     example_before: |
       SubTaskInfo info = GetTaskInfo();
     example_after: |
@@ -1415,7 +1415,7 @@ entries:
     obsolete_signature: "Microsoft.Agents.AI.SubTaskStatus"
     replacement_signature: "Microsoft.Agents.AI.BackgroundTaskStatus"
     argument_order_change: false
-    fix_description: "`SubTaskStatus` was renamed `BackgroundTaskStatus` in 1.6.2, together with the rest of the sub-agent API (`SubAgentsProvider` -> `BackgroundAgentsProvider`, `SubAgentsProviderOptions` -> `BackgroundAgentsProviderOptions`, `SubTaskInfo` -> `BackgroundTaskInfo`, `SubTaskStatus` -> `BackgroundTaskStatus`). Rename the type; the provider constructor keeps the same parameters."
+    fix_description: "`SubTaskStatus` was renamed `BackgroundTaskStatus` in 1.6.2, together with the rest of the sub-agent API (`SubAgentsProvider` -> `BackgroundAgentsProvider`, `SubAgentsProviderOptions` -> `BackgroundAgentsProviderOptions`, `SubTaskInfo` -> `BackgroundTaskInfo`, `SubTaskStatus` -> `BackgroundTaskStatus`). Rename the type; its members are unchanged in the diff."
     example_before: |
       SubTaskStatus status = info.Status;
     example_after: |
