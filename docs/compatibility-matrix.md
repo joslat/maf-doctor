@@ -21,6 +21,7 @@
 
 | MAF Version | Microsoft.Extensions.AI | .NET | Azure.AI.OpenAI | Generators Package | Notes |
 |-------------|------------------------|------|-----------------|--------------------|-------|
+| **1.19.0** | `≥ 10.7.0` | `≥ 8.0` | _(not pinned by MAF — BYO via IChatClient)_ | `1.19.0` | **Breaking** — review required. See `guides/maf-1.19.0-migration-guide.md` and the registry entries. Transitive pins carried from 1.18.0 (verify). |
 | **1.18.0** | `≥ 10.7.0` | `≥ 8.0` | _(not pinned by MAF — BYO via IChatClient)_ | `1.18.0` | **Breaking in the preview Hosting package** — `SessionIsolationKeyProvider` was renamed to `AgentIsolationKeyProvider`, which also changes the `IsolationKeyScopedAgentSessionStore` constructor's `keyProvider` parameter type. **Additive** in Core: `AllowConcurrentInvocation`, `EnableInvocableFunctionBypassing` / `UseInvocableFunctionBypassing`, bounded tool-approval auto-approval (`MaxAutoApprovalIterations`), and `BackgroundAgentsProvider.ReleaseSessionAsync`. Transitive pins carried from 1.17.0. See `guides/maf-1.18.0-migration-guide.md` and the registry entries. |
 | **1.17.0** | `≥ 10.7.0` | `≥ 8.0` | _(not pinned by MAF — BYO via IChatClient)_ | `1.17.0` | **Maintenance release: no public-API or dependency-floor break.** All eight validated in-repository surfaces have empty API diffs, and the tracked .NET/`Microsoft.Extensions.AI` floors remain unchanged from 1.16.0. Runtime behavior does change in the separately shipped Declarative packages: a top-level agent `ErrorContent` now fails the workflow before completion or downstream actions instead of looking like an empty success; hosted error detail remains governed by the host's exception-detail policy. `Microsoft.Agents.AI.DurableTask` and `Microsoft.Agents.AI.Hosting.AzureFunctions` moved to `microsoft/agent-framework-durable-extension` without changing package IDs and now follow that repository's independent release cadence, so the absence of a 1.17-aligned package is not a removal. See `guides/maf-1.17.0-migration-guide.md` and the 1.17 registry entries. |
 | **1.16.0** | `≥ 10.7.0` | `≥ 8.0` | _(not pinned by MAF — BYO via IChatClient)_ | `1.16.0` | **First-party MAF APIs are additive; transitive migration may be required.** Workflows adds Magentic prompt/language configuration. Core raises `Microsoft.Extensions.AI` and `Microsoft.Extensions.VectorData.Abstractions` to 10.7.0; VectorData 9.7→10.7 contains source/API breaks in vector dimensions, filters, generic record constraints, and provider extension points. Behavioral fixes clarify chat-history ownership, tool-approval sessions, FileMemory storage scope, declarative table state, Foundry port binding, and A2A configuration forwarding. GitHub Copilot graduates to stable and LocalCodeAct is a new preview package. See `guides/maf-1.16.0-migration-guide.md` and the 1.16 registry entries. |
@@ -74,7 +75,7 @@
 
 The `.maf-version` file at the repository root records the latest MAF version this toolkit's data covers. The `maf-release-watcher` GitHub Actions workflow compares this against the NuGet feed to detect new releases.
 
-Current tracked version: **`1.18.0`** (see `.maf-version`)
+Current tracked version: **`1.19.0`** (see `.maf-version`)
 
 ---
 

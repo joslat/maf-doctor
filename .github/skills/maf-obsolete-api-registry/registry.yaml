@@ -5,7 +5,7 @@
 # Format: see .github/skills/maf-obsolete-api-registry/SKILL.md
 
 schema_version: "1.0"
-target_maf_version: "1.18.0"
+target_maf_version: "1.19.0"
 last_updated: "2026-10-01"
 
 entries:
@@ -4206,3 +4206,26 @@ entries:
 
       Verdict: Type REMOVED in new version — direct type references fail to compile (typically CS0246). Requires human review before merging.
     applies_to_codebases: pre-1.18.0
+
+# === Keep-breaking-red review sentinel auto-added by release-watcher. Fill or replace before merging. ===
+  - id: MAF119-REVIEW-001
+    package: Microsoft.Agents.AI
+    version_introduced: "1.19.0"
+    type: UNKNOWN
+    method: UNKNOWN
+    obsolete_signature: TODO
+    replacement_signature: TODO
+    argument_order_change: false
+    fix_description: >-
+      TODO — Validated evidence for 1.19.0 produced no current-version registry draft, but the release was classified breaking. Review the release notes and validated package
+      artifacts, document the change, then replace this review sentinel.
+    example_before: |
+      // TODO — show a real call site that breaks
+    example_after: |
+      // TODO — show the canonical replacement
+    cs_warning: TODO
+    guide_section: "N/A"
+    dotnet_inspect_detectable: false
+    notes: >-
+      Review sentinel: Validated evidence for 1.19.0 produced no current-version registry draft, but the release was classified breaking.
+    applies_to_codebases: "pre-1.19.0"
