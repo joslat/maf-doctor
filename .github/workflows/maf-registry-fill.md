@@ -7,8 +7,8 @@ on:
     types: [opened, reopened, labeled]
   workflow_dispatch:
     inputs:
-      pr_number:
-        description: Number of the release-watcher scaffold PR to fill
+      scaffold_branch:
+        description: Head branch of the scaffold PR to fill (release-watcher/maf-X.Y.Z)
         required: true
         type: string
 
@@ -29,9 +29,9 @@ engine: copilot
 timeout-minutes: 60
 
 concurrency:
-  group: maf-registry-fill-${{ github.event.pull_request.number || inputs.pr_number }}
+  group: maf-registry-fill-${{ github.head_ref || inputs.scaffold_branch }}
   cancel-in-progress: false
-  job-discriminator: ${{ github.event.pull_request.number || inputs.pr_number }}
+  job-discriminator: ${{ github.head_ref || inputs.scaffold_branch }}
 
 network:
   allowed:
@@ -51,18 +51,14 @@ pre-steps:
     env:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
-      EVENT_NAME: ${{ github.event_name }}
-      HEAD_REF: ${{ github.head_ref }}
-      DISPATCH_PR: ${{ inputs.pr_number }}
+      HEAD_REF: ${{ github.head_ref || inputs.scaffold_branch }}
     run: |
-      if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
-        if ! echo "$DISPATCH_PR" | grep -qE '^[0-9]{1,6}$'; then
-          echo "::error::pr_number must be a PR number"; exit 1
-        fi
-        HEAD_REF=$(gh pr view "$DISPATCH_PR" --json headRefName --jq .headRefName)
-      fi
       if ! echo "$HEAD_REF" | grep -qE '^release-watcher/maf-[0-9]+\.[0-9]+\.[0-9]+(-run-[0-9]+-[0-9]+)?$'; then
         echo "::error::Not a release-watcher scaffold branch: $HEAD_REF"; exit 1
+      fi
+      PR=$(gh pr list --state open --head "$HEAD_REF" --json number,title         --jq '[.[] | select(.title | startswith("chore: MAF "))][0].number // empty')
+      if [ -z "$PR" ]; then
+        echo "::error::No open scaffold PR (title 'chore: MAF ...') for $HEAD_REF"; exit 1
       fi
       echo "ref=$HEAD_REF" >> "$GITHUB_OUTPUT"
 
@@ -88,6 +84,10 @@ safe-outputs:
   github-token: ${{ secrets.COPILOT_ASSIGN_PAT }}
   push-to-pull-request-branch:
     target: "*"
+    # Validate allowed-files against the scaffold branch itself, so only the
+    # agent's own commit is checked (the watcher's scaffold commit legitimately
+    # touches .maf-version, the train lock and the obligations contract).
+    base-branch: ${{ github.head_ref || inputs.scaffold_branch }}
     required-title-prefix: "chore: MAF "
     if-no-changes: error
     # Autonomy envelope: the fill may touch ONLY these files. Anything else is refused.
@@ -112,7 +112,8 @@ The repository is checked out on the scaffold PR's branch.
 
 - **Target version (`TARGET`)**: the content of the file `.maf-version`.
 - **Scaffold branch (`BRANCH`)**: the current git branch (`git branch --show-current`).
-- **Scaffold PR**: the open pull request whose head is `BRANCH` and whose title starts with `chore: MAF `. It is PR #${{ github.event.pull_request.number || inputs.pr_number }}.
+- **Scaffold PR**: the open pull request whose head is `BRANCH` and whose title starts with `chore: MAF `.
+- **Repository**: `${{ github.repository }}`.
 - **ID segment (`ID_SEGMENT`)**: `TARGET` without dots, ignoring a trailing `0` patch (for example 1.18.0 → `118`, 1.11.1 → `1111`). Check existing `MAF<segment>-` ids in the registry for the exact convention.
 
 ## Do the task
@@ -121,7 +122,7 @@ Read `.github/scripts/ai_fill_issue_prompt.md.tpl` in full, substitute `{{TARGET
 
 These overrides apply, because you work inside this workflow instead of opening your own PR:
 
-1. **Do not open a pull request, create branches, or commit.** Edit the files in the working tree only. Your edits are pushed to the scaffold PR by the `push_to_pull_request_branch` safe output.
+1. **Do not open a pull request or create branches.** Stay on `BRANCH`. When the fill is done and the checklist passes, commit your changes on `BRANCH` with the message `chore: AI-filled TODOs for MAF <TARGET>`, then call `push_to_pull_request_branch` with `branch` = `BRANCH` and `repo` = the repository above.
 2. **You may only change these files:** `.github/skills/maf-obsolete-api-registry/registry.yaml`, `docs/compatibility-matrix.md`, `guides/maf-*-migration-guide.md`, `src/maf-autopilot/Tools/CompatibilityTool.cs`. Any other change is refused. Delete build outputs and scratch files before finishing (`git status` must list only those paths).
 3. **Run the whole verification checklist** from the template (save it to a file under `/tmp` and run it with `bash`). If a check fails, fix the files and run it again. Iterate until every check prints `OK`, or until you conclude a check cannot pass without human judgement.
 4. **Never weaken a check**, never edit verification scripts, and never invent facts. When the evidence is ambiguous, leave the honest `TODO` with a note. The red gate then asks for human review, which is the intended outcome.
@@ -129,5 +130,5 @@ These overrides apply, because you work inside this workflow instead of opening 
 
 ## Finish
 
-- If every checklist item printed `OK`: emit `push_to_pull_request_branch` for the scaffold PR, then `add_comment` on it, starting with `Release verification: all checks passed`, followed by a short summary: entries filled, categories chosen, and anything a reviewer should double-check.
-- If some checks still fail after your best effort: still emit `push_to_pull_request_branch` with the partial, honest fill (TODOs left where evidence is missing), and `add_comment` starting with `Release verification: FAILED — human review needed`, listing each failing check and why.
+- If every checklist item printed `OK`: commit, call `push_to_pull_request_branch` (`branch` and `repo` as above), then `add_comment` on the scaffold PR, starting with `Release verification: all checks passed`, followed by a short summary: entries filled, categories chosen, and anything a reviewer should double-check.
+- If some checks still fail after your best effort: still commit and call `push_to_pull_request_branch` with the partial, honest fill (TODOs left where evidence is missing), and `add_comment` starting with `Release verification: FAILED — human review needed`, listing each failing check and why.
