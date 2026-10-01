@@ -77,7 +77,7 @@ jobs:
       is_major: ${{ steps.version-check.outputs.is_major }}
       target_branch: ${{ steps.version-check.outputs.target_branch }}
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
 
       - name: Check NuGet for new MAF version
         id: version-check
@@ -221,7 +221,7 @@ jobs:
       # scope this job (already contents/pull-requests/issues write plus a
       # maintainer PAT) doesn't use.
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           # Checkout is read-only and must not depend on a long-lived maintainer
           # PAT. An expired COPILOT_ASSIGN_PAT previously prevented even this
@@ -259,7 +259,7 @@ jobs:
         # degrading gracefully the way the planned-diff runner (continue-on-error
         # below) is explicitly designed to record a missing dotnet-inspect).
         continue-on-error: true
-        uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1  # v5.4.0
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68  # v6.0.0
         with:
           # Net8 LTS — install-only; we just run the published tool here.
           dotnet-version: '8.0.x'
@@ -747,7 +747,7 @@ jobs:
       actions: read
       issues: write
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           persist-credentials: false
           sparse-checkout: .github/scripts

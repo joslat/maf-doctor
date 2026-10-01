@@ -51,12 +51,12 @@ jobs:
     steps:
       # SEC-13: full history so the tag-on-main guard's `merge-base --is-ancestor`
       # can see whether the tagged commit is actually on the reviewed main branch.
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           fetch-depth: 0
 
       - name: Setup .NET (all three runtimes — nupkg multi-targets net8/9/10)
-        uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1  # v5.4.0
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68  # v6.0.0
         with:
           dotnet-version: |
             8.0.x
@@ -237,7 +237,7 @@ jobs:
         # published package attributable to this workflow run + commit. Runs before
         # publish so a package can't be pushed without its attestation. SHA-pinned
         # (v4.1.1) per the repo-wide supply-chain hardening.
-        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373  # v4.1.1
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8  # v4.2.2
         with:
           subject-path: 'src/dist/*nupkg'
 
@@ -266,7 +266,7 @@ jobs:
         # SHA-pinned to softprops/action-gh-release v3.0.0 per supply-chain hardening:
         # a major-tag pin would let an upstream maintainer's compromised account push
         # arbitrary code into our release workflow with NUGET_API_KEY in scope.
-        uses: softprops/action-gh-release@718ea10b132b3b2eba29c1007bb80653f286566b  # v3.0.1
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64  # v3.0.3
         with:
           files: src/dist/*nupkg
           generate_release_notes: true

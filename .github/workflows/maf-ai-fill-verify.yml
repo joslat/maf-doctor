@@ -52,7 +52,7 @@ jobs:
       # Keep PR data and trusted verifier code in separate trees. No executable
       # or script from the PR checkout is run by this privileged release gate.
       - name: Checkout PR head as data
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
@@ -64,7 +64,7 @@ jobs:
       # Resolve the current base branch tip from this separate trusted checkout
       # and pin every later comparison/verifier invocation to that exact commit.
       - name: Checkout current trusted PR base verifier
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           ref: ${{ github.base_ref }}
           fetch-depth: 1
@@ -159,7 +159,7 @@ jobs:
         # success() gate (same reasoning as the Restore/Build steps below).
         continue-on-error: true
         if: steps.scope.outputs.in_scope == 'true'
-        uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1  # v5.4.0
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68  # v6.0.0
         with:
           dotnet-version: '8.0.x'
 
@@ -196,7 +196,7 @@ jobs:
       # it still runs, fails informatively (python3/pyyaml missing surfaces
       # in its captured output), and the existing failure-comment steps fire
       # instead of being skipped.
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6.3.0
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
         continue-on-error: true
         if: steps.scope.outputs.in_scope == 'true'
         with:
