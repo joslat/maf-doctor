@@ -420,6 +420,38 @@ jobs:
           [ "$RC" -ne 0 ] && echo "::warning title=Signature oracle::$RC (report-only); see the verify comment."
           exit 0
 
+      - name: Compiler oracle (report-only, Q-02)
+        # Compiles every new entry's example_before against the old packages and
+        # example_after against the new ones (the train lock's exact versions),
+        # and checks that a cs_warning naming a compiler diagnostic appears when
+        # the old code meets the new packages. Only Microsoft.Agents.AI* ids are
+        # restored, and the trusted maf-doctor compiles the PR's snippets with
+        # Roslyn without running anything. REPORT-ONLY until it has run clean on
+        # real trains; on 1.10-1.23 it found examples that do not compile and
+        # cs_warning codes that a user never sees.
+        id: compile_oracle
+        if: steps.scope.outputs.in_scope == 'true' && startsWith(github.head_ref, 'release-watcher/maf-')
+        continue-on-error: true
+        env:
+          BASE_SHA: ${{ steps.trusted_base.outputs.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -uo pipefail
+          MERGE_BASE=$(git -C pr merge-base "$BASE_SHA" "$HEAD_SHA")
+          OLD=$(git -C pr show "${MERGE_BASE}:.maf-version" | tr -d '\r\n')
+          NEW=$(tr -d '\r\n' < pr/.maf-version)
+          python3 trusted/.github/scripts/verify_registry_examples.py \
+            --registry pr/.github/skills/maf-obsolete-api-registry/registry.yaml \
+            --train-lock pr/.github/maf-train-lock.json \
+            --old-version "$OLD" --version "$NEW" \
+            --maf-doctor "dotnet trusted/src/maf-autopilot/bin/Release/net8.0/maf-doctor.dll" \
+            --work-dir "$RUNNER_TEMP/examples" \
+            --report-out "$RUNNER_TEMP/compiler-oracle.md"
+          RC=$?
+          echo "exit_code=$RC" >> "$GITHUB_OUTPUT"
+          [ "$RC" -ne 0 ] && echo "::warning title=Compiler oracle::$RC (report-only); see the verify comment."
+          exit 0
+
       - name: Build verify comment body
         if: steps.scope.outputs.in_scope == 'true'
         env:
@@ -480,6 +512,17 @@ jobs:
               echo ""
               echo '```'
               python3 trusted/.github/scripts/neutralize_fences.py < "$RUNNER_TEMP/signature-oracle.md"
+              echo '```'
+            } >> ai-fill-verify-comment.md
+          fi
+          # Q-02 compiler oracle: report-only, appended whether or not it passed.
+          if [ -f "$RUNNER_TEMP/compiler-oracle.md" ]; then
+            {
+              echo ""
+              echo "### Compiler oracle (report-only)"
+              echo ""
+              echo '```'
+              python3 trusted/.github/scripts/neutralize_fences.py < "$RUNNER_TEMP/compiler-oracle.md"
               echo '```'
             } >> ai-fill-verify-comment.md
           fi
