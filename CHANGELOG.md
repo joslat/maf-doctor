@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Product fixes release on their own when MAF is quiet.** `auto-release` only fired when a
+  MAF train merged, so fixes on `main` waited for Microsoft (v1.17.0 needed a manual tag).
+  The weekly `maf-freshness` run now also checks for a product release: when the latest
+  release is at least 30 days old and `main` has commits touching files that ship in the
+  packages, it dispatches `auto-release` in `product` mode (same canary, same
+  `AUTO_RELEASE` kill switch). No new schedule.
+
 ## [1.17.0] - 2026-10-02
 
 **Better knowledge of MAF 1.1 to 1.23, no change in coverage.** Registry entries are now

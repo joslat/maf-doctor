@@ -4,6 +4,8 @@ name: Auto-release on MAF train merge
 # release tag. When a watcher PR lands on main (.maf-version changes), this
 # tags the next minor version so release.yml tests, canary-installs, and
 # publishes it. Each MAF train becomes one maf-doctor minor release.
+# R-05: the weekly maf-freshness run dispatches mode=product, which also
+# releases product fixes once the last release is 30+ days old.
 #
 # Kill switch: the repository variable AUTO_RELEASE must be "true"; any other
 # value (or none) only reports what would be released. Manual dispatch is a
@@ -22,6 +24,13 @@ on:
         description: 'Only report the release that would be cut'
         type: boolean
         default: true
+      mode:
+        # R-05: maf-freshness dispatches "product" weekly; it also releases
+        # shipped changes once the last release is 30+ days old.
+        description: 'train = new MAF train only; product = also shipped changes after 30 days'
+        type: choice
+        options: [train, product]
+        default: train
 
 permissions:
   contents: read
@@ -43,7 +52,10 @@ jobs:
 
       - name: Decide whether a release is due
         id: decide
-        run: python3 .github/scripts/next_release_version.py --repo .
+        env:
+          # Empty on a .maf-version push, so the push path stays "train".
+          MODE: ${{ inputs.mode }}
+        run: python3 .github/scripts/next_release_version.py --repo . --mode "${MODE:-train}"
 
       - name: Push the release tag
         if: steps.decide.outputs.release == 'true'
