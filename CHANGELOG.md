@@ -9,6 +9,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.18.0] - 2026-10-02
+
+**Registry examples now compile against the real MAF packages.** Every example from MAF
+1.10 to 1.23 was compiled against the packages it describes: 28 entries were wrong and
+are fixed, and their compiler-error codes now match what a build reports, so
+`MafRunCs0618Hunt` links your build errors to the right entry. The 1.10.0 and cumulative
+migration guides are corrected too. New maintainer command `verify-examples` (used by
+the release pipeline). Still covers MAF 1.23.
+
+### Added
+
+- **Product fixes release on their own when MAF is quiet.** `auto-release` only fired when a
+  MAF train merged, so fixes on `main` waited for Microsoft (v1.17.0 needed a manual tag).
+  The weekly `maf-freshness` run now also checks for a product release: when the latest
+  release is at least 30 days old and `main` has commits touching files that ship in the
+  packages, it dispatches `auto-release` in `product` mode (same canary, same
+  `AUTO_RELEASE` kill switch). No new schedule.
+- **Registry examples are compiled against the real MAF packages.** `maf-doctor
+  verify-examples` compiles each entry's `example_before` against the old release's
+  packages and `example_after` against the new one's (the exact versions in the train
+  lock), and checks that a `cs_warning` naming a compiler diagnostic is the one old code
+  actually gets on the new packages. Snippets are compiled as written: undeclared
+  variables are typed from how they are used, and anything that only involves the
+  reader's own types is reported as unchecked, not as an error. `--show <id>` prints
+  the generated source and every diagnostic. Watcher PRs run it in `verify` (report-only
+  for now), restoring only `Microsoft.Agents.AI*` package ids.
+
+### Fixed
+
+- **28 registry entries corrected against the real packages** (found by the new
+  compiler check across MAF 1.10–1.23):
+  - 1.13.0 file store: the entries described `Stream` content and `FileListEntry`
+    results. The real API reads and writes `string` content, `DeleteFileAsync` returns
+    `bool`, the list methods returned names and `ListChildrenAsync` returns
+    `FileStoreEntry` items (compare `Type` with `FileStoreEntry.File`/`Directory`;
+    there is no `FileStoreEntryType`), and `SearchFilesAsync` → `SearchAsync` also
+    renamed `filePattern` to `globPattern`.
+  - 1.10.0 `ToolApprovalAgentOptions` has `JsonSerializerOptions` and
+    `AutoApprovalRules`; `EnableNonApprovalRequiredFunctionBypassing` belongs to
+    `ChatClientAgentOptions`. Fixed in the registry and in the 1.10.0 and cumulative
+    guides.
+  - Examples that did not compile: `AgentSkill.Frontmatter.Name` (1.12.0), the
+    `AzureBlobAgentSessionStore` constructor's required `agentNamespace` (1.22.0), and
+    six Foundry tool options without a parameterless constructor (1.23.0).
+  - 27 `cs_warning` codes now name the diagnostic a build actually reports, so
+    `MafRunCs0618Hunt` can link it to the entry: removed members are `CS1061`/`CS0117`,
+    not `CS0246`; added optional parameters are `BINARY_BREAK`, not `CS0618`; the 1.23.0
+    Foundry namespace move is `CS0246`.
+
 ## [1.17.0] - 2026-10-02
 
 **Better knowledge of MAF 1.1 to 1.23, no change in coverage.** Registry entries are now
@@ -1075,7 +1124,7 @@ Internal alpha; superseded by `1.3.0-alpha-3`. Not announced.
 
 Initial MCP server prototype. Three tools (`MafApiSafety`, `MafRegistryLookup`, `MafRegistryList`), 11 skills, 2 agents, 10 registry entries. Validated against one real migration (`maf-claims-fraud-guardian` 1.2.0 → 1.3.0). Internal alpha; not announced.
 
-[Unreleased]: https://github.com/joslat/maf-doctor/compare/v1.15.0...HEAD
+[Unreleased]: https://github.com/joslat/maf-doctor/compare/v1.18.0...HEAD
 [1.15.0]: https://github.com/joslat/maf-doctor/compare/v1.14.0...v1.15.0
 [1.14.0]: https://github.com/joslat/maf-doctor/compare/v1.13.0...v1.14.0
 [1.13.0]: https://github.com/joslat/maf-doctor/compare/v1.12.0...v1.13.0

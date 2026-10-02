@@ -74,6 +74,30 @@ jobs:
           gh workflow run maf-release-watcher.yml --ref main
           echo "::notice title=Watcher dispatched::main is $BEHIND MAF release(s) behind; dispatched maf-release-watcher."
 
+      - name: Dispatch a product release when one is due (R-05)
+        # auto-release fires only when a MAF train merges, so product fixes on
+        # main waited for Microsoft (v1.17.0 needed a manual tag). Weekly: if
+        # the last release is 30+ days old and main has commits touching shipped
+        # files, dispatch auto-release in product mode. auto-release re-checks,
+        # and its AUTO_RELEASE kill switch still applies.
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          OPEN=$(gh pr list --state open --json headRefName \
+            --jq '[.[] | select(.headRefName | startswith("release-watcher/maf-"))] | length')
+          if [ "$OPEN" != "0" ]; then
+            echo "A watcher PR is open; its merge releases the train. Not dispatching a product release."
+            exit 0
+          fi
+          DECISION=$(python3 .github/scripts/next_release_version.py --repo . --mode product)
+          echo "$DECISION"
+          if echo "$DECISION" | grep -qx 'release=true'; then
+            gh workflow run auto-release.yml --ref main -f mode=product -f dry_run=false
+            echo "::notice title=Product release dispatched::$(echo "$DECISION" | sed -n 's/^reason=//p')"
+          fi
+
       - name: Discover untracked MAF packages (Z-06)
         id: discover
         # The watcher diffs only the surfaces in maf-package-surfaces.json; 24 of

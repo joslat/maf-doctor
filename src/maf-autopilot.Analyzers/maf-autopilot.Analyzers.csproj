@@ -14,7 +14,7 @@
 
     <!-- NuGet packaging -->
     <PackageId>maf-doctor.Analyzers</PackageId>
-    <Version>1.17.0</Version>
+    <Version>1.18.0</Version>
     <Authors>joslat</Authors>
     <Description>Roslyn analyzers for Microsoft Agent Framework (MAF) — write-time enforcement of fan-out safety, secure credentials, and observability defaults (MAF001-MAF003). Companion to the maf-doctor .NET global tool / MCP server.</Description>
     <PackageTags>maf;agent-framework;analyzer;roslyn;dotnet</PackageTags>

@@ -76,6 +76,10 @@ if (args.Length > 0 && (args[0] is "--help" or "-h" or "help"))
                                             + a complexity verdict. (--source semantic-kernel)
           badge [path]                      Emit a shields.io health-badge JSON payload.
           verify-registry                   Validate the obsolete-API registry (CI gate).
+          verify-examples --version <X.Y.Z> --old-refs <file> --new-refs <file> [--json]
+                                            Compile one release's registry examples against the
+                                            old and new MAF packages (CI helper; reference lists
+                                            come from .github/scripts/verify_registry_examples.py).
           registry-extract <package> <old-package-version> <new-package-version>
               [--diff-file <path>] [--release-version <X.Y.Z>] [--id-scope <UPPER-HYPHEN>]
                                             Extract registry entries (CI helper). A captured UTF-8
@@ -264,6 +268,13 @@ if (args.Length >= 1 && args[0] == "verify-registry")
     // PR-triggered workflow maf-ai-fill-verify.yml runs this command against
     // the AI-filled registry.yaml. Exit code 1 blocks the PR's auto-merge.
     var exitCode = MafDoctor.Commands.VerifyRegistryCommand.Run();
+    Environment.Exit(exitCode);
+    return;
+}
+if (args.Length >= 1 && args[0] == "verify-examples")
+{
+    // Q-02 compiler oracle: compile registry examples against the train's packages.
+    var exitCode = MafDoctor.Commands.VerifyExamplesCommand.Run(args);
     Environment.Exit(exitCode);
     return;
 }

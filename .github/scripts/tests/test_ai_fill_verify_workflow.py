@@ -1,5 +1,7 @@
 """Trust-boundary contract and behavior tests for the AI-fill verifier."""
+import os
 import shlex
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -9,6 +11,15 @@ import yaml
 WORKFLOW = (
     Path(__file__).resolve().parents[2] / "workflows" / "maf-ai-fill-verify.yml"
 )
+
+
+def _bash() -> str:
+    """bash for running workflow steps; on Windows, skip System32's WSL launcher (Git Bash works)."""
+    for directory in os.environ.get("PATH", "").split(os.pathsep):
+        candidate = shutil.which("bash", path=directory)
+        if candidate and "system32" not in candidate.lower():
+            return candidate
+    return "bash"
 
 
 def _steps() -> list[dict]:
@@ -81,8 +92,9 @@ def test_stale_event_base_sha_cannot_select_or_verify_trusted_code():
 
     assert "github.event.pull_request.base.sha" not in workflow
     # Scope decision, obligations verifier, the Z-02 autonomy-envelope check,
-    # and the Q-02 signature oracle (merge-base of the PR for the old train).
-    assert workflow.count("${{ steps.trusted_base.outputs.sha }}") == 4
+    # and the Q-02 signature and compiler oracles (merge-base of the PR for the
+    # old train).
+    assert workflow.count("${{ steps.trusted_base.outputs.sha }}") == 5
 
 
 def test_resolver_command_uses_checked_out_tip_not_an_older_sha(tmp_path):
@@ -215,7 +227,7 @@ def _run_envelope(tmp_path: Path, base: str, head: str) -> subprocess.CompletedP
     step = next(step for step in _steps() if step.get("id") == "envelope")
     import os
     env = {**os.environ, "BASE_SHA": base, "HEAD_SHA": head, "HEAD_REF": "release-watcher/maf-1.22.0"}
-    return subprocess.run(["bash", "-c", step["run"]], cwd=tmp_path, env=env, capture_output=True, text=True)
+    return subprocess.run([_bash(), "-c", step["run"]], cwd=tmp_path, env=env, capture_output=True, text=True)
 
 
 def test_envelope_ignores_changes_main_gained_after_the_branch_was_cut(tmp_path):

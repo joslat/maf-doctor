@@ -300,6 +300,9 @@ validated API diff also proves a migration is required.
    use `RUNTIME_SILENT` only for a behavior-only migration that still compiles.
    If the old source recompiles but an already-built consumer has a binary
    signature break, use `BINARY_BREAK` and make the rebuild requirement explicit.
+   `.github/scripts/verify_registry_examples.py` does this compile for you and
+   prints the diagnostic (`claim MISMATCH ... gives CSxxxx`); it also fails
+   examples that do not compile against their release.
 
 6. **`guide_section`** — MUST be ONE of:
    - The literal string `N/A` (when the change touches a surface that
