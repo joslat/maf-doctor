@@ -46,6 +46,7 @@ MAF_VERSION_FILE = ROOT / ".maf-version"
 COMPAT_MATRIX = ROOT / "docs" / "compatibility-matrix.md"
 GUIDES_DIR = ROOT / "guides"
 REGISTRY = ROOT / ".github" / "skills" / "maf-obsolete-api-registry" / "registry.yaml"
+COMPAT_TOOL = ROOT / "src" / "maf-autopilot" / "Tools" / "CompatibilityTool.cs"
 MAX_LAST_UPDATED_AGE_DAYS = 30
 
 # A "version-stem" row in compat-matrix table starts with: | **X.Y.Z** | ...
@@ -537,6 +538,50 @@ def check_unfilled_current_drafts(registry_path: Path, current_version: str) -> 
     return findings
 
 
+# A CompatibilityTool.Matrix key line: `["X.Y.Z"] = """`
+COMPAT_TOOL_KEY_RE = re.compile(r'^\s*\["(\d+\.\d+\.\d+)"\]\s*=\s*"""', re.MULTILINE)
+
+
+def check_matrix_covers_registry(
+    registry_path: Path, matrix_text: str, tool_text: str | None
+) -> list[str]:
+    """Every MAF release the registry has entries for needs a compatibility row.
+
+    Without one, `maf_compatibility X.Y.Z` answers "unknown version" and the
+    regression-plan ladder skips the release, even though the registry knows its
+    changes (found 2026-10-02: 1.6.0, 1.6.2 and 1.7.0 to 1.9.0 were backfilled
+    into the registry but had no rows). Checks the doc table and, when given,
+    the `CompatibilityTool.Matrix` keys the MCP tool serves.
+    """
+    try:
+        data = yaml.safe_load(registry_path.read_text(encoding="utf-8")) or {}
+    except (OSError, yaml.YAMLError) as exc:
+        return [f"could not read {registry_path} for the matrix-coverage check: {exc}"]
+    entries = data.get("entries", []) if isinstance(data, dict) else []
+    wanted = {
+        str(e.get("version_introduced")).strip()
+        for e in entries
+        if isinstance(e, dict) and re.fullmatch(r"\d+\.\d+\.\d+", str(e.get("version_introduced", "")).strip())
+    }
+    key = lambda s: tuple(int(x) for x in s.split("."))
+    findings: list[str] = []
+    missing_md = sorted(wanted - set(VERSION_ROW_RE.findall(matrix_text)), key=key)
+    if missing_md:
+        findings.append(
+            "compatibility-matrix.md has no `**X.Y.Z**` row for MAF release(s) the "
+            f"registry has entries for: {', '.join(missing_md)}. Add a row per release."
+        )
+    if tool_text is not None:
+        missing_cs = sorted(wanted - set(COMPAT_TOOL_KEY_RE.findall(tool_text)), key=key)
+        if missing_cs:
+            findings.append(
+                "CompatibilityTool.Matrix has no entry for MAF release(s) the registry "
+                f"has entries for: {', '.join(missing_cs)}. `maf_compatibility` answers "
+                "\"unknown version\" for them; add a `[\"X.Y.Z\"] = \"\"\"...` block."
+            )
+    return findings
+
+
 def main() -> int:
     findings: list[str] = []
 
@@ -590,6 +635,10 @@ def main() -> int:
             )
 
         findings.extend(check_compatibility_metadata(text, current))
+        findings.extend(check_matrix_covers_registry(
+            REGISTRY, text,
+            COMPAT_TOOL.read_text(encoding="utf-8") if COMPAT_TOOL.is_file() else None,
+        ))
 
     guide_file = GUIDES_DIR / f"maf-{current}-migration-guide.md"
     findings.extend(check_current_guide_contract(guide_file))

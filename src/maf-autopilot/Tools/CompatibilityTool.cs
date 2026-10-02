@@ -270,7 +270,63 @@ public sealed class CompatibilityTool
                 | Microsoft.Agents.AI.Workflows.Generators  | `1.10.0`         | Source-gen package |
                 | Identity                                  | `ManagedIdentityCredential` | NEVER `DefaultAzureCredential` in prod (analyzer rule MAF002) |
 
-                Breaking: skill `Content`/`Resources`/`Scripts` properties removed; `ToolApprovalAgent` constructor takes `ToolApprovalAgentOptions?` instead of `JsonSerializerOptions?`; `SubAgentsProvider` / `SubTaskInfo` / `SubTaskStatus` removed; `GroupChatWorkflowBuilder`/`MagenticWorkflowBuilder` `.WithName`/`.WithDescription` removed.
+                **Breaking**: `ToolApprovalAgent` constructor and `UseToolApproval` take `ToolApprovalAgentOptions?` instead of `JsonSerializerOptions?`; `HarnessAgent` / `AsHarnessAgent` token limits move to `HarnessAgentOptions.MaxContextWindowTokens` / `MaxOutputTokens`; GitHub Copilot SDK 1.0.0 (namespace `GitHub.Copilot.SDK` becomes `GitHub.Copilot`). The skill, sub-agent and orchestration-builder changes once listed here shipped in 1.6.2 to 1.9.0.
+                """,
+
+            ["1.9.0"] = """
+                ## MAF 1.9.0 Compatibility
+
+                | Dependency                                | Version          | Notes |
+                |-------------------------------------------|------------------|-------|
+                | .NET runtime                              | `>= 8.0`         | net8.0, net9.0, net10.0 TFMs all supported |
+                | Microsoft.Extensions.AI                   | `>= 10.5.1`      | |
+                | Azure.AI.OpenAI                           | _not pinned by MAF_ | BYO via `IChatClient` — consumer chooses the backing implementation |
+                | Microsoft.Agents.AI.Workflows.Generators  | `1.9.0`          | Source-gen package |
+                | Identity                                  | `ManagedIdentityCredential` | NEVER `DefaultAzureCredential` in prod (analyzer rule MAF002) |
+
+                Binary-breaking only (source compiles unchanged; rebuild): `HarnessAgent` / `AsHarnessAgent` gain optional `loggerFactory` and `services`; `GroupChatWorkflowBuilder` / `MagenticWorkflowBuilder` `WithName` / `WithDescription` move to the shared base `OrchestrationBuilderBase<TBuilder>`.
+                """,
+
+            ["1.8.0"] = """
+                ## MAF 1.8.0 Compatibility
+
+                | Dependency                                | Version          | Notes |
+                |-------------------------------------------|------------------|-------|
+                | .NET runtime                              | `>= 8.0`         | net8.0, net9.0, net10.0 TFMs all supported |
+                | Microsoft.Extensions.AI                   | `>= 10.5.1`      | |
+                | Azure.AI.OpenAI                           | _not pinned by MAF_ | BYO via `IChatClient` — consumer chooses the backing implementation |
+                | Microsoft.Agents.AI.Workflows.Generators  | `1.8.0`          | Source-gen package |
+                | Identity                                  | `ManagedIdentityCredential` | NEVER `DefaultAzureCredential` in prod (analyzer rule MAF002) |
+
+                **Breaking**: declarative-workflow code generation removed (`DeclarativeWorkflowBuilder.Eject`, `DeclarativeWorkflowLanguage`, `ToStringInstanceHelper`); `AgentFileSkillsSourceOptions.ScriptDirectories` / `ResourceDirectories` removed (use `ScriptFilter` / `ResourceFilter`). Behavior: hosted session stores (`WithInMemorySessionStore` / `WithSessionStore`) isolate sessions per key by default (`withIsolation: true`).
+                """,
+
+            ["1.7.0"] = """
+                ## MAF 1.7.0 Compatibility
+
+                | Dependency                                | Version          | Notes |
+                |-------------------------------------------|------------------|-------|
+                | .NET runtime                              | `>= 8.0`         | net8.0, net9.0, net10.0 TFMs all supported |
+                | Microsoft.Extensions.AI                   | `>= 10.5.1`      | |
+                | Azure.AI.OpenAI                           | _not pinned by MAF_ | BYO via `IChatClient` — consumer chooses the backing implementation |
+                | Microsoft.Agents.AI.Workflows.Generators  | `1.7.0`          | Source-gen package |
+                | Identity                                  | `ManagedIdentityCredential` | NEVER `DefaultAzureCredential` in prod (analyzer rule MAF002) |
+
+                **Breaking**: skill content loads on demand. `Content` becomes `GetContentAsync()` on `AgentSkill`, `AgentFileSkill`, `AgentInlineSkill` and `AgentClassSkill<T>`; `Resources` / `Scripts` removed (use `GetResourceAsync(name)` / `GetScriptAsync(name)`).
+                """,
+
+            ["1.6.2"] = """
+                ## MAF 1.6.2 Compatibility
+
+                | Dependency                                | Version          | Notes |
+                |-------------------------------------------|------------------|-------|
+                | .NET runtime                              | `>= 8.0`         | net8.0, net9.0, net10.0 TFMs all supported |
+                | Microsoft.Extensions.AI                   | `>= 10.5.1`      | |
+                | Azure.AI.OpenAI                           | _not pinned by MAF_ | BYO via `IChatClient` — consumer chooses the backing implementation |
+                | Microsoft.Agents.AI.Workflows.Generators  | `1.6.2`          | Source-gen package |
+                | Identity                                  | `ManagedIdentityCredential` | NEVER `DefaultAzureCredential` in prod (analyzer rule MAF002) |
+
+                **Breaking** (renames): the sub-agent API becomes background agents (`SubAgentsProvider` to `BackgroundAgentsProvider`, `SubAgentsProviderOptions` to `BackgroundAgentsProviderOptions`, `SubTaskInfo` to `BackgroundTaskInfo`, `SubTaskStatus` to `BackgroundTaskStatus`). Foundry: `AsAIAgent` extensions move to `AIProjectClientExtensions` (extension calls compile unchanged); `FoundryAgent` no longer overrides `GetService`.
                 """,
 
             ["1.6.1"] = """
@@ -285,6 +341,20 @@ public sealed class CompatibilityTool
                 | Identity                                  | `ManagedIdentityCredential` | NEVER `DefaultAzureCredential` in prod (analyzer rule MAF002) |
 
                 Additive release; adds `expectedOutput` parameter to `WorkflowEvaluationExtensions.EvaluateAsync` for ground-truth evaluation.
+                """,
+
+            ["1.6.0"] = """
+                ## MAF 1.6.0 Compatibility
+
+                | Dependency                                | Version          | Notes |
+                |-------------------------------------------|------------------|-------|
+                | .NET runtime                              | `>= 8.0`         | net8.0, net9.0, net10.0 TFMs all supported |
+                | Microsoft.Extensions.AI                   | `>= 10.5.1`      | |
+                | Azure.AI.OpenAI                           | _not pinned by MAF_ | BYO via `IChatClient` — consumer chooses the backing implementation |
+                | Microsoft.Agents.AI.Workflows.Generators  | `1.6.0`          | Source-gen package |
+                | Identity                                  | `ManagedIdentityCredential` | NEVER `DefaultAzureCredential` in prod (analyzer rule MAF002) |
+
+                **Breaking** (Foundry): `FoundryToolbox` and `AIProjectClient.GetToolboxToolsAsync` removed from Foundry.Hosting with no replacement; the agent-endpoint `FoundryAgent` constructor takes `ProjectOpenAIClientOptions` instead of `AIProjectClientOptions`.
                 """,
 
             ["1.5.0"] = """
