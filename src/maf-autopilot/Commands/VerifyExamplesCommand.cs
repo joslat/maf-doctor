@@ -73,9 +73,12 @@ public static class VerifyExamplesCommand
             var after = Side(newCompiler, entry.ExampleAfter, "new");
             string? claim = null;
             var expected = (entry.CsWarning ?? "").Trim();
+            // A claimed "type not found" is about the namespaces the old code imports:
+            // when the snippet states them, do not import the new namespaces for it.
+            var usingsOnly = expected is "CS0246" or "CS0234" && ExampleCompiler.DeclaresUsings(entry.ExampleBefore);
             if (CompilerDiagnostic.IsMatch(expected) && before.Status == "ok")
             {
-                var onNew = newCompiler.Compile(entry.ExampleBefore, entry.Type, before.Prelude);
+                var onNew = newCompiler.Compile(entry.ExampleBefore, entry.Type, before.Prelude, usingsOnly);
                 claim = Observed(expected, onNew.DiagnosticIds)
                     ? "ok"
                     : $"cs_warning is {expected}, but example_before on the new packages gives "
@@ -84,7 +87,7 @@ public static class VerifyExamplesCommand
             if (show is not null)
             {
                 // --show: the generated sources and every diagnostic, to see why an entry fails.
-                var claimSource = claim is null ? null : newCompiler.Compile(entry.ExampleBefore, entry.Type, before.Prelude);
+                var claimSource = claim is null ? null : newCompiler.Compile(entry.ExampleBefore, entry.Type, before.Prelude, usingsOnly);
                 foreach (var (label, result) in new[] { ("example_before vs OLD", before), ("example_after vs NEW", after), ("example_before vs NEW (claim)", claimSource) })
                 {
                     if (result is null) continue;

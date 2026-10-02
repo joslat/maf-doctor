@@ -42,7 +42,7 @@ internal sealed record ExampleResult(
 /// </summary>
 internal sealed class ExampleCompiler
 {
-    private const int MaxRounds = 10;
+    private const int MaxRounds = 16;
 
     private static readonly CSharpParseOptions ScriptParse = new(LanguageVersion.Latest, kind: SourceCodeKind.Script);
     // Nullable on, so a cs_warning such as CS8625 can be observed.
@@ -73,7 +73,8 @@ internal sealed class ExampleCompiler
 
     private readonly IReadOnlyList<MetadataReference> _references;
     private readonly HashSet<string> _otherSideTypeNames;
-    private readonly List<string> _globalUsings;
+    private readonly List<string> _commonUsings;
+    private readonly List<string> _mafUsings;
     private readonly Dictionary<string, List<INamedTypeSymbol>> _typesByName = new(StringComparer.Ordinal);
     // Member name -> (receiver type, type that declares the member; the static class for extensions).
     private readonly Dictionary<string, List<(ITypeSymbol Receiver, INamedTypeSymbol Declarer)>> _receiversByMember = new(StringComparer.Ordinal);
@@ -113,9 +114,9 @@ internal sealed class ExampleCompiler
                 }
             }
         }
-        _globalUsings = CommonNamespaces.Where(namespaces.Contains)
-            .Concat(namespaces.Where(n => n == "Microsoft.Agents.AI" || n.StartsWith("Microsoft.Agents.AI.", StringComparison.Ordinal)))
-            .Distinct().Select(n => $"using {n};").ToList();
+        _commonUsings = CommonNamespaces.Where(namespaces.Contains).Select(n => $"using {n};").ToList();
+        _mafUsings = namespaces.Where(n => n == "Microsoft.Agents.AI" || n.StartsWith("Microsoft.Agents.AI.", StringComparison.Ordinal))
+            .Select(n => $"using {n};").ToList();
         TypeNames = _typesByName.Keys.ToHashSet(StringComparer.Ordinal);
         AssemblyNames = _references.OfType<PortableExecutableReference>()
             .Select(r => Path.GetFileNameWithoutExtension(r.FilePath ?? ""))
@@ -135,16 +136,29 @@ internal sealed class ExampleCompiler
     /// nothing is inferred: the claim check compiles the OLD code, with the locals typed as on the
     /// old side, against the NEW packages, the way a user's existing code meets an upgrade.
     /// </param>
-    public ExampleResult Compile(string snippet, string? hintType = null, IReadOnlyList<string>? fixedPrelude = null)
+    /// <param name="snippetUsingsOnly">
+    /// Import MAF namespaces only through the snippet's own usings. For a claim that a type
+    /// moved (CS0246), so the old using is not rescued by the new namespace.
+    /// </param>
+    public ExampleResult Compile(string snippet, string? hintType = null, IReadOnlyList<string>? fixedPrelude = null, bool snippetUsingsOnly = false)
     {
         snippet = (snippet ?? "").Replace("\r\n", "\n");
         var (userUsings, body) = SplitUsings(snippet);
         var bodyTree = CSharpSyntaxTree.ParseText(body, ScriptParse);
         if (!bodyTree.GetRoot().DescendantTokens().Any(t => !t.IsKind(SyntaxKind.EndOfFileToken)))
             return new("empty", [], [], [], new HashSet<string>(), []);
+        // Some statements are legal in a method but not at script level (`using var x = ...;`):
+        // when the snippet only parses as a method body, compile it as one.
+        string? methodWrapper = null;
         var syntaxErrors = bodyTree.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
         if (syntaxErrors.Count > 0)
-            return new("invalid", syntaxErrors.Select(d => $"{d.Id} {d.GetMessage()}").Distinct().ToList(), [], [], new HashSet<string>(), []);
+        {
+            const string header = "async global::System.Threading.Tasks.Task __Example() {";
+            var asMethod = CSharpSyntaxTree.ParseText($"{header}\n{body}}}\n", ScriptParse);
+            if (asMethod.GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error))
+                return new("invalid", syntaxErrors.Select(d => $"{d.Id} {d.GetMessage()}").Distinct().ToList(), [], [], new HashSet<string>(), []);
+            methodWrapper = header;
+        }
 
         var prelude = new List<string>(fixedPrelude ?? []);
         var inferred = new List<string>();
@@ -157,12 +171,17 @@ internal sealed class ExampleCompiler
         // A snippet that is only overriding members (no class around them) is a member
         // fragment of a class deriving from the entry's type: wrap it in one, so a
         // signature that no longer matches shows up as CS0115.
-        var wrapper = WrapperFor(bodyTree, hintType);
+        var classWrapper = methodWrapper is null ? WrapperFor(bodyTree, hintType) : null;
 
         Compilation compilation = null!;
         SyntaxTree tree = null!;
-        int userUsingsEnd = 0, bodyStart = 0;
+        int userUsingsEnd = 0, declarationsStart = 0, bodyStart = 0;
         bool Counted(Diagnostic d) => d.Location.IsInSource && (d.Location.SourceSpan.Start < userUsingsEnd || d.Location.SourceSpan.Start >= bodyStart);
+        var globalUsings = snippetUsingsOnly ? _commonUsings : _commonUsings.Concat(_mafUsings).ToList();
+        // A local passed to a call that does not bind yet (its receiver is still undeclared)
+        // waits a round for the parameter type; only a round without progress allows the
+        // weaker guess from the members accessed on it.
+        var allowWeak = false;
 
         for (var round = 0; round < MaxRounds; round++)
         {
@@ -172,12 +191,16 @@ internal sealed class ExampleCompiler
             foreach (var line in userUsings) source.Append(line).Append('\n');
             userUsingsEnd = source.Length;
             var preludeUsings = prelude.Where(l => l.StartsWith("using ", StringComparison.Ordinal)).ToList();
-            foreach (var line in _globalUsings.Concat(preludeUsings).Except(userUsings)) source.Append(line).Append('\n');
-            if (wrapper is not null) source.Append(wrapper).Append('\n');
+            foreach (var line in globalUsings.Concat(preludeUsings).Except(userUsings)) source.Append(line).Append('\n');
+            // Inferred declarations become fields of a class wrapper, but stay at script
+            // level (visible to it) around a method wrapper, where stub classes are not legal.
+            if (classWrapper is not null) source.Append(classWrapper).Append('\n');
+            declarationsStart = source.Length;
             foreach (var line in prelude.Except(preludeUsings)) source.Append(line).Append('\n');
+            if (methodWrapper is not null) source.Append(methodWrapper).Append('\n');
             bodyStart = source.Length;
             source.Append(body);
-            if (wrapper is not null) source.Append("}\n");
+            if (classWrapper is not null || methodWrapper is not null) source.Append("}\n");
             tree = CSharpSyntaxTree.ParseText(source.ToString(), ScriptParse);
             compilation = CSharpCompilation.CreateScriptCompilation("example", tree, _references, Options);
 
@@ -239,7 +262,7 @@ internal sealed class ExampleCompiler
                     }
                     case "CS0103" or "CS0246" when !settled.Contains(name):
                     {
-                        var resolution = Resolve(name, node, model, hintType, diagnostic.Id == "CS0246");
+                        var resolution = Resolve(name, node, model, hintType, diagnostic.Id == "CS0246", bodyStart, allowWeak);
                         if (resolution is null) break; // try again once the context binds
                         settled.Add(name);
                         progress = true;
@@ -259,7 +282,9 @@ internal sealed class ExampleCompiler
                     }
                 }
             }
-            if (!progress) break;
+            if (progress) allowWeak = false;
+            else if (!allowWeak && fixedPrelude is null) allowWeak = true;
+            else break;
         }
 
         var bodyFirstLine = tree.GetText().Lines.GetLineFromPosition(bodyStart).LineNumber;
@@ -269,6 +294,13 @@ internal sealed class ExampleCompiler
 
         var counted = compilation.GetDiagnostics().Where(Counted).ToList();
         var ids = counted.Select(d => d.Id).ToHashSet(StringComparer.Ordinal);
+        // With a fixed prelude, a local whose old type no longer exists is a break the
+        // user sees too: report it with the snippet's diagnostics.
+        if (fixedPrelude is not null)
+            ids.UnionWith(compilation.GetDiagnostics()
+                .Where(d => d.Severity == DiagnosticSeverity.Error && d.Location.IsInSource
+                    && d.Location.SourceSpan.Start >= declarationsStart && d.Location.SourceSpan.Start < bodyStart)
+                .Select(d => d.Id));
         var errors = new List<string>();
         var unresolved = new List<string>(unresolvedNames.Select(n => $"{n} is never declared and no referenced assembly defines it"));
         foreach (var d in counted.Where(d => d.Severity == DiagnosticSeverity.Error))
@@ -332,12 +364,15 @@ internal sealed class ExampleCompiler
         return false;
     }
 
-    private (string Kind, string Text)? Resolve(string name, SyntaxNode node, SemanticModel model, string? hintType, bool typePosition)
+    private (string Kind, string Text)? Resolve(string name, SyntaxNode node, SemanticModel model, string? hintType, bool typePosition, int bodyStart, bool allowWeak)
     {
         // A type that exists in the references but whose namespace is not imported.
         if (_typesByName.TryGetValue(name, out var types))
         {
             var type = types.OrderBy(Rank).First();
+            // A nested type is not reachable through a namespace using: alias it.
+            if (type.ContainingType is not null && !type.IsGenericType)
+                return ("using", $"{name} = {type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)}");
             if (!type.ContainingNamespace.IsGlobalNamespace)
                 return ("using", type.ContainingNamespace.ToDisplayString());
         }
@@ -354,8 +389,30 @@ internal sealed class ExampleCompiler
                 return ("stub", $"class {name}{parameters} {{ }}");
             }
         }
-        var inferredType = InferLocalType(node, model, hintType);
+        var inferredType = InferFromUses(name, node, model, hintType, bodyStart, allowWeak);
         if (inferredType is not null) return ("local", inferredType);
+        return null;
+    }
+
+    /// <summary>
+    /// The type of an undeclared local from all its uses, strongest evidence first: the
+    /// parameter it is passed to, the other side of an assignment, a declared type, a
+    /// collection's element type. Only then the type owning a member accessed on it.
+    /// </summary>
+    private string? InferFromUses(string name, SyntaxNode first, SemanticModel model, string? hintType, int bodyStart, bool allowWeak)
+    {
+        var uses = first.SyntaxTree.GetRoot().DescendantNodes().OfType<IdentifierNameSyntax>()
+            .Where(n => n.Identifier.ValueText == name && n.SpanStart >= bodyStart)
+            .ToList();
+        foreach (var use in uses.Where(u => u.Parent is ArgumentSyntax or AssignmentExpressionSyntax or EqualsValueClauseSyntax or ExpressionElementSyntax))
+        {
+            if (InferLocalType(use, model, hintType) is { } strong) return strong;
+        }
+        if (!allowWeak && uses.Any(u => u.Parent is ArgumentSyntax)) return null;
+        foreach (var use in uses)
+        {
+            if (InferLocalType(use, model, hintType) is { } weak) return weak;
+        }
         return null;
     }
 
@@ -422,9 +479,17 @@ internal sealed class ExampleCompiler
             }
             case AwaitExpressionSyntax:
                 return "global::System.Threading.Tasks.Task";
-            // The element type is unknown: dynamic leaves member access on the loop variable unchecked.
+            // The element type is the type that has the members the loop uses on its item
+            // (entry.FileName); with none, dynamic leaves that access unchecked.
             case ForEachStatementSyntax loop when loop.Expression == node:
-                return "global::System.Collections.Generic.IEnumerable<dynamic>";
+            {
+                var item = loop.Identifier.ValueText;
+                var use = loop.Statement.DescendantNodesAndSelf().OfType<MemberAccessExpressionSyntax>()
+                    .FirstOrDefault(a => a.Expression is IdentifierNameSyntax id && id.Identifier.ValueText == item);
+                var element = use is null ? null : FindReceiverType(
+                    use.Name.Identifier.ValueText, (use.Parent as InvocationExpressionSyntax)?.ArgumentList.Arguments, null, item, hintType);
+                return $"global::System.Collections.Generic.IEnumerable<{element ?? "dynamic"}>";
+            }
             case InterpolationSyntax:
                 return "string";
             case IfStatementSyntax or WhileStatementSyntax or PrefixUnaryExpressionSyntax:
@@ -557,6 +622,9 @@ internal sealed class ExampleCompiler
         _ => false,
     };
 
+    /// <summary>Whether the snippet states its own using directives.</summary>
+    public static bool DeclaresUsings(string? snippet) => SplitUsings((snippet ?? "").Replace("\r\n", "\n")).Usings.Count > 0;
+
     private static (List<string> Usings, string Body) SplitUsings(string snippet)
     {
         var usings = new List<string>();
@@ -576,14 +644,24 @@ internal sealed class ExampleCompiler
         return name[(name.LastIndexOf('.') + 1)..];
     }
 
+    // Nested public types included (MAF's AgentMode is nested in a provider type).
     private static IEnumerable<INamedTypeSymbol> PublicTypes(INamespaceSymbol ns)
     {
         foreach (var type in ns.GetTypeMembers())
-            if (type.DeclaredAccessibility == Accessibility.Public)
-                yield return type;
+            foreach (var nested in PublicTypes(type))
+                yield return nested;
         foreach (var child in ns.GetNamespaceMembers())
             foreach (var type in PublicTypes(child))
                 yield return type;
+    }
+
+    private static IEnumerable<INamedTypeSymbol> PublicTypes(INamedTypeSymbol type)
+    {
+        if (type.DeclaredAccessibility != Accessibility.Public) yield break;
+        yield return type;
+        foreach (var nested in type.GetTypeMembers())
+            foreach (var inner in PublicTypes(nested))
+                yield return inner;
     }
 
     private static void Add<T>(Dictionary<string, List<T>> index, string key, T value)

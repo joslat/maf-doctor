@@ -180,6 +180,27 @@ public class ExampleCompilerTests : IClassFixture<ExampleCompilerTests.FakeTrain
     }
 
     [Fact]
+    public void MethodOnlyStatements_CompileAsAMethodBody()
+    {
+        // `using var` is not legal at script level, only in a method.
+        var result = _train.Old.Compile("using var stream = new System.IO.MemoryStream();\nvar reply = agent.Run(\"hi\");", "Agent");
+
+        Assert.True(result.Status == "ok", string.Join("; ", result.Errors.Concat(result.Unresolved)));
+    }
+
+    [Fact]
+    public void LoopItems_AreTypedFromTheMembersTheLoopUses()
+    {
+        const string before = "foreach (var o in allOptions)\n    o.Legacy = true;";
+        var onOld = _train.Old.Compile(before, "Options");
+        Assert.Equal("ok", onOld.Status);
+
+        // Typed, not dynamic: the removed member is seen on the new side.
+        var onNew = _train.New.Compile(before, "Options", onOld.Prelude);
+        Assert.Contains("CS1061", onNew.DiagnosticIds);
+    }
+
+    [Fact]
     public void ExperimentalDiagnostics_AreNotExampleErrors()
     {
         Assert.Equal("ok", _train.New.Compile("var preview = new Preview();", "Preview").Status);
