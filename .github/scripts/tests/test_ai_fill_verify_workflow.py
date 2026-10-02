@@ -81,8 +81,9 @@ def test_stale_event_base_sha_cannot_select_or_verify_trusted_code():
 
     assert "github.event.pull_request.base.sha" not in workflow
     # Scope decision, obligations verifier, the Z-02 autonomy-envelope check,
-    # and the Q-02 signature oracle (merge-base of the PR for the old train).
-    assert workflow.count("${{ steps.trusted_base.outputs.sha }}") == 4
+    # and the Q-02 signature and compiler oracles (merge-base of the PR for the
+    # old train).
+    assert workflow.count("${{ steps.trusted_base.outputs.sha }}") == 5
 
 
 def test_resolver_command_uses_checked_out_tip_not_an_older_sha(tmp_path):
