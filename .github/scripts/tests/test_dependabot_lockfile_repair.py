@@ -7,12 +7,22 @@ lines in Directory.Packages.props and packages.lock.json files.
 from __future__ import annotations
 
 import os
+import shutil
 import subprocess
 from pathlib import Path
 
 import yaml
 
 WORKFLOW = Path(__file__).resolve().parents[2] / "workflows" / "dependabot-lockfile-repair.yml"
+
+
+def _bash() -> str:
+    """bash for running the workflow step; on Windows, skip System32's WSL launcher (Git Bash works)."""
+    for directory in os.environ.get("PATH", "").split(os.pathsep):
+        candidate = shutil.which("bash", path=directory)
+        if candidate and "system32" not in candidate.lower():
+            return candidate
+    return "bash"
 
 PROPS = """<Project>
   <ItemGroup>
@@ -62,7 +72,7 @@ def _envelope(repo: Path, head: str, tmp_path: Path) -> str:
     out = tmp_path / "out.txt"
     out.write_text("", encoding="utf-8")
     env = {**os.environ, "HEAD_SHA": head, "GITHUB_OUTPUT": str(out)}
-    subprocess.run(["bash", "-c", step["run"]], cwd=repo, env=env, check=True, capture_output=True, text=True)
+    subprocess.run([_bash(), "-c", step["run"]], cwd=repo, env=env, check=True, capture_output=True, text=True)
     return out.read_text(encoding="utf-8")
 
 

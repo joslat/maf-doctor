@@ -17,6 +17,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   release is at least 30 days old and `main` has commits touching files that ship in the
   packages, it dispatches `auto-release` in `product` mode (same canary, same
   `AUTO_RELEASE` kill switch). No new schedule.
+- **Registry examples are compiled against the real MAF packages.** `maf-doctor
+  verify-examples` compiles each entry's `example_before` against the old release's
+  packages and `example_after` against the new one's (the exact versions in the train
+  lock), and checks that a `cs_warning` naming a compiler diagnostic is the one old code
+  actually gets on the new packages. Snippets are compiled as written: undeclared
+  variables are typed from how they are used, and anything that only involves the
+  reader's own types is reported as unchecked, not as an error. `--show <id>` prints
+  the generated source and every diagnostic. Watcher PRs run it in `verify` (report-only
+  for now), restoring only `Microsoft.Agents.AI*` package ids.
+
+### Fixed
+
+- **28 registry entries corrected against the real packages** (found by the new
+  compiler check across MAF 1.10–1.23):
+  - 1.13.0 file store: the entries described `Stream` content and `FileListEntry`
+    results. The real API reads and writes `string` content, `DeleteFileAsync` returns
+    `bool`, the list methods returned names and `ListChildrenAsync` returns
+    `FileStoreEntry` items (compare `Type` with `FileStoreEntry.File`/`Directory`;
+    there is no `FileStoreEntryType`), and `SearchFilesAsync` → `SearchAsync` also
+    renamed `filePattern` to `globPattern`.
+  - 1.10.0 `ToolApprovalAgentOptions` has `JsonSerializerOptions` and
+    `AutoApprovalRules`; `EnableNonApprovalRequiredFunctionBypassing` belongs to
+    `ChatClientAgentOptions`. Fixed in the registry and in the 1.10.0 and cumulative
+    guides.
+  - Examples that did not compile: `AgentSkill.Frontmatter.Name` (1.12.0), the
+    `AzureBlobAgentSessionStore` constructor's required `agentNamespace` (1.22.0), and
+    six Foundry tool options without a parameterless constructor (1.23.0).
+  - 27 `cs_warning` codes now name the diagnostic a build actually reports, so
+    `MafRunCs0618Hunt` can link it to the entry: removed members are `CS1061`/`CS0117`,
+    not `CS0246`; added optional parameters are `BINARY_BREAK`, not `CS0618`; the 1.23.0
+    Foundry namespace move is `CS0246`.
 
 ## [1.17.0] - 2026-10-02
 

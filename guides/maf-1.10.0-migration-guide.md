@@ -115,21 +115,21 @@ The following breaking changes were identified from the 1.6.1 → 1.10.0 diff an
 
 ### ToolApprovalAgentOptions
 
-A new `ToolApprovalAgentOptions` class is available for configuring `ToolApprovalAgent` behavior. The class supports auto-approval heuristics via `EnableNonApprovalRequiredFunctionBypassing`:
+A new `ToolApprovalAgentOptions` class replaces the `JsonSerializerOptions` parameter of `ToolApprovalAgent` and `UseToolApproval`. It carries the serializer options (`JsonSerializerOptions`) and optional `AutoApprovalRules`. The `EnableNonApprovalRequiredFunctionBypassing` switch that 1.10.0 also added is a member of `ChatClientAgentOptions`, not of this class (1.14.0 removed it).
 
 ```csharp
-// 1.10.0 — use ToolApprovalAgentOptions instead of JsonSerializerOptions
+// 1.10.0 — wrap the serializer options in ToolApprovalAgentOptions
 var agent = new ToolApprovalAgent(
     innerAgent,
     new ToolApprovalAgentOptions
     {
-        EnableNonApprovalRequiredFunctionBypassing = true
+        JsonSerializerOptions = new JsonSerializerOptions { PropertyNameCaseInsensitive = true }
     });
 
 // Or via builder:
 builder.UseToolApproval(new ToolApprovalAgentOptions
 {
-    EnableNonApprovalRequiredFunctionBypassing = true
+    JsonSerializerOptions = new JsonSerializerOptions { PropertyNameCaseInsensitive = true }
 });
 ```
 

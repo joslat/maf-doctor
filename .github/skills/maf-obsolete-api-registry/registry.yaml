@@ -1437,7 +1437,7 @@ entries:
     obsolete_signature: void .ctor(Microsoft.Agents.AI.AIAgent innerAgent, System.Text.Json.JsonSerializerOptions? jsonSerializerOptions = null)
     replacement_signature: void .ctor(Microsoft.Agents.AI.AIAgent innerAgent, Microsoft.Agents.AI.ToolApprovalAgentOptions? options = null)
     argument_order_change: false
-    fix_description: "Replace the JsonSerializerOptions? parameter with ToolApprovalAgentOptions? when constructing ToolApprovalAgent; use ToolApprovalAgentOptions to configure serialization and auto-approval heuristics."
+    fix_description: "Replace the JsonSerializerOptions? parameter with ToolApprovalAgentOptions? when constructing ToolApprovalAgent: move the serializer options into ToolApprovalAgentOptions.JsonSerializerOptions; ToolApprovalAgentOptions.AutoApprovalRules adds auto-approval rules."
     example_before: |
       var approvalAgent = new ToolApprovalAgent(
           innerAgent,
@@ -1447,9 +1447,9 @@ entries:
           innerAgent,
           new ToolApprovalAgentOptions
           {
-              EnableNonApprovalRequiredFunctionBypassing = true
+              JsonSerializerOptions = new JsonSerializerOptions { PropertyNameCaseInsensitive = true }
           });
-    cs_warning: CS0618
+    cs_warning: CS1503
     guide_section: "N/A"
     dotnet_inspect_detectable: false
     notes: >-
@@ -1463,7 +1463,7 @@ entries:
     obsolete_signature: Microsoft.Agents.AI.AIAgentBuilder UseToolApproval(Microsoft.Agents.AI.AIAgentBuilder builder, System.Text.Json.JsonSerializerOptions? jsonSerializerOptions = null)
     replacement_signature: Microsoft.Agents.AI.AIAgentBuilder UseToolApproval(Microsoft.Agents.AI.AIAgentBuilder builder, Microsoft.Agents.AI.ToolApprovalAgentOptions? options = null)
     argument_order_change: false
-    fix_description: "Replace the JsonSerializerOptions? parameter with ToolApprovalAgentOptions? when calling UseToolApproval; use ToolApprovalAgentOptions to configure serialization and auto-approval heuristics."
+    fix_description: "Replace the JsonSerializerOptions? parameter with ToolApprovalAgentOptions? when calling UseToolApproval: move the serializer options into ToolApprovalAgentOptions.JsonSerializerOptions; ToolApprovalAgentOptions.AutoApprovalRules adds auto-approval rules."
     example_before: |
       builder.UseToolApproval(
           new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
@@ -1471,9 +1471,9 @@ entries:
       builder.UseToolApproval(
           new ToolApprovalAgentOptions
           {
-              EnableNonApprovalRequiredFunctionBypassing = true
+              JsonSerializerOptions = new JsonSerializerOptions { PropertyNameCaseInsensitive = true }
           });
-    cs_warning: CS0618
+    cs_warning: CS1503
     guide_section: "N/A"
     dotnet_inspect_detectable: false
     notes: >-
@@ -1705,7 +1705,7 @@ entries:
       var skill = new AgentInlineSkill(frontmatter, instructions, serializerOptions);
     example_after: |
       var skill = new AgentInlineSkill(frontmatter, instructions, serializerOptions, argumentMarshaler: null);
-    cs_warning: CS0618
+    cs_warning: BINARY_BREAK
     guide_section: "N/A"
     dotnet_inspect_detectable: false
     notes: >-
@@ -1737,7 +1737,7 @@ entries:
       var skill = new AgentInlineSkill(name, description, instructions, license, compatibility, allowedTools, metadata, serializerOptions);
     example_after: |
       var skill = new AgentInlineSkill(name, description, instructions, license, compatibility, allowedTools, metadata, serializerOptions, argumentMarshaler: null);
-    cs_warning: CS0618
+    cs_warning: BINARY_BREAK
     guide_section: "N/A"
     dotnet_inspect_detectable: false
     notes: >-
@@ -1833,7 +1833,7 @@ entries:
       var todos = await todoProvider.GetAllTodosAsync(session);
     example_after: |
       var todos = await todoProvider.GetAllTodosAsync(session, cancellationToken);
-    cs_warning: CS0618
+    cs_warning: BINARY_BREAK
     guide_section: "N/A"
     dotnet_inspect_detectable: false
     notes: >-
@@ -1865,7 +1865,7 @@ entries:
       var todos = await todoProvider.GetRemainingTodosAsync(session);
     example_after: |
       var todos = await todoProvider.GetRemainingTodosAsync(session, cancellationToken);
-    cs_warning: CS0618
+    cs_warning: BINARY_BREAK
     guide_section: "N/A"
     dotnet_inspect_detectable: false
     notes: >-
@@ -1912,7 +1912,7 @@ entries:
       // Approval is on by default in 1.11.1; the opt-in call is removed.
       var provider = new AgentSkillsProviderBuilder()
           .Build();
-    cs_warning: CS0246
+    cs_warning: CS1061
     guide_section: "N/A"
     dotnet_inspect_detectable: true
     notes: >-
@@ -1953,7 +1953,7 @@ entries:
     example_after: |
       // ScriptApproval removed — approval is enforced by default in 1.11.1.
       var options = new AgentSkillsProviderOptions();
-    cs_warning: CS0246
+    cs_warning: CS0117
     guide_section: "N/A"
     dotnet_inspect_detectable: true
     notes: >-
@@ -1996,7 +1996,7 @@ entries:
     example_after: |
       // 1.12.0: GetSkillsAsync takes an AgentSkillsSourceContext first.
       var skills = await fileSkillsSource.GetSkillsAsync(context, cancellationToken);
-    cs_warning: CS0618
+    cs_warning: CS1503
     guide_section: "N/A"
     dotnet_inspect_detectable: true
     notes: >-
@@ -2029,11 +2029,11 @@ entries:
       context. Add the extra AgentSkillsSourceContext parameter to your predicate (ignore it if
       unused).
     example_before: |
-      builder.UseFilter(skill => skill.Name.StartsWith("public-"));
+      builder.UseFilter(skill => skill.Frontmatter.Name.StartsWith("public-"));
     example_after: |
       // 1.12.0: the predicate now also receives the AgentSkillsSourceContext.
-      builder.UseFilter((skill, context) => skill.Name.StartsWith("public-"));
-    cs_warning: CS0618
+      builder.UseFilter((skill, context) => skill.Frontmatter.Name.StartsWith("public-"));
+    cs_warning: CS1593
     guide_section: "N/A"
     dotnet_inspect_detectable: true
     notes: >-
@@ -2073,7 +2073,7 @@ entries:
       // Configure skills-source caching via the new CachingAgentSkillsSourceOptions instead.
       var options = new AgentSkillsProviderOptions();
       var caching = new CachingAgentSkillsSourceOptions { /* set caching options here — see the 1.12.0 API */ };
-    cs_warning: CS0246
+    cs_warning: CS0117
     guide_section: "N/A"
     dotnet_inspect_detectable: true
     notes: >-
@@ -2144,19 +2144,19 @@ entries:
     version_introduced: "1.13.0"
     type: AgentFileStore
     method: WriteFileAsync
-    obsolete_signature: "System.Threading.Tasks.Task WriteFileAsync(string path, System.IO.Stream content, System.Threading.CancellationToken cancellationToken = null)"
-    replacement_signature: "System.Threading.Tasks.Task WriteAsync(string path, System.IO.Stream content, System.Threading.CancellationToken cancellationToken = null)"
+    obsolete_signature: "System.Threading.Tasks.Task WriteFileAsync(string path, string content, System.Threading.CancellationToken cancellationToken = null)"
+    replacement_signature: "System.Threading.Tasks.Task WriteAsync(string path, string content, System.Threading.CancellationToken cancellationToken = null)"
     argument_order_change: false
     fix_description: >-
       Rename WriteFileAsync to WriteAsync on AgentFileStore, FileSystemAgentFileStore, and
       InMemoryAgentFileStore. The method was removed and replaced with a shorter name; the
-      signature and semantics are otherwise unchanged.
+      parameters (path, string content, cancellation token) and semantics are unchanged.
     example_before: |
-      await agentFileStore.WriteFileAsync("/data/output.txt", contentStream, cancellationToken);
+      await agentFileStore.WriteFileAsync("/data/output.txt", content, cancellationToken);
     example_after: |
       // 1.13.0: WriteFileAsync was renamed to WriteAsync.
-      await agentFileStore.WriteAsync("/data/output.txt", contentStream, cancellationToken);
-    cs_warning: CS0246
+      await agentFileStore.WriteAsync("/data/output.txt", content, cancellationToken);
+    cs_warning: CS1061
     guide_section: "N/A"
     dotnet_inspect_detectable: true
     notes: >-
@@ -2170,19 +2170,19 @@ entries:
     version_introduced: "1.13.0"
     type: AgentFileStore
     method: ReadFileAsync
-    obsolete_signature: "System.Threading.Tasks.Task<System.IO.Stream> ReadFileAsync(string path, System.Threading.CancellationToken cancellationToken = null)"
-    replacement_signature: "System.Threading.Tasks.Task<System.IO.Stream> ReadAsync(string path, System.Threading.CancellationToken cancellationToken = null)"
+    obsolete_signature: "System.Threading.Tasks.Task<string?> ReadFileAsync(string path, System.Threading.CancellationToken cancellationToken = null)"
+    replacement_signature: "System.Threading.Tasks.Task<string?> ReadAsync(string path, System.Threading.CancellationToken cancellationToken = null)"
     argument_order_change: false
     fix_description: >-
       Rename ReadFileAsync to ReadAsync on AgentFileStore, FileSystemAgentFileStore, and
-      InMemoryAgentFileStore. The method was removed and replaced with a shorter name; the
-      signature and semantics are otherwise unchanged.
+      InMemoryAgentFileStore. The method was removed and replaced with a shorter name; it still
+      returns the file's text (null when the file does not exist).
     example_before: |
-      using var stream = await agentFileStore.ReadFileAsync("/data/input.txt", cancellationToken);
+      string? text = await agentFileStore.ReadFileAsync("/data/input.txt", cancellationToken);
     example_after: |
       // 1.13.0: ReadFileAsync was renamed to ReadAsync.
-      using var stream = await agentFileStore.ReadAsync("/data/input.txt", cancellationToken);
-    cs_warning: CS0246
+      string? text = await agentFileStore.ReadAsync("/data/input.txt", cancellationToken);
+    cs_warning: CS1061
     guide_section: "N/A"
     dotnet_inspect_detectable: true
     notes: >-
@@ -2194,19 +2194,19 @@ entries:
     version_introduced: "1.13.0"
     type: AgentFileStore
     method: DeleteFileAsync
-    obsolete_signature: "System.Threading.Tasks.Task DeleteFileAsync(string path, System.Threading.CancellationToken cancellationToken = null)"
-    replacement_signature: "System.Threading.Tasks.Task DeleteAsync(string path, System.Threading.CancellationToken cancellationToken = null)"
+    obsolete_signature: "System.Threading.Tasks.Task<bool> DeleteFileAsync(string path, System.Threading.CancellationToken cancellationToken = null)"
+    replacement_signature: "System.Threading.Tasks.Task<bool> DeleteAsync(string path, System.Threading.CancellationToken cancellationToken = null)"
     argument_order_change: false
     fix_description: >-
       Rename DeleteFileAsync to DeleteAsync on AgentFileStore, FileSystemAgentFileStore, and
-      InMemoryAgentFileStore. The method was removed and replaced with a shorter name; the
-      signature and semantics are otherwise unchanged.
+      InMemoryAgentFileStore. The method was removed and replaced with a shorter name; it still
+      returns whether something was deleted.
     example_before: |
-      await agentFileStore.DeleteFileAsync("/data/old.txt", cancellationToken);
+      bool deleted = await agentFileStore.DeleteFileAsync("/data/old.txt", cancellationToken);
     example_after: |
       // 1.13.0: DeleteFileAsync was renamed to DeleteAsync.
-      await agentFileStore.DeleteAsync("/data/old.txt", cancellationToken);
-    cs_warning: CS0246
+      bool deleted = await agentFileStore.DeleteAsync("/data/old.txt", cancellationToken);
+    cs_warning: CS1061
     guide_section: "N/A"
     dotnet_inspect_detectable: true
     notes: >-
@@ -2218,31 +2218,33 @@ entries:
     version_introduced: "1.13.0"
     type: AgentFileStore
     method: ListFilesAsync
-    obsolete_signature: "System.Threading.Tasks.Task<System.Collections.Generic.IList<Microsoft.Agents.AI.FileListEntry>> ListFilesAsync(string directory, System.Threading.CancellationToken cancellationToken = null)"
-    replacement_signature: "System.Threading.Tasks.Task<System.Collections.Generic.IList<Microsoft.Agents.AI.FileListEntry>> ListChildrenAsync(string directory, System.Threading.CancellationToken cancellationToken = null)"
+    obsolete_signature: "System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<string>> ListFilesAsync(string directory, System.Threading.CancellationToken cancellationToken = null)"
+    replacement_signature: "System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<Microsoft.Agents.AI.FileStoreEntry>> ListChildrenAsync(string directory, System.Threading.CancellationToken cancellationToken = null)"
     argument_order_change: false
     fix_description: >-
       Replace ListFilesAsync and ListDirectoriesAsync with ListChildrenAsync on AgentFileStore,
-      FileSystemAgentFileStore, and InMemoryAgentFileStore. Both old list methods were merged
-      into a single ListChildrenAsync that returns all entries (files and directories) as
-      FileListEntry items whose new Type property distinguishes them.
+      FileSystemAgentFileStore, and InMemoryAgentFileStore. The old methods returned plain
+      names; ListChildrenAsync returns FileStoreEntry items for files and directories together.
+      Filter on FileStoreEntry.Type (compare with FileStoreEntry.File or FileStoreEntry.Directory)
+      and read the name from FileStoreEntry.Name.
     example_before: |
-      var files = await agentFileStore.ListFilesAsync("/data", cancellationToken);
-      var dirs  = await agentFileStore.ListDirectoriesAsync("/data", cancellationToken);
+      IReadOnlyList<string> files = await agentFileStore.ListFilesAsync("/data", cancellationToken);
+      IReadOnlyList<string> dirs = await agentFileStore.ListDirectoriesAsync("/data", cancellationToken);
     example_after: |
-      // 1.13.0: ListFilesAsync + ListDirectoriesAsync merged into ListChildrenAsync.
-      // Use the FileListEntry.Type property to distinguish files from directories.
+      // 1.13.0: ListFilesAsync + ListDirectoriesAsync merged into ListChildrenAsync,
+      // which returns FileStoreEntry items; Type tells files from directories.
       var children = await agentFileStore.ListChildrenAsync("/data", cancellationToken);
-      var files = children.Where(e => e.Type == FileStoreEntryType.File).ToList();
-      var dirs  = children.Where(e => e.Type == FileStoreEntryType.Directory).ToList();
-    cs_warning: CS0246
+      List<string> files = children.Where(e => e.Type == FileStoreEntry.File).Select(e => e.Name).ToList();
+      List<string> dirs = children.Where(e => e.Type == FileStoreEntry.Directory).Select(e => e.Name).ToList();
+    cs_warning: CS1061
     guide_section: "N/A"
     dotnet_inspect_detectable: true
     notes: >-
       Both ListFilesAsync and ListDirectoriesAsync were removed and replaced by the unified
-      ListChildrenAsync. FileListEntry gained a new Name property (use instead of the removed
-      FileName — see MAF1130-FILELIST-001) and a new Type property. See MAF1130-FILESTORE-001
-      for the overall rename pattern.
+      ListChildrenAsync, which returns FileStoreEntry (Name, Type) instead of plain names.
+      FileListEntry, the FileMemoryProvider listing type, is a different type (its FileName
+      became Name — see MAF1130-FILELIST-001). See MAF1130-FILESTORE-001 for the overall
+      rename pattern.
     applies_to_codebases: "pre-1.13.0"
 
   - id: MAF1130-FILESTORE-004B
@@ -2250,21 +2252,21 @@ entries:
     version_introduced: "1.13.0"
     type: AgentFileStore
     method: ListDirectoriesAsync
-    obsolete_signature: "System.Threading.Tasks.Task<System.Collections.Generic.IList<Microsoft.Agents.AI.FileListEntry>> ListDirectoriesAsync(string directory, System.Threading.CancellationToken cancellationToken = null)"
-    replacement_signature: "System.Threading.Tasks.Task<System.Collections.Generic.IList<Microsoft.Agents.AI.FileListEntry>> ListChildrenAsync(string directory, System.Threading.CancellationToken cancellationToken = null)"
+    obsolete_signature: "System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<string>> ListDirectoriesAsync(string directory, System.Threading.CancellationToken cancellationToken = null)"
+    replacement_signature: "System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<Microsoft.Agents.AI.FileStoreEntry>> ListChildrenAsync(string directory, System.Threading.CancellationToken cancellationToken = null)"
     argument_order_change: false
     fix_description: >-
       Replace ListDirectoriesAsync with ListChildrenAsync on AgentFileStore,
       FileSystemAgentFileStore, and InMemoryAgentFileStore. See MAF1130-FILESTORE-004 for the
       full fix pattern — both ListFilesAsync and ListDirectoriesAsync were merged into
-      ListChildrenAsync; use FileListEntry.Type to distinguish files from directories.
+      ListChildrenAsync; keep the entries whose Type is FileStoreEntry.Directory.
     example_before: |
-      var dirs = await agentFileStore.ListDirectoriesAsync("/data", cancellationToken);
+      IReadOnlyList<string> dirs = await agentFileStore.ListDirectoriesAsync("/data", cancellationToken);
     example_after: |
       // 1.13.0: ListDirectoriesAsync was merged into ListChildrenAsync.
       var children = await agentFileStore.ListChildrenAsync("/data", cancellationToken);
-      var dirs = children.Where(e => e.Type == FileStoreEntryType.Directory).ToList();
-    cs_warning: CS0246
+      List<string> dirs = children.Where(e => e.Type == FileStoreEntry.Directory).Select(e => e.Name).ToList();
+    cs_warning: CS1061
     guide_section: "N/A"
     dotnet_inspect_detectable: true
     notes: >-
@@ -2277,19 +2279,20 @@ entries:
     version_introduced: "1.13.0"
     type: AgentFileStore
     method: SearchFilesAsync
-    obsolete_signature: "System.Threading.Tasks.Task<System.Collections.Generic.IList<Microsoft.Agents.AI.FileListEntry>> SearchFilesAsync(string rootDir, string searchQuery, string filePattern, bool recursive = true, System.Threading.CancellationToken cancellationToken = null)"
-    replacement_signature: "System.Threading.Tasks.Task<System.Collections.Generic.IList<Microsoft.Agents.AI.FileListEntry>> SearchAsync(string rootDir, string searchQuery, string filePattern, bool recursive = true, System.Threading.CancellationToken cancellationToken = null)"
+    obsolete_signature: "System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<Microsoft.Agents.AI.FileSearchResult>> SearchFilesAsync(string directory, string regexPattern, string? filePattern = null, bool recursive = false, System.Threading.CancellationToken cancellationToken = null)"
+    replacement_signature: "System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<Microsoft.Agents.AI.FileSearchResult>> SearchAsync(string directory, string regexPattern, string? globPattern = null, bool recursive = false, System.Threading.CancellationToken cancellationToken = null)"
     argument_order_change: false
     fix_description: >-
       Rename SearchFilesAsync to SearchAsync on AgentFileStore, FileSystemAgentFileStore, and
-      InMemoryAgentFileStore. The method was removed and replaced with a shorter name; the
-      signature and semantics are otherwise unchanged.
+      InMemoryAgentFileStore. The optional filePattern parameter is now called globPattern:
+      positional calls only need the rename, calls that name it (filePattern: "*.md") must use
+      globPattern:.
     example_before: |
-      var matches = await agentFileStore.SearchFilesAsync(rootDir, "query", "*.md", cancellationToken: cancellationToken);
+      var matches = await agentFileStore.SearchFilesAsync(rootDir, "TODO", filePattern: "*.md", cancellationToken: cancellationToken);
     example_after: |
-      // 1.13.0: SearchFilesAsync was renamed to SearchAsync.
-      var matches = await agentFileStore.SearchAsync(rootDir, "query", "*.md", cancellationToken: cancellationToken);
-    cs_warning: CS0246
+      // 1.13.0: SearchFilesAsync was renamed to SearchAsync, and filePattern to globPattern.
+      var matches = await agentFileStore.SearchAsync(rootDir, "TODO", globPattern: "*.md", cancellationToken: cancellationToken);
+    cs_warning: CS1061
     guide_section: "N/A"
     dotnet_inspect_detectable: true
     notes: >-
@@ -2316,7 +2319,7 @@ entries:
       // 1.13.0: FileListEntry.FileName was renamed to Name.
       foreach (var entry in entries)
           Console.WriteLine(entry.Name);
-    cs_warning: CS0246
+    cs_warning: CS1061
     guide_section: "N/A"
     dotnet_inspect_detectable: true
     notes: >-
@@ -2348,7 +2351,7 @@ entries:
       Console.WriteLine(FileAccessProvider.WriteToolName);
       Console.WriteLine(FileAccessProvider.LsToolName);
       Console.WriteLine(FileAccessProvider.GrepToolName);
-    cs_warning: CS0246
+    cs_warning: CS0117
     guide_section: "N/A"
     dotnet_inspect_detectable: true
     notes: >-
@@ -6250,13 +6253,14 @@ entries:
     fix_description: "Rebuild against 1.22.0 and treat `AzureBlobAgentSessionStore` as a `Microsoft.Agents.AI.AgentSessionStore`; update casts and variables that used the Hosting base type."
     example_before: |
       using Microsoft.Agents.AI.Hosting;
+      using Microsoft.Agents.AI.Hosting.AzureStorage;
 
-      AgentSessionStore store = new AzureBlobAgentSessionStore(containerClient);
+      AgentSessionStore store = new AzureBlobAgentSessionStore(containerClient, "my-agents");
     example_after: |
       using Microsoft.Agents.AI;
-      using Microsoft.Agents.AI.Hosting;
+      using Microsoft.Agents.AI.Hosting.AzureStorage;
 
-      AgentSessionStore store = new AzureBlobAgentSessionStore(containerClient);
+      AgentSessionStore store = new AzureBlobAgentSessionStore(containerClient, "my-agents");
     cs_warning: BINARY_BREAK
     guide_section: "N/A"
     dotnet_inspect_detectable: true
@@ -6379,14 +6383,16 @@ entries:
     example_before: |
       using Azure.AI.Projects.Agents;
       
-      OpenApiFunctionDefinition definition = new();
-      var tool = FoundryAITool.CreateOpenApiTool(definition);
+      // `definition` comes from your existing setup code.
+      AITool CreateTool(OpenApiFunctionDefinition definition) =>
+          FoundryAITool.CreateOpenApiTool(definition);
     example_after: |
       using Azure.AI.Extensions.OpenAI;
       
-      OpenApiFunctionDefinition definition = new();
-      var tool = FoundryAITool.CreateOpenApiTool(definition);
-    cs_warning: CS1503
+      // `definition` comes from your existing setup code.
+      AITool CreateTool(OpenApiFunctionDefinition definition) =>
+          FoundryAITool.CreateOpenApiTool(definition);
+    cs_warning: CS0246
     guide_section: "N/A"
     dotnet_inspect_detectable: true
     notes: >-
@@ -6417,14 +6423,16 @@ entries:
     example_before: |
       using Azure.AI.Projects.Agents;
       
-      BingGroundingSearchToolOptions options = new();
-      var tool = FoundryAITool.CreateBingGroundingTool(options);
+      // `options` comes from your existing setup code.
+      AITool CreateTool(BingGroundingSearchToolOptions options) =>
+          FoundryAITool.CreateBingGroundingTool(options);
     example_after: |
       using Azure.AI.Extensions.OpenAI;
       
-      BingGroundingSearchToolOptions options = new();
-      var tool = FoundryAITool.CreateBingGroundingTool(options);
-    cs_warning: CS1503
+      // `options` comes from your existing setup code.
+      AITool CreateTool(BingGroundingSearchToolOptions options) =>
+          FoundryAITool.CreateBingGroundingTool(options);
+    cs_warning: CS0246
     guide_section: "N/A"
     dotnet_inspect_detectable: true
     notes: >-
@@ -6455,14 +6463,16 @@ entries:
     example_before: |
       using Azure.AI.Projects.Agents;
       
-      BingCustomSearchToolOptions parameters = new();
-      var tool = FoundryAITool.CreateBingCustomSearchTool(parameters);
+      // `parameters` comes from your existing setup code.
+      AITool CreateTool(BingCustomSearchToolOptions parameters) =>
+          FoundryAITool.CreateBingCustomSearchTool(parameters);
     example_after: |
       using Azure.AI.Extensions.OpenAI;
       
-      BingCustomSearchToolOptions parameters = new();
-      var tool = FoundryAITool.CreateBingCustomSearchTool(parameters);
-    cs_warning: CS1503
+      // `parameters` comes from your existing setup code.
+      AITool CreateTool(BingCustomSearchToolOptions parameters) =>
+          FoundryAITool.CreateBingCustomSearchTool(parameters);
+    cs_warning: CS0246
     guide_section: "N/A"
     dotnet_inspect_detectable: true
     notes: >-
@@ -6500,7 +6510,7 @@ entries:
       
       FabricDataAgentToolOptions options = new();
       var tool = FoundryAITool.CreateMicrosoftFabricTool(options);
-    cs_warning: CS1503
+    cs_warning: CS0246
     guide_section: "N/A"
     dotnet_inspect_detectable: true
     notes: >-
@@ -6538,7 +6548,7 @@ entries:
       
       SharePointGroundingToolOptions options = new();
       var tool = FoundryAITool.CreateSharepointTool(options);
-    cs_warning: CS1503
+    cs_warning: CS0246
     guide_section: "N/A"
     dotnet_inspect_detectable: true
     notes: >-
@@ -6569,14 +6579,16 @@ entries:
     example_before: |
       using Azure.AI.Projects.Agents;
       
-      AzureAISearchToolOptions options = new();
-      var tool = FoundryAITool.CreateAzureAISearchTool(options);
+      // `options` comes from your existing setup code.
+      AITool CreateTool(AzureAISearchToolOptions options) =>
+          FoundryAITool.CreateAzureAISearchTool(options);
     example_after: |
       using Azure.AI.Extensions.OpenAI;
       
-      AzureAISearchToolOptions options = new();
-      var tool = FoundryAITool.CreateAzureAISearchTool(options);
-    cs_warning: CS1503
+      // `options` comes from your existing setup code.
+      AITool CreateTool(AzureAISearchToolOptions options) =>
+          FoundryAITool.CreateAzureAISearchTool(options);
+    cs_warning: CS0246
     guide_section: "N/A"
     dotnet_inspect_detectable: true
     notes: >-
@@ -6607,14 +6619,16 @@ entries:
     example_before: |
       using Azure.AI.Projects.Agents;
       
-      BrowserAutomationToolOptions parameters = new();
-      var tool = FoundryAITool.CreateBrowserAutomationTool(parameters);
+      // `parameters` comes from your existing setup code.
+      AITool CreateTool(BrowserAutomationToolOptions parameters) =>
+          FoundryAITool.CreateBrowserAutomationTool(parameters);
     example_after: |
       using Azure.AI.Extensions.OpenAI;
       
-      BrowserAutomationToolOptions parameters = new();
-      var tool = FoundryAITool.CreateBrowserAutomationTool(parameters);
-    cs_warning: CS1503
+      // `parameters` comes from your existing setup code.
+      AITool CreateTool(BrowserAutomationToolOptions parameters) =>
+          FoundryAITool.CreateBrowserAutomationTool(parameters);
+    cs_warning: CS0246
     guide_section: "N/A"
     dotnet_inspect_detectable: true
     notes: >-
@@ -6645,14 +6659,16 @@ entries:
     example_before: |
       using Azure.AI.Projects.Agents;
       
-      StructuredOutputDefinition outputs = new();
-      var tool = FoundryAITool.CreateStructuredOutputsTool(outputs);
+      // `outputs` comes from your existing setup code.
+      AITool CreateTool(StructuredOutputDefinition outputs) =>
+          FoundryAITool.CreateStructuredOutputsTool(outputs);
     example_after: |
       using Azure.AI.Extensions.OpenAI;
       
-      StructuredOutputDefinition outputs = new();
-      var tool = FoundryAITool.CreateStructuredOutputsTool(outputs);
-    cs_warning: CS1503
+      // `outputs` comes from your existing setup code.
+      AITool CreateTool(StructuredOutputDefinition outputs) =>
+          FoundryAITool.CreateStructuredOutputsTool(outputs);
+    cs_warning: CS0246
     guide_section: "N/A"
     dotnet_inspect_detectable: true
     notes: >-
