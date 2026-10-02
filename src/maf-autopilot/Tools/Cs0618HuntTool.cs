@@ -46,8 +46,11 @@ public sealed class Cs0618HuntTool
         Run a registry-aware C# migration-diagnostic hunt against a .NET project.
 
         Shells `dotnet build` on the given path (.csproj or .sln), parses all C#
-        diagnostics, and retains CS0618, CS0246, plus same-code diagnostics whose
-        message names a type/member/signature represented in the MAF migration registry.
+        diagnostics, and retains CS0618, CS0246, plus diagnostics with a registry entry's
+        code (or an equivalent one, e.g. CS0266 for CS0029) whose message names a
+        type/member/signature represented in the MAF migration registry; when the message
+        names no API, the member called on the source line counts. Each one links to the
+        entry that names it most specifically (its member over its type).
         Output includes file:line, the diagnostic, and — when a match exists — the exact fix.
 
         Input:
@@ -78,7 +81,8 @@ public sealed class Cs0618HuntTool
             return $"Error: could not find a .csproj or .sln at '{projectPath}'.";
 
         var (exitCode, output) = ProcessRunner.RunDotnetBuild(resolved);
-        var diagnostics = ParseBuildOutput(output);
+        var projectDirectory = Path.GetDirectoryName(Path.GetFullPath(resolved)) ?? Directory.GetCurrentDirectory();
+        var diagnostics = WithSourceLines(ParseBuildOutput(output), projectDirectory);
         var findings = FilterRegistryRelevantDiagnostics(diagnostics, _registry.AllEntries);
         return FormatReport(resolved, exitCode, findings, _registry, output);
     }
@@ -181,8 +185,79 @@ public sealed class Cs0618HuntTool
             "Func", "Generic", "IEnumerable", "IList", "IReadOnlyCollection",
             "IReadOnlyList", "List", "Microsoft", "Nullable", "SDK", "System", "Task",
             "ValueTask",
+            // Namespace segments: `System.Threading.CancellationToken` in a message must
+            // not correlate with every signature that takes a token.
+            "Agents", "DependencyInjection", "Hosting", "Http", "Json", "Linq", "Logging",
+            "Net", "Runtime", "Serialization", "Tasks", "Text", "Threading",
         ],
         StringComparer.OrdinalIgnoreCase);
+
+    private const int MethodWeight = 4;
+    private const long MaxSourceFileBytes = 1_000_000;
+
+    /// <summary>
+    /// Adds each diagnostic's source line, so a message that names no API ("cannot
+    /// convert from 'CancellationToken' to 'bool'") can still correlate through the
+    /// member called on that line. Reads only <c>.cs</c> files under
+    /// <paramref name="rootDirectory"/>, up to 1 MB each; anything else is left as is.
+    /// </summary>
+    internal static IReadOnlyList<BuildDiagnostic> WithSourceLines(
+        IReadOnlyList<BuildDiagnostic> diagnostics,
+        string rootDirectory)
+    {
+        var root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(rootDirectory)) + Path.DirectorySeparatorChar;
+        var cache = new Dictionary<string, string[]?>(StringComparer.OrdinalIgnoreCase);
+        return diagnostics.Select(d =>
+        {
+            string full;
+            try
+            {
+                full = Path.GetFullPath(d.File);
+            }
+            catch (Exception e) when (e is ArgumentException or NotSupportedException or PathTooLongException)
+            {
+                return d;
+            }
+            if (!full.StartsWith(root, StringComparison.OrdinalIgnoreCase)
+                || !full.EndsWith(".cs", StringComparison.OrdinalIgnoreCase))
+                return d;
+            if (!cache.TryGetValue(full, out var lines))
+            {
+                try
+                {
+                    var info = new FileInfo(full);
+                    lines = info.Exists && info.Length <= MaxSourceFileBytes ? File.ReadAllLines(full) : null;
+                }
+                catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+                {
+                    lines = null;
+                }
+                cache[full] = lines;
+            }
+            return lines is not null && d.Line >= 1 && d.Line <= lines.Length
+                ? d with { SourceLine = lines[d.Line - 1] }
+                : d;
+        }).ToList();
+    }
+
+    /// <summary>
+    /// Diagnostics that report the same break in different words: a conversion with or
+    /// without an explicit cast available; a member missing on an instance, on a type, or
+    /// for an extension receiver; a missing type or name. A registry entry names one code
+    /// of a group, and a build may report another for the same break.
+    /// </summary>
+    internal static readonly string[][] SameBreakCodes =
+    [
+        ["CS0029", "CS0266"],
+        ["CS1061", "CS1929", "CS0117"],
+        ["CS0246", "CS0234", "CS0103"],
+    ];
+
+    internal static bool CodesMatch(string entryCode, string diagnosticCode) =>
+        entryCode.Equals(diagnosticCode, StringComparison.OrdinalIgnoreCase)
+        || SameBreakCodes.Any(group =>
+            group.Contains(entryCode, StringComparer.OrdinalIgnoreCase)
+            && group.Contains(diagnosticCode, StringComparer.OrdinalIgnoreCase));
 
     /// <summary>
     /// Bounds hunt output to the two historical migration diagnostics plus new
@@ -194,41 +269,46 @@ public sealed class Cs0618HuntTool
         IEnumerable<BuildDiagnostic> diagnostics,
         IEnumerable<RegistryEntry> registryEntries)
     {
-        var entriesByCode = registryEntries
+        var codedEntries = registryEntries
             .Where(e => !string.IsNullOrWhiteSpace(e.CsWarning)
                 && CsCodeRegex.IsMatch(e.CsWarning.Trim()))
-            .GroupBy(e => e.CsWarning.Trim(), StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.OrdinalIgnoreCase);
+            .ToList();
 
         return diagnostics.Where(d =>
-        {
-            if (LegacyDiagnosticCodes.Contains(d.Code))
-                return true;
-            return entriesByCode.TryGetValue(d.Code, out var sameCodeEntries)
-                && sameCodeEntries.Any(e => DiagnosticCorrelatesWithRegistryEntry(d, e));
-        }).ToList();
+            LegacyDiagnosticCodes.Contains(d.Code)
+            || codedEntries.Any(e => DiagnosticCorrelatesWithRegistryEntry(d, e))).ToList();
     }
 
     /// <summary>
-    /// Requires both diagnostic-code equality and an identifier-level match against the
-    /// registry's structured API fields. Replacement signatures are included because
-    /// conversion diagnostics commonly name both the old and new parameter types while
-    /// omitting the containing method (for example AITool → AIFunctionDeclaration).
+    /// Requires both a matching diagnostic code (see <see cref="SameBreakCodes"/>) and an
+    /// identifier-level match against the registry's structured API fields. Replacement
+    /// signatures are included because conversion diagnostics commonly name both the old
+    /// and new parameter types while omitting the containing method (for example
+    /// AITool → AIFunctionDeclaration).
     /// </summary>
     internal static bool DiagnosticCorrelatesWithRegistryEntry(
         BuildDiagnostic diagnostic,
-        RegistryEntry entry)
-    {
-        if (!(entry.CsWarning?.Trim().Equals(
-                diagnostic.Code, StringComparison.OrdinalIgnoreCase) ?? false))
-            return false;
+        RegistryEntry entry) => CorrelationScore(diagnostic, entry) > 0;
 
-        foreach (var field in new[]
+    /// <summary>
+    /// How specifically a diagnostic names an entry: 0 when the codes do not match or no
+    /// identifier does. The changed member outweighs its type, and the type outweighs the
+    /// other signature identifiers, so an error links to the entry for its own member, not
+    /// to the first entry that shares a type or a parameter type with it.
+    /// </summary>
+    internal static int CorrelationScore(BuildDiagnostic diagnostic, RegistryEntry entry)
+    {
+        var code = entry.CsWarning?.Trim();
+        if (string.IsNullOrEmpty(code) || !CodesMatch(code, diagnostic.Code))
+            return 0;
+
+        var weights = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (var (field, weight) in new[]
         {
-            entry.Type,
-            entry.Method,
-            entry.ObsoleteSignature,
-            entry.ReplacementSignature,
+            (entry.Method, MethodWeight),
+            (entry.Type, 2),
+            (entry.ObsoleteSignature, 1),
+            (entry.ReplacementSignature, 1),
         })
         {
             if (string.IsNullOrWhiteSpace(field))
@@ -236,14 +316,25 @@ public sealed class Cs0618HuntTool
             foreach (Match match in RegistrySymbolRegex.Matches(field))
             {
                 var symbol = match.Value;
-                if (!IsDistinctiveRegistrySymbol(symbol))
-                    continue;
-                if (ContainsIdentifier(diagnostic.Message, symbol))
-                    return true;
+                if (IsDistinctiveRegistrySymbol(symbol))
+                    weights[symbol] = Math.Max(weights.GetValueOrDefault(symbol), weight);
             }
         }
-        return false;
+        var score = weights
+            .Where(pair => ContainsIdentifier(diagnostic.Message, pair.Key))
+            .Sum(pair => pair.Value);
+        // A message that quotes no API at all (CS1503 between BCL types, CS8625) says
+        // nothing about which call broke: fall back to the member called on its line.
+        if (score == 0 && diagnostic.SourceLine is { } line && !QuotesAnyApi(diagnostic.Message))
+            score = weights
+                .Where(pair => pair.Value == MethodWeight && ContainsIdentifier(line, pair.Key))
+                .Sum(pair => pair.Value);
+        return score;
     }
+
+    private static bool QuotesAnyApi(string message) =>
+        FirstQuotedRegex.Matches(message).Any(quoted =>
+            RegistrySymbolRegex.Matches(quoted.Groups[1].Value).Any(symbol => IsDistinctiveRegistrySymbol(symbol.Value)));
 
     private static bool IsDistinctiveRegistrySymbol(string symbol) =>
         symbol.Length >= 3
@@ -283,8 +374,13 @@ public sealed class Cs0618HuntTool
     {
         if (!LegacyDiagnosticCodes.Contains(diag.Code))
         {
-            return registry.AllEntries.FirstOrDefault(entry =>
-                DiagnosticCorrelatesWithRegistryEntry(diag, entry));
+            // Best match, not first match; ties keep registry order (OrderBy is stable).
+            return registry.AllEntries
+                .Select(entry => (entry, score: CorrelationScore(diag, entry)))
+                .Where(candidate => candidate.score > 0)
+                .OrderByDescending(candidate => candidate.score)
+                .Select(candidate => candidate.entry)
+                .FirstOrDefault();
         }
 
         var obsoleteSymbol = ExtractObsoleteSymbol(diag.Message);
@@ -292,8 +388,16 @@ public sealed class Cs0618HuntTool
         {
             var matches = registry.SearchByApiName(obsoleteSymbol);
             if (matches.Count == 1) return matches[0];
+            // Several entries mention the symbol: prefer the one whose own type or member it
+            // is over one that only has it in a signature.
             if (matches.Count > 1)
-                return matches.FirstOrDefault(e => e.CsWarning.Equals(diag.Code, StringComparison.OrdinalIgnoreCase))
+                return matches
+                        .Select(e => (e, score: CorrelationScore(diag, e)))
+                        .Where(candidate => candidate.score > 0)
+                        .OrderByDescending(candidate => candidate.score)
+                        .Select(candidate => candidate.e)
+                        .FirstOrDefault()
+                    ?? matches.FirstOrDefault(e => e.CsWarning.Equals(diag.Code, StringComparison.OrdinalIgnoreCase))
                     ?? matches[0];
         }
 
@@ -450,4 +554,5 @@ public sealed record BuildDiagnostic(
     int Line,
     string Severity,
     string Code,
-    string Message);
+    string Message,
+    string? SourceLine = null);

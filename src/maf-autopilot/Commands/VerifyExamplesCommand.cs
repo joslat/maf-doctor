@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using MafDoctor.Data;
+using MafDoctor.Tools;
 
 namespace MafDoctor.Commands;
 
@@ -13,7 +14,10 @@ namespace MafDoctor.Commands;
 ///   <item><c>example_before</c> must compile against the OLD side of the train;</item>
 ///   <item><c>example_after</c> must compile against the NEW side;</item>
 ///   <item>when <c>cs_warning</c> names a compiler diagnostic (<c>CS0618</c>, <c>CS1061</c>, ...),
-///   <c>example_before</c> compiled against the NEW side must produce it.</item>
+///   <c>example_before</c> compiled against the NEW side must produce it;</item>
+///   <item>link check (tool oracle): <c>MafRunCs0618Hunt</c>, given those diagnostics as a
+///   build reports them, must link one of them to this entry. That is how a user's
+///   upgrade errors reach the entry's fix.</item>
 /// </list>
 /// The reference files list one assembly path per line; the Python wrapper
 /// <c>.github/scripts/verify_registry_examples.py</c> restores the exact packages
@@ -51,7 +55,8 @@ public static class VerifyExamplesCommand
             return 2;
         }
 
-        var entries = new RegistryService().AllEntries
+        var registry = new RegistryService();
+        var entries = registry.AllEntries
             .Where(e => e.VersionIntroduced == version && e.AppliesToCodebases != "pre-1.0.0")
             .Where(e => show is null || e.Id == show)
             .ToList();
@@ -71,7 +76,7 @@ public static class VerifyExamplesCommand
                     : new("skipped", [], [$"{entry.Package} is not in the {side} train lock"], [], new HashSet<string>(), []);
             var before = Side(oldCompiler, entry.ExampleBefore, "old");
             var after = Side(newCompiler, entry.ExampleAfter, "new");
-            string? claim = null;
+            string? claim = null, link = null;
             var expected = (entry.CsWarning ?? "").Trim();
             // A claimed "type not found" is about the namespaces the old code imports:
             // when the snippet states them, do not import the new namespaces for it.
@@ -83,6 +88,7 @@ public static class VerifyExamplesCommand
                     ? "ok"
                     : $"cs_warning is {expected}, but example_before on the new packages gives "
                       + (onNew.DiagnosticIds.Count == 0 ? "no diagnostics" : string.Join(", ", onNew.DiagnosticIds.Order(StringComparer.Ordinal)));
+                if (claim == "ok") link = LinkCheck(entry, onNew.Reported ?? [], registry);
             }
             if (show is not null)
             {
@@ -96,7 +102,7 @@ public static class VerifyExamplesCommand
                     foreach (var d in result.AllDiagnostics ?? []) Console.WriteLine($"  {d}");
                 }
             }
-            return new EntryResult(entry.Id, before, after, claim);
+            return new EntryResult(entry.Id, before, after, claim, link);
         }).ToList();
 
         var failed = results.Count(IsFailure);
@@ -111,8 +117,10 @@ public static class VerifyExamplesCommand
                     before = Describe(r.Before),
                     after = Describe(r.After),
                     claim = r.Claim,
+                    link = r.Link,
                 }),
                 failed,
+                links_missing = results.Count(r => r.Link is not null && !Linked(r)),
             }, new JsonSerializerOptions { WriteIndented = true }));
         }
         else
@@ -121,6 +129,7 @@ public static class VerifyExamplesCommand
             foreach (var r in results)
             {
                 var claimText = r.Claim is null ? "" : r.Claim == "ok" ? $" · {r.Claim} claim" : " · claim MISMATCH";
+                claimText += r.Link is null ? "" : Linked(r) ? " · hunt links it" : " · LINK MISSING";
                 Console.WriteLine($"  {Mark(r)} {r.Id}: before {r.Before.Status} · after {r.After.Status}{claimText}");
                 foreach (var (side, result) in new[] { ("before", r.Before), ("after", r.After) })
                 {
@@ -128,29 +137,60 @@ public static class VerifyExamplesCommand
                     if (result.Status == "unresolved") Console.WriteLine($"      {side} (unchecked): {string.Join("; ", result.Unresolved.Take(3))}");
                 }
                 if (r.Claim is not null && r.Claim != "ok") Console.WriteLine($"      claim: {r.Claim}");
+                if (r.Link is not null && r.Link != "ok") Console.WriteLine($"      link: {r.Link}");
             }
             var ok = results.Count(r => !IsFailure(r) && r.Before.Status == "ok" && r.After.Status == "ok");
-            Console.WriteLine($"Summary: {ok} fully verified, {failed} with errors, {results.Count - ok - failed} partly unchecked (placeholders, user types, or no code).");
+            var linkMissing = results.Count(r => r.Link is not null && !Linked(r));
+            Console.WriteLine($"Summary: {ok} fully verified, {failed} with errors, {results.Count - ok - failed} partly unchecked (placeholders, user types, or no code); "
+                + $"hunt links {results.Count(Linked)} of {results.Count(r => r.Link is not null)} claimed diagnostics, {linkMissing} missing (report-only).");
         }
         return failed > 0 ? 1 : 0;
     }
 
-    private sealed record EntryResult(string Id, ExampleResult Before, ExampleResult After, string? Claim);
+    private sealed record EntryResult(string Id, ExampleResult Before, ExampleResult After, string? Claim, string? Link);
+
+    /// <summary>
+    /// Link check (tool oracle, ROADMAP Q-02 part 3): passes the diagnostics old code
+    /// gets on the new packages through the same filter and matcher <c>MafRunCs0618Hunt</c>
+    /// applies to a real build log. Returns <c>"ok"</c> when one of them links to
+    /// <paramref name="entry"/>, otherwise what the hunt does with them instead.
+    /// </summary>
+    internal static string LinkCheck(
+        RegistryEntry entry,
+        IReadOnlyList<(string Id, string Severity, string Message, string Line)> reported,
+        RegistryService registry)
+    {
+        var diagnostics = reported
+            .Select(d => new BuildDiagnostic("Example.cs", 1, d.Severity, d.Id, d.Message, d.Line))
+            .ToList();
+        var kept = Cs0618HuntTool.FilterRegistryRelevantDiagnostics(diagnostics, registry.AllEntries);
+        var linked = kept
+            .Select(d => Cs0618HuntTool.MatchToRegistry(d, registry)?.Id)
+            .OfType<string>()
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+        if (linked.Contains(entry.Id, StringComparer.Ordinal)) return "ok";
+        // The message names this entry exactly as well as the one the hunt picked (for
+        // example the same member on two types): a build log cannot tell them apart.
+        var tie = kept
+            .Select(d => (d, best: Cs0618HuntTool.MatchToRegistry(d, registry)))
+            .FirstOrDefault(x => x.best is not null
+                && Cs0618HuntTool.CorrelationScore(x.d, entry) is > 0 and var score
+                && score == Cs0618HuntTool.CorrelationScore(x.d, x.best));
+        if (tie.best is not null) return $"ok (the message names {tie.best.Id} equally; the hunt shows that one)";
+        if (linked.Count > 0) return $"the hunt links these diagnostics to {string.Join(", ", linked)}, not {entry.Id}";
+        return kept.Count > 0
+            ? $"the hunt keeps {string.Join(", ", kept.Select(d => d.Code).Distinct())} but links it to no registry entry"
+            : $"the hunt drops {string.Join(", ", diagnostics.Select(d => d.Code).Distinct())}: no registry entry with that code names an identifier from the message";
+    }
 
     private static object Describe(ExampleResult r) => new { status = r.Status, errors = r.Errors, unresolved = r.Unresolved, inferred = r.Inferred };
 
-    // Diagnostics that report the same break in different words: a conversion
-    // with or without an explicit cast available; a member missing on an
-    // instance, on a type, or for an extension receiver; a missing type or name.
-    private static readonly string[][] SameBreak =
-    [
-        ["CS0029", "CS0266"],
-        ["CS1061", "CS1929", "CS0117"],
-        ["CS0246", "CS0234", "CS0103"],
-    ];
-
+    // The same code groups the hunt accepts (Cs0618HuntTool.SameBreakCodes).
     private static bool Observed(string expected, IReadOnlySet<string> ids) =>
-        ids.Contains(expected) || SameBreak.Any(group => group.Contains(expected) && group.Any(ids.Contains));
+        ids.Any(id => Cs0618HuntTool.CodesMatch(expected, id));
+
+    private static bool Linked(EntryResult r) => r.Link?.StartsWith("ok", StringComparison.Ordinal) == true;
 
     private static bool IsFailure(EntryResult r) =>
         r.Before.Status == "fail" || r.After.Status == "fail" || (r.Claim is not null && r.Claim != "ok");

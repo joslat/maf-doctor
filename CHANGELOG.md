@@ -9,6 +9,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Link check for registry entries.** `verify-examples` now also passes the diagnostics
+  old code gets on the new packages through `MafRunCs0618Hunt`'s own filter and matcher,
+  and reports `LINK MISSING` when a user's upgrade error would not reach the entry. Across
+  MAF 1.10–1.23 it found the hunt linking only 28 of 81 such errors to the right entry.
+  Report-only; the fill agent fixes what it can.
+
+### Fixed
+
+- **`MafRunCs0618Hunt` links build errors to the right registry entry.** It took the
+  first entry sharing any identifier with the message, so every `AgentFileStore` error
+  linked to the first file-store entry and a `ChatClientAgentOptions` error to the
+  wrong release. It now scores entries (the changed member outweighs its type, which
+  outweighs other signature identifiers), accepts equivalent codes (CS0266 for CS0029,
+  CS0234 for CS0246, CS1061/CS0117/CS1929), no longer correlates on namespace words such
+  as `Threading`, and, when a message quotes no API at all, uses the member called on
+  the diagnostic's source line (read only from `.cs` files under the project). Across
+  MAF 1.10–1.23: 81 of 82 errors link to their entry or to a sibling the message names
+  equally (was 28).
+
+- **Top-level `Instructions` on `ChatClientAgentOptions` is a compile error, not a
+  silent one.** The package binaries show the property in 1.0.0-preview.251110.2 and in
+  no release from 1.0.0-rc3 on, so `MAF130-INSTRUCTIONS-001` now applies to `pre-1.0.0`
+  codebases with `cs_warning: CS0117` (was `pre-1.3.0`, `RUNTIME_SILENT`). The
+  `MAF-AP-AGENT-001` rule, the doctor's explanation, the prompts, skills and samples no
+  longer say "silently ignored in 1.3.0".
+
 ### Changed
 
 - **The pipeline can run as a GitHub App instead of a personal token.** The watcher,
@@ -19,15 +47,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Contents, Issues and Pull requests read and write, Administration read (gh-aw reads
   branch protection before it pushes) and no Workflows permission. The watcher's
   credential preflight no longer calls `/user`, which App tokens cannot read.
-
-### Fixed
-
-- **Top-level `Instructions` on `ChatClientAgentOptions` is a compile error, not a
-  silent one.** The package binaries show the property in 1.0.0-preview.251110.2 and in
-  no release from 1.0.0-rc3 on, so `MAF130-INSTRUCTIONS-001` now applies to `pre-1.0.0`
-  codebases with `cs_warning: CS0117` (was `pre-1.3.0`, `RUNTIME_SILENT`). The
-  `MAF-AP-AGENT-001` rule, the doctor's explanation, the prompts, skills and samples no
-  longer say "silently ignored in 1.3.0".
 
 ### Removed
 

@@ -243,6 +243,107 @@ public class Cs0618HuntToolTests
         Assert.Contains("THREAD", match!.Id, StringComparison.OrdinalIgnoreCase);
     }
 
+    // Q-02 link check: real diagnostics the compiler oracle saw, which used to link to
+    // the first entry sharing the type instead of the entry for the member.
+    [Theory]
+    [InlineData("CS1061", "'AgentFileStore' does not contain a definition for 'DeleteFileAsync' and no accessible extension method 'DeleteFileAsync' accepting a first argument of type 'AgentFileStore' could be found (are you missing a using directive or an assembly reference?)", "MAF1130-FILESTORE-003")]
+    [InlineData("CS0117", "'ChatClientAgentOptions' does not contain a definition for 'EnableNonApprovalRequiredFunctionBypassing'", "MAF114-OPTIONS-001")]
+    [InlineData("CS0246", "The type or namespace name 'SessionIsolationKeyProvider' could not be found (are you missing a using directive or an assembly reference?)", "MAF118-HOSTING-PROVIDER-001")]
+    public void MatchToRegistry_PrefersTheEntryForTheNamedMember(string code, string message, string expectedId)
+    {
+        var diag = new BuildDiagnostic("/repo/src/A.cs", 3, "error", code, message);
+
+        var match = Cs0618HuntTool.MatchToRegistry(diag, new RegistryService());
+
+        Assert.Equal(expectedId, match?.Id);
+    }
+
+    private static readonly RegistryEntry SearchEntry = new()
+    {
+        Id = "TEST-SEARCH-001",
+        CsWarning = "CS1503",
+        Type = "AgentFileStore",
+        Method = "SearchFilesAsync",
+        ObsoleteSignature = "SearchFilesAsync(string directory, string regexPattern, string? filePattern = null, System.Threading.CancellationToken cancellationToken = default)",
+    };
+
+    [Fact]
+    public void Correlation_EquivalentCode_Counts()
+    {
+        // The entry names CS0029; the compiler reports CS0266 when an explicit cast exists.
+        var entry = new RegistryEntry
+        {
+            CsWarning = "CS0029",
+            Type = "AgentSkillsProvider",
+            Method = "ReadOnlyToolsAutoApprovalRule",
+            ObsoleteSignature = "System.Func<Microsoft.Extensions.AI.FunctionCallContent, System.Threading.Tasks.ValueTask<bool>> ReadOnlyToolsAutoApprovalRule { get; }",
+            ReplacementSignature = "System.Func<Microsoft.Agents.AI.ToolAutoApprovalRuleContext, System.Threading.Tasks.ValueTask<bool>> ReadOnlyToolsAutoApprovalRule { get; }",
+        };
+        var diag = new BuildDiagnostic("/repo/A.cs", 1, "error", "CS0266",
+            "Cannot implicitly convert type 'System.Func<Microsoft.Agents.AI.ToolAutoApprovalRuleContext, System.Threading.Tasks.ValueTask<bool>>' to 'System.Func<Microsoft.Extensions.AI.FunctionCallContent, System.Threading.Tasks.ValueTask<bool>>'. An explicit conversion exists (are you missing a cast?)");
+
+        Assert.True(Cs0618HuntTool.DiagnosticCorrelatesWithRegistryEntry(diag, entry));
+        Assert.False(Cs0618HuntTool.DiagnosticCorrelatesWithRegistryEntry(diag with { Code = "CS1503" }, entry));
+    }
+
+    [Fact]
+    public void Correlation_NamespaceSegmentAlone_DoesNotCount_ButTheCallOnTheLineDoes()
+    {
+        var diag = new BuildDiagnostic("/repo/A.cs", 1, "error", "CS1503",
+            "Argument 4: cannot convert from 'System.Threading.CancellationToken' to 'bool'");
+
+        Assert.False(Cs0618HuntTool.DiagnosticCorrelatesWithRegistryEntry(diag, SearchEntry));
+        Assert.True(Cs0618HuntTool.DiagnosticCorrelatesWithRegistryEntry(
+            diag with { SourceLine = "var hits = await store.SearchFilesAsync(\"docs\", \"TODO\", \"*.md\", ct);" },
+            SearchEntry));
+    }
+
+    [Fact]
+    public void Correlation_SourceLine_IsIgnoredWhenTheMessageNamesAnApi()
+    {
+        // The message is about another API: the call on the line must not pull in this entry.
+        var diag = new BuildDiagnostic("/repo/A.cs", 1, "error", "CS1503",
+            "Argument 1: cannot convert from 'CustomerOrder' to 'Invoice'",
+            SourceLine: "await store.SearchFilesAsync(Convert(order), \"x\");");
+
+        Assert.False(Cs0618HuntTool.DiagnosticCorrelatesWithRegistryEntry(diag, SearchEntry));
+    }
+
+    [Fact]
+    public void WithSourceLines_ReadsOnlyCsFilesUnderTheRoot()
+    {
+        var root = Directory.CreateTempSubdirectory("hunt-root-");
+        var outside = Directory.CreateTempSubdirectory("hunt-outside-");
+        try
+        {
+            var inside = Path.Combine(root.FullName, "Agent.cs");
+            File.WriteAllLines(inside, ["// first", "await store.SearchFilesAsync(d, p, ct);"]);
+            var foreign = Path.Combine(outside.FullName, "Other.cs");
+            File.WriteAllLines(foreign, ["secret();"]);
+            var notCs = Path.Combine(root.FullName, "notes.txt");
+            File.WriteAllLines(notCs, ["text"]);
+
+            var result = Cs0618HuntTool.WithSourceLines(
+                [
+                    new BuildDiagnostic(inside, 2, "error", "CS1503", "m"),
+                    new BuildDiagnostic(foreign, 1, "error", "CS1503", "m"),
+                    new BuildDiagnostic(notCs, 1, "error", "CS1503", "m"),
+                    new BuildDiagnostic(inside, 99, "error", "CS1503", "m"),
+                ],
+                root.FullName);
+
+            Assert.Equal("await store.SearchFilesAsync(d, p, ct);", result[0].SourceLine);
+            Assert.Null(result[1].SourceLine);
+            Assert.Null(result[2].SourceLine);
+            Assert.Null(result[3].SourceLine);
+        }
+        finally
+        {
+            root.Delete(recursive: true);
+            outside.Delete(recursive: true);
+        }
+    }
+
     [Fact]
     public void Mcp_EmptyPath_ReturnsErrorMessage()
     {

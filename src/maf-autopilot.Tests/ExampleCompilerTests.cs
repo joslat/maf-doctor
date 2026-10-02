@@ -227,4 +227,21 @@ public class ExampleCompilerTests : IClassFixture<ExampleCompilerTests.FakeTrain
         Assert.Equal(2, VerifyExamplesCommand.Run(["verify-examples", "--version", "1.23.0"]));
         Assert.Equal(2, VerifyExamplesCommand.Run(["verify-examples", "--bogus"]));
     }
+
+    [Fact]
+    public void LinkCheck_PassesTheDiagnosticsThroughTheHunt()
+    {
+        // The diagnostic old code gets on MAF 1.13, as the compiler oracle reports it.
+        var registry = new MafDoctor.Data.RegistryService();
+        IReadOnlyList<(string Id, string Severity, string Message, string Line)> reported =
+        [
+            ("CS1061", "error",
+             "'AgentFileStore' does not contain a definition for 'DeleteFileAsync' and no accessible extension method 'DeleteFileAsync' accepting a first argument of type 'AgentFileStore' could be found (are you missing a using directive or an assembly reference?)",
+             "bool deleted = await store.DeleteFileAsync(\"notes/old.md\");"),
+        ];
+
+        Assert.Equal("ok", VerifyExamplesCommand.LinkCheck(registry.FindById("MAF1130-FILESTORE-003")!, reported, registry));
+        Assert.StartsWith("the hunt links these diagnostics to MAF1130-FILESTORE-003",
+            VerifyExamplesCommand.LinkCheck(registry.FindById("MAF1130-FILESTORE-001")!, reported, registry));
+    }
 }

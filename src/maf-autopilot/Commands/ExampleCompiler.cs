@@ -15,6 +15,7 @@ namespace MafDoctor.Commands;
 /// has no code (comments only).
 /// </param>
 /// <param name="Prelude">The usings and declarations inferred for this snippet (reused by the claim check).</param>
+/// <param name="Reported">The snippet's diagnostics as a build reports them (code, severity, message, source line), for the link check.</param>
 internal sealed record ExampleResult(
     string Status,
     IReadOnlyList<string> Errors,
@@ -23,7 +24,8 @@ internal sealed record ExampleResult(
     IReadOnlySet<string> DiagnosticIds,
     IReadOnlyList<string> Prelude,
     string Source = "",
-    IReadOnlyList<string>? AllDiagnostics = null);
+    IReadOnlyList<string>? AllDiagnostics = null,
+    IReadOnlyList<(string Id, string Severity, string Message, string Line)>? Reported = null);
 
 /// <summary>
 /// Compiles registry example snippets against the reference assemblies of one
@@ -293,14 +295,14 @@ internal sealed class ExampleCompiler
             : $"line {tree.GetLineSpan(d.Location.SourceSpan).StartLinePosition.Line - bodyFirstLine + 1}";
 
         var counted = compilation.GetDiagnostics().Where(Counted).ToList();
-        var ids = counted.Select(d => d.Id).ToHashSet(StringComparer.Ordinal);
         // With a fixed prelude, a local whose old type no longer exists is a break the
         // user sees too: report it with the snippet's diagnostics.
-        if (fixedPrelude is not null)
-            ids.UnionWith(compilation.GetDiagnostics()
+        var reported = fixedPrelude is null
+            ? counted
+            : counted.Concat(compilation.GetDiagnostics()
                 .Where(d => d.Severity == DiagnosticSeverity.Error && d.Location.IsInSource
-                    && d.Location.SourceSpan.Start >= declarationsStart && d.Location.SourceSpan.Start < bodyStart)
-                .Select(d => d.Id));
+                    && d.Location.SourceSpan.Start >= declarationsStart && d.Location.SourceSpan.Start < bodyStart)).ToList();
+        var ids = reported.Select(d => d.Id).ToHashSet(StringComparer.Ordinal);
         var errors = new List<string>();
         var unresolved = new List<string>(unresolvedNames.Select(n => $"{n} is never declared and no referenced assembly defines it"));
         foreach (var d in counted.Where(d => d.Severity == DiagnosticSeverity.Error))
@@ -330,7 +332,13 @@ internal sealed class ExampleCompiler
             .Where(d => d.Severity >= DiagnosticSeverity.Warning && d.Location.IsInSource)
             .Select(d => $"{tree.GetLineSpan(d.Location.SourceSpan).StartLinePosition.Line + 1}: {d.Severity} {d.Id} {d.GetMessage()}")
             .ToList();
-        return new(status, errors.Distinct().ToList(), unresolved.Distinct().ToList(), inferred, ids, prelude, tree.ToString(), all);
+        var asBuilt = reported
+            .Where(d => d.Severity >= DiagnosticSeverity.Warning)
+            .Select(d => (d.Id, d.Severity == DiagnosticSeverity.Error ? "error" : "warning", d.GetMessage(),
+                tree.GetText().Lines.GetLineFromPosition(d.Location.SourceSpan.Start).ToString()))
+            .Distinct()
+            .ToList();
+        return new(status, errors.Distinct().ToList(), unresolved.Distinct().ToList(), inferred, ids, prelude, tree.ToString(), all, asBuilt);
     }
 
     private string? WrapperFor(SyntaxTree bodyTree, string? hintType)
