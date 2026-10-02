@@ -1,6 +1,7 @@
 """Tests for the automatic-release decision (ROADMAP A-03)."""
 from __future__ import annotations
 
+import subprocess
 import sys
 from pathlib import Path
 
@@ -87,6 +88,20 @@ def test_shipped_paths_cover_every_packed_file():
         assert posix.startswith(nrv.SHIPPED_PATHS) or posix.startswith("assets/"), posix
 
 
-def test_product_mode_runs_against_this_repository():
-    root = SCRIPT_DIR.parents[1]
-    assert nrv.main(["--repo", str(root), "--mode", "product"]) == 0
+def _git(repo: Path, *args: str) -> None:
+    subprocess.run(["git", "-C", str(repo), *args], capture_output=True, text=True, check=True)
+
+
+def test_product_mode_runs_against_a_tagged_repository(tmp_path, capsys, monkeypatch):
+    # A throwaway repo, not this one: CI's lint checkout is shallow and has no tags
+    # (the workflows that run product mode check out with fetch-depth: 0).
+    monkeypatch.delenv("GITHUB_OUTPUT", raising=False)
+    _git(tmp_path, "init")
+    _git(tmp_path, "config", "user.email", "tests@example.invalid")
+    _git(tmp_path, "config", "user.name", "Tests")
+    (tmp_path / ".maf-version").write_text("1.23.0\n", encoding="utf-8")
+    _git(tmp_path, "add", ".maf-version")
+    _git(tmp_path, "commit", "-m", "release")
+    _git(tmp_path, "tag", "v1.17.0")
+    assert nrv.main(["--repo", str(tmp_path), "--mode", "product"]) == 0
+    assert "release=false" in capsys.readouterr().out.splitlines()
