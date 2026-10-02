@@ -16,6 +16,14 @@ MAF_REGISTRY_PATH="$PWD/.github/skills/maf-obsolete-api-registry/registry.yaml" 
   dotnet src/maf-autopilot/bin/Release/net10.0/maf-doctor.dll verify-registry
 ```
 
+When registry entries change, also compile their examples against the real packages
+(needs nuget.org; the release and the one before it must be in the train lock):
+
+```bash
+python3 .github/scripts/verify_registry_examples.py --old-version 1.22.0 --version 1.23.0 \
+  --maf-doctor "dotnet src/maf-autopilot/bin/Release/net10.0/maf-doctor.dll"
+```
+
 Batch commits on one branch and keep one PR open at a time.
 
 ## Gotchas
@@ -25,7 +33,8 @@ Batch commits on one branch and keep one PR open at a time.
   MSBuild nodes.
 - **`Doctor_ValidPath_ExitsZero`** can fail locally when `%TEMP%` is polluted;
   filter it out (`--filter "FullyQualifiedName!~Doctor_ValidPath_ExitsZero"`).
-- **Git Bash:** prefix `git show ref:path` with `MSYS_NO_PATHCONV=1`.
+- **Git Bash:** prefix `git show ref:path` with `MSYS_NO_PATHCONV=1`. To run
+  `dotnet-inspect` from Python on Windows, pass `dotnet-inspect.cmd`.
 - **Escapes:** writing C#, YAML or Python through a shell heredoc can turn `\n`
   and `\`-newline into literal line breaks. Use an editor tool for escape-heavy
   edits.
