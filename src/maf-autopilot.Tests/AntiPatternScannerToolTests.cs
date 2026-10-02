@@ -258,7 +258,7 @@ public class AntiPatternScannerToolTests
     }
 
     // -------------------------------------------------------------------------
-    // MAF-AP-AGENT-001 — Instructions at top of ChatClientAgentOptions (silent ignore)
+    // MAF-AP-AGENT-001 — Instructions at top of ChatClientAgentOptions (CS0117 since MAF 1.0)
     // -------------------------------------------------------------------------
 
     [Fact]

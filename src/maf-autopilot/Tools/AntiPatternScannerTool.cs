@@ -426,10 +426,10 @@ public sealed class AntiPatternScannerTool
             }),
 
         // MAF-AP-AGENT-001 — Instructions at top-level of ChatClientAgentOptions.
-        // Silent runtime failure: the property compiles but the agent ignores it.
+        // No GA release has that property (it was removed before 1.0): the build fails with CS0117.
         new RoslynRule(
             id: "MAF-AP-AGENT-001",
-            name: "Instructions outside ChatOptions — silently ignored in 1.3.0",
+            name: "Instructions outside ChatOptions — no such property since MAF 1.0 (CS0117)",
             severity: AntiPatternSeverity.Error,
             scan: (root, file) =>
             {
@@ -450,7 +450,7 @@ public sealed class AntiPatternScannerTool
                         var loc = expr.GetLocation().GetLineSpan();
                         findings.Add(new AntiPatternFinding(
                             "MAF-AP-AGENT-001",
-                            "Instructions outside ChatOptions — silently ignored in 1.3.0",
+                            "Instructions outside ChatOptions — no such property since MAF 1.0 (CS0117)",
                             AntiPatternSeverity.Error,
                             file,
                             loc.StartLinePosition.Line + 1,

@@ -33,7 +33,7 @@ Every finding carries `confidence`:
 | **MAF-AP-SEC-003** (EnableSensitiveData) | high | Make it env-driven (`= env.IsDevelopment()`) or fence behind `#if DEBUG`. | Same-named `bool` on an unrelated (non-OTel) type. |
 | **MAF-AP-CONC-001** (provider field) | high | Move per-session state into a `readonly ProviderSessionState<T>`. | The field already IS `ProviderSessionState<T>`, or an injected `readonly` dependency. |
 | **MAF-AP-CONC-002** (`.Result`/`.Wait()`) | high | Make the chain `await`-first; propagate `async` + a `CancellationToken`. | `(await x).Result` (AgentResponse<T> payload) or `Match.Result(...)` (Regex) — not a blocking Task. |
-| **MAF-AP-AGENT-001** (top-level Instructions) | high | Move `Instructions` into the nested `ChatOptions` (top-level was removed in 1.3.0). | A user type named `ChatClientAgentOptions` in your own namespace. |
+| **MAF-AP-AGENT-001** (top-level Instructions) | high | Move `Instructions` into the nested `ChatOptions` (no top-level property since before MAF 1.0; CS0117). | A user type named `ChatClientAgentOptions` in your own namespace. |
 | **MAF-AP-WF-001** (sealed Executor) | high | Add `sealed partial` to the concrete Executor. | A non-MAF base type that happens to be named `Executor`. |
 | **COST-001** (uncapped agent call) | **heuristic** | Set `MaxOutputTokens` on the nearest `ChatOptions`. | `app.RunAsync()` (ASP.NET host), `InProcessExecution.RunStreamingAsync`/`workflow.RunAsync` (workflow runners) — not agent calls. |
 | **MAF-AP-SEC-002** (hard-coded key) | **heuristic** | Source the key from env/Key Vault; rotate the leaked one. | A non-secret string that merely starts with `sk-` (a SKU id, slug, or `sk-xxxx` placeholder). |

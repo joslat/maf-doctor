@@ -163,6 +163,11 @@ property in the 1.3.0 type is nested inside `ChatOptions`.
 Same downgrade: the entry should describe a pre-1.3.0 surface anti-pattern,
 not a 1.3.0 surface anti-pattern.
 
+**Update (2026-10-02):** a binary check across versions showed the property was
+already gone before 1.0 GA (present in 1.0.0-preview.251110.2, absent from
+1.0.0-rc3 and every 1.x release). The entry now applies to `pre-1.0.0` codebases
+with `cs_warning: CS0117`.
+
 ### 3. `MAF130-MIDDLEWARE-001` parameter names are wrong
 
 The registry's `example_before` uses named parameters `.Use(runFunc: …,

@@ -44,7 +44,7 @@ It outputs a markdown body ready to paste.
 - **CS0618 warnings** — these are by-design Microsoft signals. Apply the registry's deterministic fix.
 - **"Workflow exits cleanly but produces no output"** — this is the silent fan-in starvation pattern. The toolkit catches it via `MafValidateFanOut` / `MAF001` Roslyn analyzer / `MAF130-FAN-IN-001` registry entry. Not a bug.
 - **`DefaultAzureCredential` not working in production** — the `MAF002` analyzer warns; the `MAF-AP-SEC-001` scanner rule flags. This is configuration, not a bug.
-- **"My agent's `Instructions` is being ignored"** — check that it's inside `ChatClientAgentOptions.ChatOptions` (registry entry `MAF-AP-AGENT-001`). Top-level `Instructions` is silently dropped in 1.3.0.
+- **"My agent's `Instructions` is being ignored"** — check that it's inside `ChatClientAgentOptions.ChatOptions` (anti-pattern rule `MAF-AP-AGENT-001`; a top-level `Instructions` does not compile since MAF 1.0). Top-level `Instructions` is silently dropped in 1.3.0.
 - **Vague reports without a repro.** Without code, the upstream team can't act.
 
 ## Examples of issues this skill helps with

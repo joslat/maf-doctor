@@ -341,7 +341,7 @@ public static class MafPrompts
         sb.AppendLine("4. Security: `ManagedIdentityCredential` (NOT `DefaultAzureCredential`); no `EnableSensitiveData = true` outside dev. Roslyn analyzers `MAF002` / `MAF003` enforce at write-time.");
         sb.AppendLine("5. Streaming: `RunStreamingAsync()` (NOT `InProcessExecution.StreamAsync()`).");
         sb.AppendLine("6. A2A: `services.AddA2AServer(...)` + `app.MapA2AHttpJson(path)` (or `MapA2AJsonRpc`).");
-        sb.AppendLine("7. Agent options: `Instructions` + `Tools` inside `ChatClientAgentOptions.ChatOptions` (top-level placement is silently ignored — `MAF-AP-AGENT-001`).");
+        sb.AppendLine("7. Agent options: `Instructions` + `Tools` inside `ChatClientAgentOptions.ChatOptions` (neither exists at the top level since MAF 1.0: CS0117, `MAF-AP-AGENT-001`).");
         sb.AppendLine();
         sb.AppendLine("Read `maf://constraints` before reviewing — every hard rule lives there.");
         sb.AppendLine("Report each finding as: **Severity** (🚨 / ⚠️ / ℹ️) | **Location** | **Issue** | **Fix**.");
@@ -421,7 +421,7 @@ public static class MafPrompts
         sb.AppendLine("- Session state in `AIContextProvider` instance fields → leaks across sessions (CONC-001).");
         sb.AppendLine("- `DefaultAzureCredential` in prod → walks stale dev tokens.");
         sb.AppendLine("- `AddFanInBarrierEdge(target, sources)` wrong argument order → wrong topology, runs but wrong.");
-        sb.AppendLine("- `Instructions` outside `ChatOptions` → silently ignored.");
+        sb.AppendLine("- `Instructions` outside `ChatOptions` → does not compile (CS0117); it belongs in `ChatOptions`.");
         sb.AppendLine();
         sb.AppendLine("Always read `maf://constraints` to verify the fix doesn't violate a hard constraint.");
 

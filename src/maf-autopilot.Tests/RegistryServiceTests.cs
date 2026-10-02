@@ -174,17 +174,18 @@ public class RegistryServiceTests
     // -------------------------------------------------------------------------
 
     /// <summary>
-    /// The Phase T corrections marked 2 entries as `applies_to_codebases: "pre-1.3.0"`.
-    /// Verify the YAML loader picks up the field and round-trips it as a typed property.
+    /// The Phase T corrections marked these entries with `applies_to_codebases`; a binary
+    /// check (2026-10-02) then showed the top-level Instructions property was already gone
+    /// before 1.0 GA. Verify the YAML loader round-trips the field as a typed property.
     /// </summary>
     [Theory]
-    [InlineData("MAF130-SESSION-001")]
-    [InlineData("MAF130-INSTRUCTIONS-001")]
-    public void AppliesToCodebases_PhaseTEntries_LoadAsPre130(string id)
+    [InlineData("MAF130-SESSION-001", "pre-1.3.0")]
+    [InlineData("MAF130-INSTRUCTIONS-001", "pre-1.0.0")]
+    public void AppliesToCodebases_PhaseTEntries_LoadWithTheirMarker(string id, string marker)
     {
         var entry = _registry.FindById(id);
         Assert.NotNull(entry);
-        Assert.Equal("pre-1.3.0", entry!.AppliesToCodebases);
+        Assert.Equal(marker, entry!.AppliesToCodebases);
     }
 
     /// <summary>

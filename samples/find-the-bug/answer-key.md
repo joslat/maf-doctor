@@ -9,15 +9,15 @@
 **The bug.** `Instructions = "..."` is assigned at the TOP of
 `new ChatClientAgentOptions { ... }`. In MAF 1.0+, that property doesn't
 exist on `ChatClientAgentOptions` — only the nested `ChatOptions.Instructions`
-does. On 1.0/1.1/1.2/1.3 the code fails to compile with `CS0117`. On
-pre-1.0 preview/SemanticKernel-Process versions where the property
-technically existed, it was silently ignored at runtime.
+does. On every 1.x release the code fails to compile with `CS0117`. The
+property only existed in pre-1.0 previews (present in
+1.0.0-preview.251110.2, gone in 1.0.0-rc3).
 
-**Registry ID.** `MAF130-INSTRUCTIONS-001` (marked `applies_to_codebases:
-"pre-1.0.0"` after the Phase W.A chronology audit).
+**Registry ID.** `MAF130-INSTRUCTIONS-001` (`applies_to_codebases: "pre-1.0.0"`,
+`cs_warning: CS0117`).
 
 **Anti-pattern scanner rule.** `MAF-AP-AGENT-001` — `Instructions outside
-ChatOptions — silently ignored in 1.3.0`.
+ChatOptions — no such property since MAF 1.0 (CS0117)`.
 
 **Correct shape:**
 
@@ -121,7 +121,7 @@ Expected when you run `maf-doctor doctor samples/find-the-bug/` (verified 2026-0
 
 Top fixes (ordered by impact):
   1. [MafValidateFanOut]    HandleAsync at snippet-2.cs:12 returns `ValueTask` — fan-out handler must return Task<T>
-  2. [MafScanAntiPatterns]  MAF-AP-AGENT-001 at snippet-1.cs:17 — Instructions outside ChatOptions — silently ignored in 1.3.0
+  2. [MafScanAntiPatterns]  MAF-AP-AGENT-001 at snippet-1.cs:17 — Instructions outside ChatOptions — no such property since MAF 1.0 (CS0117)
   3. [MafScanAntiPatterns]  MAF-AP-OBS-001 at snippet-1.cs:13 — Missing UseOpenTelemetry in file that builds an agent
 ```
 

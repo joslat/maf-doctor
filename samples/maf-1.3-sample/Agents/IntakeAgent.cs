@@ -2,15 +2,12 @@
 //
 // ⚠️ Note on the "top-level Instructions" anti-pattern:
 //
-// The maf-doctor registry entry MAF130-INSTRUCTIONS-001 documents a
-// "silently ignored Instructions property at the top of ChatClientAgentOptions."
-// **This property does not exist on ChatClientAgentOptions in MAF 1.3.0 GA.**
-// It was REMOVED outright, not just made [Obsolete]. So the anti-pattern as
-// described in the registry cannot be reproduced — code referencing it
-// won't compile.
-//
-// This is real Phase T feedback: the registry entry should be corrected to
-// describe a pre-1.3.0 customer codebase pattern, not a 1.3.0 surface pattern.
+// The maf-doctor registry entry MAF130-INSTRUCTIONS-001 documents a top-level
+// Instructions property on ChatClientAgentOptions. **No GA release has it**: it
+// was removed before 1.0 (present in 1.0.0-preview.251110.2, gone in
+// 1.0.0-rc3), so code referencing it fails to compile with CS0117 and the
+// anti-pattern cannot be reproduced here. The entry applies to pre-1.0.0
+// codebases (corrected 2026-10-02; it first said "silently ignored in 1.3.0").
 // See README.md → "Phase T registry corrections".
 //
 // To preserve the spirit of the anti-pattern in this sample, we use the

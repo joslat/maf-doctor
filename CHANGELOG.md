@@ -20,6 +20,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   branch protection before it pushes) and no Workflows permission. The watcher's
   credential preflight no longer calls `/user`, which App tokens cannot read.
 
+### Fixed
+
+- **Top-level `Instructions` on `ChatClientAgentOptions` is a compile error, not a
+  silent one.** The package binaries show the property in 1.0.0-preview.251110.2 and in
+  no release from 1.0.0-rc3 on, so `MAF130-INSTRUCTIONS-001` now applies to `pre-1.0.0`
+  codebases with `cs_warning: CS0117` (was `pre-1.3.0`, `RUNTIME_SILENT`). The
+  `MAF-AP-AGENT-001` rule, the doctor's explanation, the prompts, skills and samples no
+  longer say "silently ignored in 1.3.0".
+
 ### Removed
 
 - **`maf-ai-fill-todos.yml`** and its issue-body helper. It assigned a Coding Agent
