@@ -548,3 +548,51 @@ def test_looks_unfilled_classifier():
     assert v._looks_unfilled("TODO")
     assert v._looks_unfilled("TODO — fill me")
     assert not v._looks_unfilled("Foo.Bar()")
+
+
+# --- Matrix covers every release the registry knows (2026-10-02) -------------
+
+def _registry(tmp_path, versions):
+    reg = tmp_path / "registry.yaml"
+    reg.write_text("entries:\n" + "".join(
+        f'  - id: X-{i}\n    version_introduced: "{ver}"\n' for i, ver in enumerate(versions)
+    ), encoding="utf-8")
+    return reg
+
+
+def test_matrix_coverage_passes_when_every_release_has_rows(tmp_path):
+    reg = _registry(tmp_path, ["1.7.0", "1.10.0"])
+    md = "| **1.10.0** | a |\n| **1.7.0** | b |\n"
+    cs = '            ["1.10.0"] = """\n            ["1.7.0"] = """\n'
+    assert v.check_matrix_covers_registry(reg, md, cs) == []
+
+
+def test_matrix_coverage_names_releases_missing_from_doc_and_tool(tmp_path):
+    reg = _registry(tmp_path, ["1.6.2", "1.7.0", "1.10.0", "TODO"])
+    md = "| **1.10.0** | a |\n"
+    cs = '            ["1.10.0"] = """\n            ["1.7.0"] = """\n'
+    findings = v.check_matrix_covers_registry(reg, md, cs)
+    assert len(findings) == 2
+    assert "1.6.2, 1.7.0" in findings[0]  # doc: version-sorted, TODO ignored
+    assert "CompatibilityTool" in findings[1]
+    assert "1.6.2" in findings[1] and "1.7.0" not in findings[1]
+
+
+def test_matrix_coverage_ignores_unbolded_rows(tmp_path):
+    # Rows must use the `**X.Y.Z**` stem the other matrix gates parse.
+    reg = _registry(tmp_path, ["1.2.0"])
+    assert v.check_matrix_covers_registry(reg, "| 1.2.0 | a |\n", None) != []
+
+
+def test_matrix_coverage_skips_tool_when_absent(tmp_path):
+    reg = _registry(tmp_path, ["1.7.0"])
+    assert v.check_matrix_covers_registry(reg, "| **1.7.0** | a |\n", None) == []
+
+
+def test_real_repo_matrix_covers_registry():
+    root = SCRIPT_DIR.parents[1]
+    reg = root / ".github" / "skills" / "maf-obsolete-api-registry" / "registry.yaml"
+    md = (root / "docs" / "compatibility-matrix.md").read_text(encoding="utf-8")
+    cs = (root / "src" / "maf-autopilot" / "Tools" / "CompatibilityTool.cs").read_text(encoding="utf-8")
+    assert v.check_matrix_covers_registry(reg, md, cs) == []
+

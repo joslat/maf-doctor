@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.17.0] - 2026-10-02
+
+**Better knowledge of MAF 1.1 to 1.23, no change in coverage.** Registry entries are now
+checked against the real packages: about 40 entries were added, re-attributed or
+rewritten. `doctor --baseline` gates CI on new findings only, C# 14 code parses, and
+the MCP SDK moves to 2.2 (stateless spec 2026-07-28). The release pipeline now merges
+additive MAF releases, retries a failed fill and releases on its own; MAF 1.24 will be
+its first real run. Still covers MAF 1.23.
+
 ### Added
 
 - **`doctor --baseline <file>`: gate only on new findings.** Pass the output of an earlier
@@ -72,6 +81,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`maf_compatibility` knew only 22 of the 27 MAF releases.** 1.6.0, 1.6.2, 1.7.0, 1.8.0 and
+  1.9.0 answered "unknown version" and were missing from the regression-plan ladder,
+  although the registry has their changes. They now have rows (dependency floors from
+  the packages, notes from the registry), the 1.10.0 note no longer lists changes that
+  shipped in 1.6.2 to 1.9.0, and the 1.0 to 1.2 rows use the same row format as the rest. A new
+  cross-file check fails when the registry has entries for a release that the matrix
+  (doc or MCP tool) does not list.
 - **The 20 re-attributed 1.6.2–1.9.0 entries now give real migration steps.** Their old
   text was vague and partly wrong: `WithName`/`WithDescription` did not disappear in 1.9.0,
   they moved to the new `OrchestrationBuilderBase<TBuilder>` (calls compile; rebuild). The
@@ -92,7 +108,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Regression plans dropped changes from releases the matrix skips.** A step lists the
   entries introduced after its source version up to its target. Before, it listed only
   entries introduced exactly at the target, so a 1.7.0 → 1.10.0 plan (one step: the
-  matrix has no 1.8.0/1.9.0 rows) left out the 1.8.0 and 1.9.0 changes.
+  matrix had no 1.8.0/1.9.0 rows) left out the 1.8.0 and 1.9.0 changes.
 - **The first public releases (MAF 1.1–1.3) gain registry coverage.** A per-release diff
   from 1.0.0 found 10 breaking changes with no entry: skill APIs (1.1.0), Foundry
   `AsAIAgent` (1.2.0), and the 1.3.0 A2A client and hosting redesign (`IA2AClient`,
