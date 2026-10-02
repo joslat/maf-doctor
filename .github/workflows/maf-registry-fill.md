@@ -91,8 +91,13 @@ env:
   DOTNET_NOLOGO: "1"
 
 safe-outputs:
-  # A user token so the push triggers the PR's CI (GITHUB_TOKEN pushes don't).
-  # Target state: a GitHub App identity (ROADMAP Z-01).
+  # The push must trigger the PR's CI, which GITHUB_TOKEN pushes don't. The bot
+  # GitHub App (Z-01) mints a short-lived token per run; until the App is set up
+  # (vars.MAF_BOT_CLIENT_ID empty), minting is skipped and the PAT is used.
+  github-app:
+    client-id: ${{ vars.MAF_BOT_CLIENT_ID }}
+    private-key: ${{ secrets.MAF_BOT_PRIVATE_KEY }}
+    ignore-if-missing: true
   github-token: ${{ secrets.COPILOT_ASSIGN_PAT }}
   push-to-pull-request-branch:
     target: "*"

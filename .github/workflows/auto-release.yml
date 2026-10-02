@@ -11,8 +11,9 @@ name: Auto-release on MAF train merge
 # value (or none) only reports what would be released. Manual dispatch is a
 # dry run unless dry_run is unchecked.
 #
-# The tag is pushed with the PAT: tags pushed with GITHUB_TOKEN do not trigger
-# release.yml. release.yml still refuses tags whose commit is not on main.
+# The tag is pushed with the bot GitHub App's token (Z-01), or the PAT until the
+# App is set up: tags pushed with GITHUB_TOKEN do not trigger release.yml.
+# release.yml still refuses tags whose commit is not on main.
 
 on:
   push:
@@ -57,6 +58,19 @@ jobs:
           MODE: ${{ inputs.mode }}
         run: python3 .github/scripts/next_release_version.py --repo . --mode "${MODE:-train}"
 
+      - name: Mint the bot token (GitHub App, Z-01)
+        id: bot
+        # Skipped until the App is set up; the PAT is the fallback. Once the App
+        # is configured, a failed mint fails the job instead of falling back.
+        if: >-
+          steps.decide.outputs.release == 'true' && vars.MAF_BOT_CLIENT_ID != '' &&
+          vars.AUTO_RELEASE == 'true' && inputs.dry_run != true
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1  # v3.2.0
+        with:
+          client-id: ${{ vars.MAF_BOT_CLIENT_ID }}
+          private-key: ${{ secrets.MAF_BOT_PRIVATE_KEY }}
+          permission-contents: write
+
       - name: Push the release tag
         if: steps.decide.outputs.release == 'true'
         env:
@@ -64,7 +78,7 @@ jobs:
           REASON: ${{ steps.decide.outputs.reason }}
           AUTO_RELEASE: ${{ vars.AUTO_RELEASE }}
           DRY_RUN: ${{ inputs.dry_run }}
-          PUSH_TOKEN: ${{ secrets.COPILOT_ASSIGN_PAT }}
+          PUSH_TOKEN: ${{ steps.bot.outputs.token || secrets.COPILOT_ASSIGN_PAT }}
           REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
@@ -74,7 +88,7 @@ jobs:
             exit 0
           fi
           if [ -z "$PUSH_TOKEN" ]; then
-            echo "::error::COPILOT_ASSIGN_PAT is not set; a GITHUB_TOKEN tag would not trigger release.yml."
+            echo "::error::No push credential: set up the bot App (vars.MAF_BOT_CLIENT_ID, secrets.MAF_BOT_PRIVATE_KEY) or COPILOT_ASSIGN_PAT. A GITHUB_TOKEN tag would not trigger release.yml."
             exit 1
           fi
           git config user.name "maf-doctor-bot"

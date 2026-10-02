@@ -25,11 +25,11 @@ General rules:
 
 ## credential
 
-**Signature:** `COPILOT_ASSIGN_PAT is missing` / `is expired, revoked, or cannot read`, or `Bad credentials`.
+**Signature:** `Bot App token could not be minted`, `Watcher credential is missing` / `is expired, revoked, or cannot read`, or `Bad credentials` (older runs: `COPILOT_ASSIGN_PAT is missing` / `is expired`).
 
-**Meaning:** the token the watcher uses to push the scaffold branch and open the PR is missing or expired.
+**Meaning:** the token the watcher uses to push the scaffold branch and open the PR is missing, expired, or cannot be minted.
 
-**Fix:** rotate the repository secret, then rerun. The target state is a GitHub App identity with per-run tokens and no expiry (ROADMAP Z-01).
+**Fix:** check the bot GitHub App: the `MAF_BOT_CLIENT_ID` variable, the `MAF_BOT_PRIVATE_KEY` secret, its permissions (Contents, Issues and Pull requests read and write; Administration read), and that it is installed on this repository. Until the App is set up, the watcher uses the `COPILOT_ASSIGN_PAT` secret: rotate it. Then rerun.
 
 ## tool-version
 

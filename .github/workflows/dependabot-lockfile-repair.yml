@@ -12,8 +12,9 @@ name: Dependabot lockfile repair
 # changes nothing but Directory.Packages.props and packages.lock.json files.
 # Restore evaluates only this repository's project files (unchanged by the
 # branch) and never runs package code. The commit may contain lock files only.
-# The push uses the PAT so CI re-runs on the repaired commit (pushes made with
-# GITHUB_TOKEN do not trigger workflows).
+# The push uses the bot GitHub App's token (Z-01), or the PAT until the App is
+# set up, so CI re-runs on the repaired commit (pushes made with GITHUB_TOKEN do
+# not trigger workflows).
 
 on:
   workflow_run:
@@ -105,16 +106,27 @@ jobs:
           fi
           echo "changed=$([ -n "$CHANGED" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
 
+      - name: Mint the bot token (GitHub App, Z-01)
+        id: bot
+        # Skipped until the App is set up; the PAT is the fallback. Once the App
+        # is configured, a failed mint fails the job instead of falling back.
+        if: steps.regen.outputs.changed == 'true' && vars.MAF_BOT_CLIENT_ID != ''
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1  # v3.2.0
+        with:
+          client-id: ${{ vars.MAF_BOT_CLIENT_ID }}
+          private-key: ${{ secrets.MAF_BOT_PRIVATE_KEY }}
+          permission-contents: write
+
       - name: Push the repaired lock files
         if: steps.regen.outputs.changed == 'true'
         env:
-          PUSH_TOKEN: ${{ secrets.COPILOT_ASSIGN_PAT }}
+          PUSH_TOKEN: ${{ steps.bot.outputs.token || secrets.COPILOT_ASSIGN_PAT }}
           BRANCH: ${{ github.event.workflow_run.head_branch }}
           REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
           if [ -z "$PUSH_TOKEN" ]; then
-            echo "::error::COPILOT_ASSIGN_PAT is not set; cannot push the repaired lock files."
+            echo "::error::No push credential: set up the bot App (vars.MAF_BOT_CLIENT_ID, secrets.MAF_BOT_PRIVATE_KEY) or COPILOT_ASSIGN_PAT. Cannot push the repaired lock files."
             exit 1
           fi
           git config user.name "maf-doctor-bot"

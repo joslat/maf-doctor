@@ -102,7 +102,7 @@ All third-party GitHub Actions are SHA-pinned (including the semantic review's
 Copilot CLI setup). A tag-pinned action like `actions/checkout@v6` resolves to
 whatever HEAD that floating tag points to — a compromised upstream account
 could push arbitrary code into the action and inherit our runner's tokens
-(NUGET_API_KEY, packages:write, COPILOT_ASSIGN_PAT). SHA pins eliminate the
+(NUGET_API_KEY, packages:write, the bot App key or COPILOT_ASSIGN_PAT). SHA pins eliminate the
 lane; Dependabot is configured to bump both SHA and tag-comment in lockstep.
 
 ### 3.13 Predictable-filename write races (2026-07-19 closure)

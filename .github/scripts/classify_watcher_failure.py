@@ -51,8 +51,16 @@ CLASSES: tuple[FailureClass, ...] = (
     FailureClass(
         "credential",
         "Watcher credential is missing, expired, or revoked",
-        "Rotate the watcher token (target state: GitHub App, ROADMAP Z-01) and rerun.",
-        ("COPILOT_ASSIGN_PAT is missing", "COPILOT_ASSIGN_PAT is expired", "Bad credentials"),
+        "Check the bot GitHub App (vars.MAF_BOT_CLIENT_ID, secrets.MAF_BOT_PRIVATE_KEY, "
+        "installed on this repository) or rotate the PAT fallback, then rerun.",
+        (
+            "Bot App token could not be minted",
+            "Watcher credential is missing",
+            "Watcher credential is expired",
+            "COPILOT_ASSIGN_PAT is missing",
+            "COPILOT_ASSIGN_PAT is expired",
+            "Bad credentials",
+        ),
     ),
     FailureClass(
         "tool-version",

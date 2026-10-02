@@ -171,12 +171,21 @@ If you are **joslat** (the repo owner): the repository is `github.com/joslat/maf
 
 ### Adding GitHub Secrets
 
-The repository automation uses two repository-level Actions secrets:
+The repository automation uses these repository-level Actions settings:
 
-| Secret | Where to get it | Required for |
-|--------|-----------------|-------------|
-| `NUGET_API_KEY` | [nuget.org → API Keys](https://www.nuget.org/account/apikeys) | The separate `release.yml` NuGet publish workflow |
-| `COPILOT_ASSIGN_PAT` | GitHub fine-grained PAT, scoped to this repository | Pushing watcher scaffold branches, the `maf-registry-fill` agent's push to the PR branch, and Dependabot lock-file repairs (pushes made with `GITHUB_TOKEN` would not trigger CI) |
+| Name | Kind | Where to get it | Required for |
+|------|------|-----------------|-------------|
+| `NUGET_API_KEY` | Secret | [nuget.org → API Keys](https://www.nuget.org/account/apikeys) | The separate `release.yml` NuGet publish workflow |
+| `MAF_BOT_CLIENT_ID` | Variable | The bot GitHub App's settings page (Client ID) | Minting the bot's short-lived token per run |
+| `MAF_BOT_PRIVATE_KEY` | Secret | The bot GitHub App's private key (`.pem` contents) | Same |
+| `COPILOT_ASSIGN_PAT` | Secret | Fine-grained PAT, scoped to this repository | Fallback only while the App is not set up; delete it once the App runs |
+
+The bot identity pushes watcher scaffold branches and opens their PRs, pushes the
+`maf-registry-fill` agent's fill to the PR branch, pushes Dependabot lock-file
+repairs, and pushes automatic release tags. Pushes made with `GITHUB_TOKEN` would
+not trigger CI or `release.yml`. Each workflow mints an App token when
+`MAF_BOT_CLIENT_ID` is set and uses the PAT otherwise; once the App is configured,
+a failed mint fails the run instead of falling back.
 
 The semantic-review workflow does not need another stored secret. It uses the
 run's short-lived `GITHUB_TOKEN` with only `copilot-requests: write`; for this
@@ -189,11 +198,11 @@ default rather than a pinned model that may not be available to every account
 **How to add:**
 1. GitHub repo → **Settings → Secrets and variables → Actions → New repository secret**
 2. Add each secret by its exact name.
-3. Scope `NUGET_API_KEY` to package push. Scope `COPILOT_ASSIGN_PAT` to Metadata R plus Issues, Contents, and Pull requests R/W on this repository only.
+3. Scope `NUGET_API_KEY` to package push. Create the bot GitHub App with Contents, Issues and Pull requests read and write, Administration and Metadata read-only (gh-aw reads branch protection before it pushes), no webhook and **no Workflows permission**, and install it on this repository only. Add `MAF_BOT_CLIENT_ID` under **Variables** and the private key as the `MAF_BOT_PRIVATE_KEY` secret.
 
-The watcher uses `GITHUB_TOKEN` for its read-only checkout, validates
-`COPILOT_ASSIGN_PAT` before doing expensive analysis, and reserves that token
-for the final branch push/PR operation. It deliberately does not fall back to
+The watcher uses `GITHUB_TOKEN` for its read-only checkout, validates the bot
+credential (App token, or the PAT fallback) before doing expensive analysis, and
+mints a fresh token for the final branch push/PR operation. It deliberately does not fall back to
 `GITHUB_TOKEN` for the push: GitHub suppresses downstream `pull_request` events
 for changes made by that token, which would create a scaffold PR with no CI.
 
@@ -210,7 +219,7 @@ The file `.github/workflows/maf-release-watcher.yml` is already in the repo. Git
 1. **Runs weekly** (Thursday 06:00 UTC) — or manually via **Actions → MAF Release Watcher → Run workflow**.
 2. **`check-for-new-maf-release`** — reads the NuGet stable-version index and selects the oldest release newer than `.maf-version`. If any watcher scaffold PR is already open, it exits cleanly so updates stay sequential.
 3. **`analyze-and-update`** — runs adjacent-version `dotnet-inspect` diffs, updates the matrix/code matrix, writes a per-version guide, appends registry drafts, and opens `release-watcher/maf-X.Y.Z` as a PR. It never pushes the scaffold to `main`.
-4. **Opening the scaffold PR triggers `maf-registry-fill`**, an agentic workflow that fills the TODOs on the PR branch and runs the release checklist plus the obligations gate. `maf-ai-fill-verify` (required) then decides; releases without breaking changes auto-merge, breaking ones wait for review. `maf-ai-fill-todos.yml` remains a manual fallback.
+4. **Opening the scaffold PR triggers `maf-registry-fill`**, an agentic workflow that fills the TODOs on the PR branch and runs the release checklist plus the obligations gate. `maf-ai-fill-verify` (required) then decides; releases without breaking changes auto-merge, breaking ones wait for review. When the fill still fails after one automatic repair, the PR is labelled `needs-human` and a maintainer fills the scaffold branch directly.
 5. NuGet publication is separate: tags or a manual dispatch run `release.yml`; the watcher does not publish MAF Doctor.
 
 **Manual trigger with version override:**
@@ -252,15 +261,15 @@ dotnet nuget push ./nupkg/maf-doctor.*.nupkg --api-key YOUR_KEY --source https:/
 
 ## Filling Registry Drafts in CI
 
-The watcher deterministically extracts and appends candidate registry entries. Breaking releases remain red until their semantic fields and guide sections are filled. A maintainer can fill them directly on the scaffold branch or dispatch `maf-ai-fill-todos.yml`, which opens a tightly-scoped issue and assigns the selected Coding Agent to create a fill PR targeting that scaffold branch.
+The watcher deterministically extracts and appends candidate registry entries. Breaking releases remain red until their semantic fields and guide sections are filled. Opening the scaffold PR starts `maf-registry-fill`, which fills them on the PR branch; a maintainer can also fill them directly on that branch.
 
-The AI-fill handoff is deliberately manual: the watcher does not start a paid/non-deterministic agent run automatically, and no AI-inferred migration reaches `main` without the registry and cross-file verification gates.
+No AI-inferred migration reaches `main` without the deterministic gates: the obligations contract, the registry and cross-file verification, and the required `maf-ai-fill-verify` check.
 
 ---
 
 ## Architecture: Copilot Coding Agent vs. Shell Scripts
 
-The watcher (`analyze-and-update`) uses deterministic shell, Python, the locally built MAF Doctor CLI, and `dotnet-inspect`. Semantic TODO filling is a separate, manual Coding-Agent issue/PR handoff. These are complementary stages, not alternative implementations of the same job.
+The watcher (`analyze-and-update`) uses deterministic shell, Python, the locally built MAF Doctor CLI, and `dotnet-inspect`. Semantic TODO filling is a separate agentic workflow (`maf-registry-fill`) that runs on the scaffold PR. These are complementary stages, not alternative implementations of the same job.
 
 Here is an honest comparison:
 
@@ -289,9 +298,9 @@ Here is an honest comparison:
 
 ---
 
-### Semantic stage — Coding Agent
+### Semantic stage — agentic workflow
 
-The `maf-ai-fill-todos.yml` workflow renders a fenced, version-specific issue prompt, creates the issue, and assigns Copilot, Claude, or Codex through GitHub's Coding Agent integration. The agent must base its work on the watcher scaffold branch and open its fill PR back to that branch.
+`maf-registry-fill` is a GitHub Agentic Workflow (gh-aw, Copilot engine). The agent works read-only on the scaffold branch and follows `.github/scripts/ai_fill_issue_prompt.md.tpl`: it fills the TODOs, runs the release checklist, the obligations gate and the example compiler check, then hands its commit to gh-aw's validated `push-to-pull-request-branch` output, which only accepts the allowed fill paths.
 
 **Pros:**
 - Can write **meaningful** `registry.yaml` entries (semantic understanding of what changed)
@@ -299,8 +308,8 @@ The `maf-ai-fill-todos.yml` workflow renders a fenced, version-specific issue pr
 - Can reason about breaking changes in natural language
 
 **Cons:**
-- Requires **GitHub Copilot Enterprise** or Teams with Coding Agent enabled — not available on free/Pro plans
-- Slower — agent may take 5–30 minutes
+- Uses Copilot requests from the repository owner's seat on every fill
+- Slower — the agent may take 5–30 minutes
 - Non-deterministic — output quality varies; human review is even more critical
 - Token costs apply
 - Agent may hallucinate API names — the PR review step is not optional
@@ -316,7 +325,7 @@ The `maf-ai-fill-todos.yml` workflow renders a fenced, version-specific issue pr
 - `.maf-version` update (string write)
 - PR creation with templated checklist
 
-**Use Copilot Coding Agent ONLY for `registry.yaml` semantic update (step #30):**
+**Use the agent ONLY for the semantic fill (`registry.yaml` entries and guide prose):**
 - The diff is already available as an artifact (`diff-core.txt`)
 - The agent prompt can be tightly constrained: "read this diff, find CS0618-risk patterns, add entries matching this YAML schema"
 - The PR review checklist already asks reviewers to verify registry entries — the agent output gets the same human check
@@ -344,10 +353,10 @@ You want: dotnet tool install -g maf-doctor --prerelease
        └─ Requires: NuGet.org account + API key
             └─ Action: Add NUGET_API_KEY to GitHub repo secrets
 
-You want: registry.yaml semantic TODO filling via Coding Agent
-  └─ Requires: manually dispatch maf-ai-fill-todos.yml for the scaffold branch
-       └─ Requires: a supported GitHub Coding Agent enabled for the repo
-            └─ Requires: COPILOT_ASSIGN_PAT for automatic issue assignment
+You want: registry.yaml semantic TODO filling by the agent
+  └─ Requires: maf-registry-fill (runs when the watcher opens a scaffold PR)
+       └─ Requires: Copilot for the repository owner (copilot-requests)
+            └─ Requires: the bot GitHub App (or the PAT fallback), so its push triggers CI
 
 You want: maf_open_feedback_issue tool
   └─ Requires: #31 tool implementation
@@ -371,4 +380,4 @@ You want: maf_open_feedback_issue tool
 | Release watcher workflow | GitHub Actions | GitHub repo |
 | NuGet publish | GitHub Actions | `NUGET_API_KEY` secret |
 | Registry scaffold extraction | GitHub Actions | GitHub repo; no LLM |
-| Registry semantic fill | GitHub Coding Agent + Actions | Enabled Coding Agent + `COPILOT_ASSIGN_PAT` for assignment |
+| Registry semantic fill | GitHub Actions (gh-aw agentic workflow) | Copilot for the repository owner + the bot GitHub App (or the PAT fallback) |

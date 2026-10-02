@@ -238,8 +238,8 @@ The `maf-release-watcher` workflow runs weekly + on-demand, detecting new MAF re
 6. **Append step** appends the de-duplicated drafts to the live `registry.yaml`. A separator comment marks the auto-appended region.
 7. **Matrix update** inserts a new top row in `compatibility-matrix.md`.
 8. **Guide generation** writes a per-version file `guides/maf-X.Y.0-migration-guide.md` and regenerates the cumulative guide (existing per-version guides untouched).
-9. **Commit to `release-watcher/maf-X.Y.Z` and open a PR**. The scaffold never pushes directly to `main`; the maintainer PAT is used so the PR-created event triggers the normal CI workflows.
-10. **Optional manual AI fill**: a maintainer can dispatch `maf-ai-fill-todos.yml` with the version and scaffold branch. It opens an issue assigned to a Coding Agent; the agent bases its work on the scaffold branch and opens a PR back to that branch. A maintainer may instead fill the scaffold directly. Either route is gated by rung-1 `verify-registry` + rung-2 semantic review.
+9. **Commit to `release-watcher/maf-X.Y.Z` and open a PR**. The scaffold never pushes directly to `main`; the bot GitHub App's token (or the PAT fallback) is used so the PR-created event triggers the normal CI workflows.
+10. **AI fill**: opening the scaffold PR starts the `maf-registry-fill` agentic workflow, which fills the TODOs on the PR branch; `maf-fill-repair` retries once, then labels the PR `needs-human` for a maintainer to fill directly. Either route is gated by rung-1 `verify-registry` + rung-2 semantic review.
 11. **On any failure**, a `notify-on-failure` job opens/updates a `maf-release` tracking issue so the maintainer is alerted (scheduled failures no longer pass silently).
 
 ### How additivity is engraved

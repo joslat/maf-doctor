@@ -167,7 +167,7 @@ After Stage 2 (the agentic fill, pushed to the same PR):
 
 ## Related artefacts
 
-- **Workflows**: `.github/workflows/maf-release-watcher.yml`, `.github/workflows/maf-registry-fill.md`, `.github/workflows/maf-ai-fill-verify.yml`, `.github/workflows/maf-freshness.yml` (`maf-ai-fill-todos.yml` is a manual fallback)
+- **Workflows**: `.github/workflows/maf-release-watcher.yml`, `.github/workflows/maf-registry-fill.md`, `.github/workflows/maf-ai-fill-verify.yml`, `.github/workflows/maf-freshness.yml`, `.github/workflows/maf-fill-repair.yml`
 - **Runbook**: `docs/runbooks/self-update.md` (one section per watcher failure class)
 - **Python helpers**: `.github/scripts/gen_guide_section.py`, `.github/scripts/update_compat_matrix.py`
 - **CLI used by Stage 1**: `maf-doctor registry-extract` (from the published NuGet tool)

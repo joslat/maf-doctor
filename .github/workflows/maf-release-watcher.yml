@@ -29,7 +29,7 @@ permissions:
 
 jobs:
   # Phase 3.1 — validate workflow_dispatch input BEFORE any privileged step
-  # runs. The watcher uses COPILOT_ASSIGN_PAT for its final push; a
+  # runs. The watcher uses the bot App token (or COPILOT_ASSIGN_PAT) for its final push; a
   # malformed `maf_version` would otherwise template into shell-interpreted
   # contexts downstream.
   validate-inputs:
@@ -236,20 +236,42 @@ jobs:
           # branch and open a PR".
           persist-credentials: false
 
-      - name: Validate maintainer PAT before analysis
+      - name: Mint the bot token for the preflight (GitHub App, Z-01)
+        id: bot_check
+        # Skipped until the App is set up (the PAT is the fallback). Requests the
+        # same permissions as the push, so a misconfigured App fails here, before
+        # the analysis. The push mints its own token: App tokens expire in 1 h.
+        if: vars.MAF_BOT_CLIENT_ID != ''
+        continue-on-error: true
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1  # v3.2.0
+        with:
+          client-id: ${{ vars.MAF_BOT_CLIENT_ID }}
+          private-key: ${{ secrets.MAF_BOT_PRIVATE_KEY }}
+          permission-contents: write
+          permission-issues: write
+          permission-pull-requests: write
+
+      - name: Validate the watcher credential before analysis
         env:
-          GH_TOKEN: ${{ secrets.COPILOT_ASSIGN_PAT }}
+          APP_CONFIGURED: ${{ vars.MAF_BOT_CLIENT_ID != '' }}
+          MINT_OUTCOME: ${{ steps.bot_check.outcome }}
+          GH_TOKEN: ${{ steps.bot_check.outputs.token || secrets.COPILOT_ASSIGN_PAT }}
           GH_REPO: ${{ github.repository }}
         run: |
+          if [ "$APP_CONFIGURED" = "true" ] && [ "$MINT_OUTCOME" != "success" ]; then
+            echo "::error::Bot App token could not be minted. Check vars.MAF_BOT_CLIENT_ID, secrets.MAF_BOT_PRIVATE_KEY, the App's permissions, and that it is installed on $GH_REPO."
+            exit 1
+          fi
           if [ -z "$GH_TOKEN" ]; then
-            echo "::error::COPILOT_ASSIGN_PAT is missing. Add a repository-scoped fine-grained PAT before running the watcher."
+            echo "::error::Watcher credential is missing. Set up the bot App (vars.MAF_BOT_CLIENT_ID, secrets.MAF_BOT_PRIVATE_KEY) or COPILOT_ASSIGN_PAT before running the watcher."
             exit 1
           fi
-          if ! gh api user --silent || ! gh api "repos/$GH_REPO" --silent; then
-            echo "::error::COPILOT_ASSIGN_PAT is expired, revoked, or cannot read $GH_REPO. Rotate the repository secret before rerunning."
+          # Not `gh api user`: App installation tokens cannot read /user.
+          if ! gh api "repos/$GH_REPO" --silent; then
+            echo "::error::Watcher credential is expired, revoked, or cannot read $GH_REPO. Rotate it before rerunning."
             exit 1
           fi
-          echo "Maintainer PAT is valid and can access $GH_REPO."
+          echo "Watcher credential ($([ "$APP_CONFIGURED" = "true" ] && echo "bot App" || echo "PAT")) can access $GH_REPO."
 
       - name: Setup .NET
         # Round-4 review fixup — continue-on-error, matching this same file's
@@ -556,6 +578,19 @@ jobs:
             --target-branch "$TARGET_BRANCH" \
             --output ".github/maf-scaffold-obligations/maf-${NEW_VERSION}.json"
 
+      - name: Mint the bot token for the push (GitHub App, Z-01)
+        id: bot
+        # Skipped until the App is set up; the PAT is the fallback. Once the App
+        # is configured, a failed mint fails the job instead of falling back.
+        if: needs.check-for-new-maf-release.outputs.is_major != 'true' && vars.MAF_BOT_CLIENT_ID != ''
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1  # v3.2.0
+        with:
+          client-id: ${{ vars.MAF_BOT_CLIENT_ID }}
+          private-key: ${{ secrets.MAF_BOT_PRIVATE_KEY }}
+          permission-contents: write
+          permission-issues: write
+          permission-pull-requests: write
+
       - name: Commit to a release-watcher branch and open a PR
         id: commit_to_main
         # Phase 3.2 — minor/patch bumps used to auto-commit straight to main; MAJOR
@@ -572,10 +607,12 @@ jobs:
           OLD_VERSION: ${{ needs.check-for-new-maf-release.outputs.old_version }}
           IS_MAJOR: ${{ needs.check-for-new-maf-release.outputs.is_major }}
           VERDICT: ${{ steps.classify.outputs.verdict }}
-          # A human token is intentional here: GitHub suppresses pull_request
-          # workflow events for branches/PRs created with GITHUB_TOKEN. Never
-          # fall back silently, or the scaffold PR opens without its CI checks.
-          GH_TOKEN: ${{ secrets.COPILOT_ASSIGN_PAT }}
+          # Not GITHUB_TOKEN: GitHub suppresses pull_request workflow events for
+          # branches/PRs created with it. Never fall back to it silently, or the
+          # scaffold PR opens without its CI checks. The bot App token (Z-01), or
+          # the PAT until the App is set up; the auto-merge it enables then
+          # merges as the bot, so the push to main still triggers auto-release.
+          GH_TOKEN: ${{ steps.bot.outputs.token || secrets.COPILOT_ASSIGN_PAT }}
           BRANCH: ${{ needs.check-for-new-maf-release.outputs.target_branch }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}  # REP-34
         run: |
@@ -700,7 +737,7 @@ jobs:
           # That PR's workflows are approval-gated and historically stalled (incident: the
           # MAF 1.11.0 copilot/fill-todos PR sat unapproved for days). The scaffold lives on
           # THIS run's PR branch; opening the PR triggers the maf-registry-fill agentic
-          # workflow, which fills it in place. maf-ai-fill-todos.yml is a manual fallback only.
+          # workflow, which fills it in place.
           echo "::notice::MAF $TARGET scaffold PR opened on branch $BRANCH; maf-registry-fill will fill it, then the PR gates decide."
 
       - name: Escalate MAJOR version bump for manual review

@@ -110,9 +110,15 @@ The PR title and body state the verdict:
 ## Step 4 — Fill the TODOs (breaking releases only)
 
 The `keep-breaking-red` gate in CI rejects any registry entry that still has a
-`TODO`/`TBD`/`XXX` placeholder in a required field. Two options to fill them:
+`TODO`/`TBD`/`XXX` placeholder in a required field.
 
-### Option A — Assign GitHub Copilot to the PR (recommended)
+Opening the scaffold PR starts `maf-registry-fill`, an agentic workflow that fills
+`fix_description`, `example_before`, `example_after` and `guide_section` on the PR
+branch, runs the release checklist, and pushes the fill. If the required `verify`
+check then fails, `maf-fill-repair` re-runs the agent once. Act only when the PR
+is labelled `needs-human`:
+
+### Option A — Assign GitHub Copilot to the PR
 
 ```bash
 gh pr edit release-watcher/maf-X.Y.Z \
@@ -120,21 +126,13 @@ gh pr edit release-watcher/maf-X.Y.Z \
   --repo joslat/maf-doctor
 ```
 
-Copilot will read the PR diff, fill `fix_description`, `example_before`,
-`example_after`, and `guide_section` in `registry.yaml`, and push commits to the
-branch. Watch for Copilot's commits to appear, then re-run the CI check.
+Copilot reads the PR diff, fills the entries, and pushes commits to the branch.
 
-### Option B — Fill manually or dispatch `maf-ai-fill-todos.yml`
+### Option B — Fill manually
 
-```bash
-gh workflow run maf-ai-fill-todos.yml \
-  --repo joslat/maf-doctor \
-  -f target_version=X.Y.Z
-```
-
-This creates a GitHub issue with the fill prompt and assigns Copilot to it.
-Copilot will then open a separate PR **on the same branch** (it reads the branch
-from the issue body).
+Check out the scaffold branch, fill the TODOs following
+`.github/scripts/ai_fill_issue_prompt.md.tpl`, run its verification checklist,
+and push to the same branch.
 
 ---
 
@@ -202,15 +200,17 @@ dotnet test src/maf-autopilot.Tests/ \
 | Copilot PR sits unapproved for > 24 h | Copilot's required-status-check approval is pending | Approve from the PR's "Copilot code review" section, or fill manually |
 | `dnx is not found` error | Stale `dnx` invocation in a fork / old cached step | Ensure workflow uses `dotnet tool install --global dotnet-inspect --version 0.9.1` |
 | Release notes fetched empty | Tag format changed (e.g. `dotnet-X.Y.Z` vs `vX.Y.Z`) | Check `gh release list --repo microsoft/agent-framework` for the real tag |
-| `COPILOT_ASSIGN_PAT` missing | Secret not set | Set the PAT in repo Settings → Secrets & Variables → Actions |
+| `Watcher credential is missing` / `Bot App token could not be minted` | The bot GitHub App is not set up, or its key or installation is wrong | Set `MAF_BOT_CLIENT_ID` (variable) and `MAF_BOT_PRIVATE_KEY` (secret), and install the App on the repository |
 
 ---
 
 ## Secrets required
 
-| Secret | Scope | Purpose |
-|--------|-------|---------|
-| `COPILOT_ASSIGN_PAT` | Repo | Push to branch, open PR, assign Copilot. Fine-grained PAT: Issues + Contents + Pull requests + Actions (R/W). Falls back to `GITHUB_TOKEN` for the push only — assignment breaks without this PAT. |
+| Name | Kind | Purpose |
+|------|------|---------|
+| `MAF_BOT_CLIENT_ID` | Variable | Client ID of the bot GitHub App. Each run mints a short-lived token to push branches and tags and open PRs (pushes made with `GITHUB_TOKEN` do not trigger CI). |
+| `MAF_BOT_PRIVATE_KEY` | Secret | The bot App's private key. App permissions: Contents, Issues and Pull requests read and write; Administration and Metadata read-only; no Workflows. |
+| `COPILOT_ASSIGN_PAT` | Secret | Fallback while the App is not set up; delete it once the App runs. |
 
 ---
 
@@ -218,7 +218,7 @@ dotnet test src/maf-autopilot.Tests/ \
 
 - **Skill** `maf-release-watcher` — internal pipeline anatomy (what each stage does)
 - **Workflow** `.github/workflows/maf-release-watcher.yml` — Stage 1 (detect + scaffold)
-- **Workflow** `.github/workflows/maf-ai-fill-todos.yml` — Stage 2 (Copilot fill dispatch)
+- **Workflow** `.github/workflows/maf-registry-fill.md` — Stage 2 (agentic fill on the scaffold PR)
 - **Workflow** `.github/workflows/maf-ai-fill-verify.yml` — PR gate (rejects unfilled drafts)
 - **Script** `.github/scripts/gen_guide_section.py` — generates the per-version guide stub
 - **Script** `.github/scripts/update_compat_matrix.py` — inserts the matrix row

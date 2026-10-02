@@ -36,7 +36,7 @@
 /src/maf-autopilot.Analyzers/            @joslat
 
 # CI surface — workflows execute with elevated tokens (NUGET_API_KEY,
-# COPILOT_ASSIGN_PAT, packages:write). A PR that modifies a workflow can
+# the bot App key / COPILOT_ASSIGN_PAT, packages:write). A PR that modifies a workflow can
 # silently introduce new secret usage or new auto-merge logic.
 /.github/workflows/                      @joslat
 /.github/scripts/                        @joslat

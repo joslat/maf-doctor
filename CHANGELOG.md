@@ -9,6 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **The pipeline can run as a GitHub App instead of a personal token.** The watcher,
+  the registry-fill agent, Dependabot lock-file repair and auto-release mint a
+  short-lived token from the bot GitHub App when `MAF_BOT_CLIENT_ID` is set
+  (`MAF_BOT_PRIVATE_KEY` secret). Until then they use `COPILOT_ASSIGN_PAT`; once the App
+  is configured, a failed mint fails the run instead of falling back. The App needs
+  Contents, Issues and Pull requests read and write, Administration read (gh-aw reads
+  branch protection before it pushes) and no Workflows permission. The watcher's
+  credential preflight no longer calls `/user`, which App tokens cannot read.
+
+### Removed
+
+- **`maf-ai-fill-todos.yml`** and its issue-body helper. It assigned a Coding Agent
+  through the personal token and had not run since July; `maf-registry-fill` fills
+  scaffold PRs, and `needs-human` PRs are filled on the branch.
+
 ## [1.18.0] - 2026-10-02
 
 **Registry examples now compile against the real MAF packages.** Every example from MAF

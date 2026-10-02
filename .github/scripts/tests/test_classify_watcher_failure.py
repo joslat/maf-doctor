@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -34,6 +35,16 @@ def test_evidence_gap_is_classified_with_surface_lines():
 def test_credential_failure_is_classified():
     log = "2026-08-17T10:00:00Z ::error::COPILOT_ASSIGN_PAT is expired, revoked, or cannot read joslat/maf-doctor."
     assert cwf.classify(log)[0].key == "credential"
+
+
+def test_every_watcher_credential_error_is_classified():
+    # The preflight's own messages, read from the workflow, so the two cannot drift.
+    workflow = (REPO_ROOT / ".github" / "workflows" / "maf-release-watcher.yml").read_text(encoding="utf-8")
+    step = workflow.split("name: Validate the watcher credential before analysis", 1)[1].split("- name:", 1)[0]
+    messages = re.findall(r'::error::([^"]+)"', step)
+    assert len(messages) == 3
+    for message in messages:
+        assert cwf.classify(f"2026-10-02T10:00:00Z ::error::{message}")[0].key == "credential", message
 
 
 def test_unknown_failure_keeps_last_error_lines():
