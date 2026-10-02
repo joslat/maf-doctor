@@ -1903,7 +1903,7 @@ entries:
       AgentSkillsProvider script and tool execution now requires approval by
       default (#6729). Delete the .UseScriptApproval() call from the builder
       chain — approval is applied automatically, so the opt-in toggle no longer
-      exists and old call sites fail to compile (CS0246).
+      exists and old call sites fail to compile (CS1061).
     example_before: |
       var provider = new AgentSkillsProviderBuilder()
           .UseScriptApproval()
@@ -1944,7 +1944,7 @@ entries:
       1.11.1; AgentSkillsProvider script and tool execution now requires approval
       by default (#6729). Remove assignments to ScriptApproval — approval is
       enforced automatically and the property no longer exists, so old code fails
-      to compile (CS0246).
+      to compile (CS0117).
     example_before: |
       var options = new AgentSkillsProviderOptions
       {
