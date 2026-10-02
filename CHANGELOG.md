@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.18.0] - 2026-10-02
+
+**Registry examples now compile against the real MAF packages.** Every example from MAF
+1.10 to 1.23 was compiled against the packages it describes: 28 entries were wrong and
+are fixed, and their compiler-error codes now match what a build reports, so
+`MafRunCs0618Hunt` links your build errors to the right entry. The 1.10.0 and cumulative
+migration guides are corrected too. New maintainer command `verify-examples` (used by
+the release pipeline). Still covers MAF 1.23.
+
 ### Added
 
 - **Product fixes release on their own when MAF is quiet.** `auto-release` only fired when a
@@ -1115,7 +1124,7 @@ Internal alpha; superseded by `1.3.0-alpha-3`. Not announced.
 
 Initial MCP server prototype. Three tools (`MafApiSafety`, `MafRegistryLookup`, `MafRegistryList`), 11 skills, 2 agents, 10 registry entries. Validated against one real migration (`maf-claims-fraud-guardian` 1.2.0 → 1.3.0). Internal alpha; not announced.
 
-[Unreleased]: https://github.com/joslat/maf-doctor/compare/v1.15.0...HEAD
+[Unreleased]: https://github.com/joslat/maf-doctor/compare/v1.18.0...HEAD
 [1.15.0]: https://github.com/joslat/maf-doctor/compare/v1.14.0...v1.15.0
 [1.14.0]: https://github.com/joslat/maf-doctor/compare/v1.13.0...v1.14.0
 [1.13.0]: https://github.com/joslat/maf-doctor/compare/v1.12.0...v1.13.0
