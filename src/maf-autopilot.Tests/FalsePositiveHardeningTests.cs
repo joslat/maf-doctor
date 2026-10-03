@@ -12,48 +12,56 @@ namespace MafDoctor.Tests;
 public sealed class FalsePositiveHardeningTests
 {
     // -------------------------------------------------------------------------
-    // MAF-AP-DEVUI-001 — the supported A2A hosting family must not be flagged.
+    // MAF-AP-DEVUI-001 — DevUI registered or mapped outside a development-only guard.
+    // Hosting (AddAIAgent, A2A, AG-UI) is production hosting and is never flagged.
     // -------------------------------------------------------------------------
 
     [Theory]
-    [InlineData("using Microsoft.Agents.AI.Hosting.A2A;")]
-    [InlineData("using Microsoft.Agents.AI.Hosting.A2A.AspNetCore;")]
-    public void DevUi001_SupportedA2AHostingPackage_DoesNotFlag(string usingLine)
+    [InlineData("using Microsoft.Agents.AI.Hosting;", "builder.AddAIAgent(\"assistant\", \"You are helpful.\");")]
+    [InlineData("using Microsoft.Agents.AI.Hosting.A2A;", "app.MapA2A(agent, \"/a2a\");")]
+    [InlineData("using Microsoft.Agents.AI.Hosting.A2A.AspNetCore;", "app.MapA2A(agent, \"/a2a\");")]
+    public void DevUi001_Hosting_DoesNotFlag(string usingLine, string call)
     {
         var source = $$"""
             {{usingLine}}
-            public class Server { public void Run() { } }
+            public class Server { public void Run(dynamic builder, dynamic app, object agent) { {{call}} } }
             """;
         var findings = AntiPatternScannerTool.ScanFile(source, "src/Program.cs");
         Assert.DoesNotContain(findings, f => f.RuleId == "MAF-AP-DEVUI-001");
     }
 
-    [Fact]
-    public void DevUi001_BareHostingPackage_StillFlags()
+    [Theory]
+    [InlineData("app.MapDevUI();")]
+    [InlineData("builder.AddDevUI();")]
+    public void DevUi001_UnguardedDevUI_FlagsAsWarning(string call)
     {
-        // The bare (non-A2A) Hosting namespace is the unsupported preview surface.
-        const string source = """
-            using Microsoft.Agents.AI.Hosting;
-            public class Server { public void Run() { } }
+        var source = $$"""
+            using Microsoft.Agents.AI.DevUI;
+            public class Server { public void Run(dynamic builder, dynamic app) { {{call}} } }
             """;
-        var findings = AntiPatternScannerTool.ScanFile(source, "src/Program.cs");
-        Assert.Contains(findings, f => f.RuleId == "MAF-AP-DEVUI-001");
+        var finding = Assert.Single(AntiPatternScannerTool.ScanFile(source, "src/Program.cs"), f => f.RuleId == "MAF-AP-DEVUI-001");
+        Assert.Equal(AntiPatternSeverity.Warning, finding.Severity);
     }
 
-    [Fact]
-    public void DevUi001_QualifiedExpressionCall_Flags()
+    [Theory]
+    [InlineData("if (app.Environment.IsDevelopment())\n{\n    app.MapDevUI();\n}")]
+    [InlineData("if (app.Environment.IsDevelopment()) app.MapDevUI();")]
+    [InlineData("#if DEVUI_ENABLED\napp.MapDevUI();\n#endif")]
+    [InlineData("#if DEBUG\napp.MapDevUI();\n#endif")]
+    public void DevUi001_DevelopmentGuard_DoesNotFlag(string guarded)
     {
-        // A fully-qualified DevUI reference in EXPRESSION position (a static call) parses
-        // as a member-access chain, not a QualifiedName — it must still be flagged.
-        // Regression guard for the dropped member-access form.
-        const string source = """
-            public class Boot
+        var source = $$"""
+            using Microsoft.Agents.AI.DevUI;
+            public class Server
             {
-                public void Run() => Microsoft.Agents.AI.DevUI.DevUiHost.Launch();
+                public void Run(dynamic app)
+                {
+            {{guarded}}
+                }
             }
             """;
-        var findings = AntiPatternScannerTool.ScanFile(source, "src/Boot.cs");
-        Assert.Contains(findings, f => f.RuleId == "MAF-AP-DEVUI-001");
+        var findings = AntiPatternScannerTool.ScanFile(source, "src/Program.cs");
+        Assert.DoesNotContain(findings, f => f.RuleId == "MAF-AP-DEVUI-001");
     }
 
     [Fact]

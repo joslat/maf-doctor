@@ -18,7 +18,7 @@ public sealed class AntiPatternScannerExecutorRuleTests
     [Theory]
     // ReflectingExecutor<> is a MAF-specific name (low collision) → flagged always.
     [InlineData("public class MyExec : ReflectingExecutor<string> { }")]
-    // [StreamsMessage] / [YieldsMessage] are removed MAF attributes → flagged always.
+    // [StreamsMessage] / [YieldsMessage] are obsolete MAF attributes → flagged always.
     [InlineData("[StreamsMessage] public void Foo() { }")]
     [InlineData("[YieldsMessage] public void Bar() { }")]
     public void Scan_LegacyExecutorPattern_FiresExecRule(string snippet)
@@ -36,8 +36,9 @@ public sealed class AntiPatternScannerExecutorRuleTests
         // Assert
         Assert.Contains(findings, f => f.RuleId == "MAF-AP-EXEC-001");
         var hit = findings.First(f => f.RuleId == "MAF-AP-EXEC-001");
-        Assert.Equal(AntiPatternSeverity.Error, hit.Severity);
-        Assert.Contains("Pre-1.3.0", hit.RuleName);
+        // Obsolete (CS0618) in Workflows 1.23, not removed: a warning, not a build break.
+        Assert.Equal(AntiPatternSeverity.Warning, hit.Severity);
+        Assert.Contains("Obsolete", hit.RuleName);
     }
 
     [Fact]

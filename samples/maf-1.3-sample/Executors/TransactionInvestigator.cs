@@ -2,18 +2,15 @@
 //
 // ⚠️ DELIBERATE ANTI-PATTERNS:
 //   1. Non-generic ValueTask return (MAF130-EXEC-001 / MAF001)
-//   2. Missing `sealed` modifier on the Executor class (MAF-AP-WF-001 partial)
 //
-// The 1.3.0 source generator emits a partial dispatcher; it works without
-// `sealed` but the analyzer flags the missing modifier because the canonical
-// pattern is `public sealed partial class`. This is a soft warning, not a
-// build break — perfect for a sample.
+// The class is `partial` without `sealed`. That is fine: the source generator only
+// requires `partial` (MAFGENWF003). maf-doctor flagged the missing `sealed` as
+// MAF-AP-WF-001 until 2026-10; it no longer does.
 
 using Microsoft.Agents.AI.Workflows;
 
 namespace MafSample.FraudClaims.Executors;
 
-// ⚠️ MAF-AP-WF-001 — Executor class missing `sealed` modifier.
 public partial class TransactionInvestigator : Executor
 {
     public TransactionInvestigator() : base(id: "Transactions") { }

@@ -400,7 +400,7 @@ public class RewriterCompileRoundtripTests
             using System.Threading.Tasks;
             public class Executor { }
             public sealed class MessageHandlerAttribute : System.Attribute { }
-            public partial class MyExec : Executor {
+            public class MyExec : Executor {
               [MessageHandler]
               public Task<int> Handle(string s) => Task.FromResult(0);
             }
@@ -410,27 +410,27 @@ public class RewriterCompileRoundtripTests
             using System.Threading.Tasks;
             public class Executor<TIn, TOut> { }
             public sealed class MessageHandlerAttribute : System.Attribute { }
-            public partial class MyExec : Executor<string, int> {
+            public class MyExec : Executor<string, int> {
               [MessageHandler]
               public Task<int> Handle(string s) => Task.FromResult(0);
             }
             """);
 
-        // WM-02 regression: `partial`-first with NO access modifier (idiomatic
-        // internal-by-default). Pre-fix the rewriter inserted `sealed` AFTER `partial`
-        // → `partial sealed class` → CS0267. Output must compile as `sealed partial`.
-        yield return F("wf001-rewrite-partial-first-no-access-modifier", """
+        // WM-02 regression, re-aimed: `partial` must come last, right before `class`
+        // (`partial sealed class` is CS0267). A `sealed` non-partial executor must
+        // become `sealed partial`.
+        yield return F("wf001-rewrite-sealed-without-partial", """
             using System.Threading.Tasks;
             public class Executor { }
             public sealed class MessageHandlerAttribute : System.Attribute { }
-            partial class MyExec : Executor {
+            sealed class MyExec : Executor {
               [MessageHandler]
               public Task<int> Handle(string s) => Task.FromResult(0);
             }
             """);
 
         // WM-02 review follow-up: ZERO-modifier Executor (no access modifier, no
-        // `partial`) — `sealed` becomes the declaration's first token; it must carry
+        // `partial`) — `partial` becomes the declaration's first token; it must carry
         // the class keyword's leading trivia rather than strand it.
         yield return F("wf001-rewrite-zero-modifier-executor", """
             using System.Threading.Tasks;
@@ -442,7 +442,7 @@ public class RewriterCompileRoundtripTests
             }
             """);
 
-        yield return F("wf001-noop-abstract-executor", """
+        yield return F("wf001-noop-abstract-partial-executor", """
             using System.Threading.Tasks;
             public class Executor { }
             public sealed class MessageHandlerAttribute : System.Attribute { }
@@ -508,6 +508,17 @@ public class RewriterCompileRoundtripTests
             public class Options { public bool EnableSensitiveData { get; set; } }
             public class C {
               void M(Options opts, bool flag) { if (flag) opts.EnableSensitiveData = true; }
+            }
+            """);
+
+        // The documented configure-callback shape: `c => c.EnableSensitiveData = true`
+        // becomes `c => {}` (simple and parenthesized lambdas).
+        yield return F("sec003-rewrite-expression-lambda", """
+            public class Options { public bool EnableSensitiveData { get; set; } }
+            public static class Builder { public static void UseOpenTelemetry(System.Action<Options> configure) { } }
+            public class C {
+              void M() { Builder.UseOpenTelemetry(configure: c => c.EnableSensitiveData = true); }
+              void N() { Builder.UseOpenTelemetry((Options c) => c.EnableSensitiveData = true); }
             }
             """);
     }

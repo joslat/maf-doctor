@@ -8,12 +8,15 @@ namespace MafDoctor.Tools.Rewriters;
 /// Rule: <c>MAF-AP-WF-001</c>.
 ///
 /// Rewrite: ensure every class deriving from <c>Executor</c> with
-/// <c>[MessageHandler]</c> methods carries the <c>sealed</c> modifier.
+/// <c>[MessageHandler]</c> methods carries the <c>partial</c> modifier, which the
+/// workflow source generator requires (MAFGENWF003). It does NOT add <c>sealed</c>:
+/// the generator does not require it (checked on Microsoft.Agents.AI.Workflows.Generators
+/// 1.23), and sealing an executor that has subclasses would break the build (CS0509).
+/// (The class keeps its historical name; it no longer seals anything.)
 ///
 /// Matches the same predicate as <see cref="AntiPatternScannerTool"/>'s
-/// MAF-AP-WF-001 rule: derives from <c>Executor</c> (substring match on the
-/// base list) AND has at least one method decorated with
-/// <c>[MessageHandler]</c>.
+/// MAF-AP-WF-001 rule: derives from <c>Executor</c> AND has at least one method
+/// decorated with <c>[MessageHandler]</c>.
 /// </summary>
 internal sealed class ExecutorSealedRewriter : CSharpSyntaxRewriter, IRuleRewriter
 {
@@ -24,75 +27,24 @@ internal sealed class ExecutorSealedRewriter : CSharpSyntaxRewriter, IRuleRewrit
         if (!IsExecutorWithMessageHandler(node))
             return base.VisitClassDeclaration(node);
 
-        var modifiers = node.Modifiers.Select(m => m.ValueText).ToHashSet();
-
-        // Parity with the WF-001 scanner, which SKIPS abstract Executors entirely:
-        // an abstract class can't be `sealed` (the two modifiers are mutually
-        // exclusive), and a static class can't derive from Executor at all. Leave
-        // both UNTOUCHED — returning the node unchanged means MafAutoFix /
-        // MafBeforeAfter honestly report "no change" for a file the scanner also
-        // considers clean, instead of dirtying it with an advisory comment. (The
-        // concrete subclass is what must be `sealed partial`; the scanner flags THAT.)
-        if (modifiers.Contains("abstract") || modifiers.Contains("static"))
+        // A static class can't derive from Executor; abstract executors need `partial`
+        // like any other (parity with the WF-001 scanner).
+        if (node.Modifiers.Any(m => m.IsKind(SyntaxKind.StaticKeyword))
+            || node.Modifiers.Any(m => m.IsKind(SyntaxKind.PartialKeyword)))
             return base.VisitClassDeclaration(node);
 
-        var needsSealed = !modifiers.Contains("sealed");
-        var needsPartial = !modifiers.Contains("partial");
-        if (!needsSealed && !needsPartial)
-            return base.VisitClassDeclaration(node); // already `sealed partial`
-
-        // The scanner (MAF-AP-WF-001) fires when EITHER `sealed` or `partial` is
-        // missing, and `partial` is the load-bearing one (without it the workflow
-        // source generator can't emit the dispatcher → generator-time compile
-        // error). So add WHICHEVER is missing — not just `sealed`.
-
-        // Build canonical `[access] sealed … partial class`: insert `sealed` right
-        // after the first (access) modifier; append `partial` last (immediately
-        // before the `class` keyword). Each inserted token carries a trailing
-        // space so the rendered text stays well-formed.
-        var list = node.Modifiers.ToList();
-        if (needsSealed)
+        // `partial` must be the last modifier, immediately before `class` (CS0267).
+        var partialToken = SyntaxFactory.Token(SyntaxKind.PartialKeyword)
+            .WithTrailingTrivia(SyntaxFactory.Space);
+        if (node.Modifiers.Count == 0)
         {
-            var sealedToken = SyntaxFactory.Token(SyntaxKind.SealedKeyword)
-                .WithTrailingTrivia(SyntaxFactory.Space);
-            // `partial` MUST stay immediately before `class` (CS0267), so `sealed`
-            // has to be inserted BEFORE any existing `partial`. Insert right at the
-            // first `partial` if present; otherwise after the access modifier
-            // (index 1), or at the front when there are no modifiers at all.
-            // Without this, a `partial`-first declaration (`partial class X`, the
-            // idiomatic internal-by-default shape) was rewritten to the uncompilable
-            // `partial sealed class X`.
-            var partialIdx = list.FindIndex(t => t.IsKind(SyntaxKind.PartialKeyword));
-            var insertAt = partialIdx >= 0 ? partialIdx : Math.Min(1, list.Count);
-            if (insertAt == 0 && list.Count > 0)
-            {
-                // `sealed` becomes the new first MODIFIER — carry the old first
-                // modifier's leading trivia (indentation / xmldoc) onto it.
-                sealedToken = sealedToken.WithLeadingTrivia(list[0].LeadingTrivia);
-                list[0] = list[0].WithLeadingTrivia();
-            }
-            else if (insertAt == 0)
-            {
-                // No modifiers: `sealed` becomes the first MODIFIER. Carry the `class`
-                // keyword's leading trivia onto it, else the modifiers strand between
-                // the keyword's indentation and `class` — de-indenting the line and,
-                // when there are no attributes, DETACHING a leading `///` doc (CS1587,
-                // documentation lost). With attributes the keyword's leading trivia is
-                // just the indentation (the doc sits on the attribute list, which is
-                // left untouched), so carrying it is correct there too.
-                sealedToken = sealedToken.WithLeadingTrivia(node.Keyword.LeadingTrivia);
-                node = node.WithKeyword(node.Keyword.WithLeadingTrivia());
-            }
-            list.Insert(insertAt, sealedToken);
+            // `partial` becomes the first token after any attributes: carry the `class`
+            // keyword's leading trivia (indentation, or a `///` doc when there are no
+            // attributes) onto it, else the doc detaches (CS1587) and the line de-indents.
+            partialToken = partialToken.WithLeadingTrivia(node.Keyword.LeadingTrivia);
+            node = node.WithKeyword(node.Keyword.WithLeadingTrivia());
         }
-        if (needsPartial)
-        {
-            var partialToken = SyntaxFactory.Token(SyntaxKind.PartialKeyword)
-                .WithTrailingTrivia(SyntaxFactory.Space);
-            list.Add(partialToken); // last modifier, right before `class`
-        }
-
-        return node.WithModifiers(SyntaxFactory.TokenList(list));
+        return node.WithModifiers(node.Modifiers.Add(partialToken));
     }
 
     private static bool IsExecutorWithMessageHandler(ClassDeclarationSyntax cls)

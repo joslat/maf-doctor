@@ -1,6 +1,6 @@
 # Expected MafDoctor output for the MAF 1.2.0 version-parity sample.
 # Same anti-pattern coverage as the 1.3 sample (different MAF pin).
 grade: F
-anti_pattern_errors: 6
+anti_pattern_errors: 5
 anti_pattern_warnings: 4
 silent_starvation_risks: 3

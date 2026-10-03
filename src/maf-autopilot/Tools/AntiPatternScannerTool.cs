@@ -259,9 +259,11 @@ public sealed class AntiPatternScannerTool
                     // finding is genuinely auto-fixable (true detector ⇆ rewriter parity):
                     // initializer entries (VisitInitializerExpression) and statement-position
                     // assignments (VisitExpressionStatement — this DOES include a statement
-                    // inside a block-bodied lambda). Expression-bodied lambdas
-                    // (`() => o.X = true`) and nested/parenthesized assignments
-                    // (`b = (o.X = true)`) are intentionally excluded — the rewriter can't reach them.
+                    // inside a block-bodied lambda), and the body of an expression-bodied
+                    // lambda — the shape Microsoft documents,
+                    // `UseOpenTelemetry(configure: cfg => cfg.EnableSensitiveData = true)` —
+                    // which the rewriter turns into `cfg => {}`. Nested/parenthesized
+                    // assignments (`b = (o.X = true)`) stay excluded — the rewriter can't reach them.
                     var match = assign.Left switch
                     {
                         IdentifierNameSyntax id => id.Identifier.ValueText == "EnableSensitiveData"
@@ -269,7 +271,9 @@ public sealed class AntiPatternScannerTool
                         ImplicitElementAccessSyntax iea => IsEnableSensitiveDataKey(iea.ArgumentList)
                             && assign.Parent is InitializerExpressionSyntax,                                   // new D { ["EnableSensitiveData"] = true }
                         MemberAccessExpressionSyntax mae => mae.Name.Identifier.ValueText == "EnableSensitiveData"
-                            && assign.Parent is ExpressionStatementSyntax,                                     // x.EnableSensitiveData = true;
+                            && (assign.Parent is ExpressionStatementSyntax                                     // x.EnableSensitiveData = true;
+                                || assign.Parent is LambdaExpressionSyntax { ExpressionBody: var body }        // cfg => cfg.EnableSensitiveData = true
+                                    && body == assign),
                         ElementAccessExpressionSyntax eae => IsEnableSensitiveDataKey(eae.ArgumentList)
                             && assign.Parent is ExpressionStatementSyntax,                                     // dict["EnableSensitiveData"] = true;
                         _ => false,
@@ -460,11 +464,14 @@ public sealed class AntiPatternScannerTool
                 return findings;
             }),
 
-        // MAF-AP-WF-001 — workflow executor class must be `sealed partial`.
-        // Without `partial`, the source generator cannot emit the dispatch table → build break.
+        // MAF-AP-WF-001 — an executor with [MessageHandler] methods must be `partial`, or
+        // the workflow source generator cannot emit its handler wiring (MAFGENWF003; without
+        // the generator package the build fails with CS0534 instead). `sealed` is NOT
+        // required (Workflows.Generators 1.23; MessageHandlerAttribute's own example is
+        // `public partial class MyExecutor : Executor`), so it is not checked.
         new RoslynRule(
             id: "MAF-AP-WF-001",
-            name: "Executor class must be `sealed partial`",
+            name: "Executor with [MessageHandler] methods must be `partial`",
             severity: AntiPatternSeverity.Error,
             scan: (root, file) =>
             {
@@ -476,115 +483,77 @@ public sealed class AntiPatternScannerTool
                     // methods. Shared predicate keeps this in lockstep with the rewriter.
                     if (!(cls.BaseList?.Types.Any(t => IsExecutorBaseType(t.Type)) ?? false))
                         continue;
-                    if (!cls.Members.OfType<MethodDeclarationSyntax>().Any(m =>
-                        m.AttributeLists.SelectMany(a => a.Attributes).Any(a =>
-                        {
-                            var n = a.Name.ToString();
-                            var s = n.Contains('.') ? n[(n.LastIndexOf('.') + 1)..] : n;
-                            return s is "MessageHandler" or "MessageHandlerAttribute";
-                        })))
+                    if (!cls.Members.OfType<MethodDeclarationSyntax>().Any(IsMessageHandler))
                         continue;
 
+                    // A static class can't derive from Executor; abstract ones need
+                    // `partial` too (parity with ExecutorSealedRewriter).
                     var modifiers = cls.Modifiers.Select(m => m.ValueText).ToHashSet();
-                    // Skip abstract AND static Executors: an abstract Executor can never
-                    // be `sealed` (abstract precludes sealed), and a static class can't
-                    // derive from Executor at all — neither is fixable, so flagging them
-                    // with an auto-fixable rule would be dishonest. This also keeps the
-                    // scanner in lockstep with ExecutorSealedRewriter, which leaves both
-                    // untouched (detector⇆rewriter parity). The dispatched concrete
-                    // subclass is what must be `sealed partial`.
-                    if (modifiers.Contains("abstract") || modifiers.Contains("static")) continue;
-                    var hasPartial = modifiers.Contains("partial");
-                    var hasSealed = modifiers.Contains("sealed");
-                    if (hasPartial && hasSealed) continue;
+                    if (modifiers.Contains("static") || modifiers.Contains("partial")) continue;
 
-                    var missing = (hasPartial, hasSealed) switch
-                    {
-                        (false, false) => "`partial` and `sealed`",
-                        (false, true) => "`partial`",
-                        (true, false) => "`sealed`",
-                        _ => "(none)",
-                    };
                     var loc = cls.Identifier.GetLocation().GetLineSpan();
                     findings.Add(new AntiPatternFinding(
                         "MAF-AP-WF-001",
-                        "Executor class must be `sealed partial`",
+                        "Executor with [MessageHandler] methods must be `partial`",
                         AntiPatternSeverity.Error,
                         file,
                         loc.StartLinePosition.Line + 1,
-                        $"`{cls.Identifier.ValueText}` is missing {missing}"));
+                        $"`{cls.Identifier.ValueText}` is missing `partial`"));
                 }
                 return findings;
             }),
 
-        // MAF-AP-DEVUI-001 — DevUI references must be guarded by #if DEVUI_ENABLED.
-        // Without the guard, production builds fail (DevUI/Hosting have no 1.3.0 equivalent).
+        // MAF-AP-DEVUI-001 — DevUI registered or mapped outside a development-only guard.
+        // DevUI "exposes agent metadata that is sensitive in production contexts: system
+        // instructions, tool definitions, model identifiers, and workflow structure"
+        // (DevUIOptions, Microsoft.Agents.AI.DevUI 1.23.0-preview); it only accepts loopback
+        // requests by default. Hosting (AddAIAgent, A2A, AG-UI, …) is not flagged: it is
+        // production hosting, preview-only like DevUI but with no such warning.
         new RoslynRule(
             id: "MAF-AP-DEVUI-001",
-            name: "DevUI references must be guarded by #if DEVUI_ENABLED",
-            severity: AntiPatternSeverity.Error,
+            name: "DevUI enabled outside a development-only guard",
+            severity: AntiPatternSeverity.Warning,
             scan: (root, file) =>
             {
                 var findings = new List<AntiPatternFinding>();
+                var guardedLineRanges = CollectGuardedLineRanges(root, c =>
+                    c.Contains("DEVUI_ENABLED", StringComparison.Ordinal)
+                    || c.Contains("DEBUG", StringComparison.Ordinal)
+                    || c.Contains("DEVELOPMENT", StringComparison.Ordinal));
 
-                // Collect every line range that lies inside an `#if DEVUI_ENABLED ... #endif`
-                // (or any conditional whose condition mentions DEVUI_ENABLED). We then check
-                // each DevUI reference against those ranges.
-                var guardedLineRanges = CollectDevUiGuardedLineRanges(root);
-
-                foreach (var node in root.DescendantNodes(descendIntoTrivia: false))
+                foreach (var invocation in root.DescendantNodes().OfType<InvocationExpressionSyntax>())
                 {
-                    var text = node switch
-                    {
-                        UsingDirectiveSyntax u => u.Name?.ToString(),
-                        // Only the OUTERMOST qualified name (e.g. the full type in
-                        // `new Microsoft.Agents.AI.DevUI.X()`). Descending into nested
-                        // sub-names would surface a bare `Microsoft.Agents.AI.Hosting`
-                        // fragment of `...Hosting.A2A` and wrongly trip the carve-out below.
-                        QualifiedNameSyntax q when q.Parent is not QualifiedNameSyntax => q.ToString(),
-                        // Fully-qualified reference in EXPRESSION position parses as a
-                        // member-access chain (e.g. a static call `Microsoft.Agents.AI.DevUI.X.Run()`).
-                        // Take only the outermost so nested fragments don't trip the carve-out.
-                        // The full-namespace substring check below means a stray `.DevUI`
-                        // member on an unrelated object is NOT matched.
-                        MemberAccessExpressionSyntax ma when ma.Parent is not MemberAccessExpressionSyntax => ma.ToString(),
-                        _ => null,
-                    };
-                    if (string.IsNullOrEmpty(text)) continue;
-                    // Flag ONLY the unsupported preview surface. The 1.3.0 A2A hosting
-                    // family (Microsoft.Agents.AI.Hosting.A2A[.AspNetCore]) is fully
-                    // supported and must NOT be guarded. The old bare-`DevUI` identifier
-                    // arm was removed (it flagged any local symbol named DevUI, e.g. a
-                    // project's own `namespace DevUI;`); using / qualified-type / qualified
-                    // expression forms are all still covered.
-                    if (!IsUnsupportedDevUiOrHostingReference(text!)) continue;
+                    var name = InvokedName(invocation);
+                    if (name is not ("AddDevUI" or "MapDevUI")) continue;
 
-                    var loc = node.GetLocation().GetLineSpan();
-                    var line = loc.StartLinePosition.Line + 1;
+                    var line = invocation.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
                     if (guardedLineRanges.Any(r => line >= r.Start && line <= r.End)) continue;
+                    // A runtime guard: `if (app.Environment.IsDevelopment()) { app.MapDevUI(); }`.
+                    if (invocation.Ancestors().OfType<IfStatementSyntax>()
+                            .Any(s => s.Condition.ToString().Contains("IsDevelopment", StringComparison.Ordinal)
+                                && s.Statement.Span.Contains(invocation.Span)))
+                        continue;
 
                     findings.Add(new AntiPatternFinding(
                         "MAF-AP-DEVUI-001",
-                        "DevUI references must be guarded by #if DEVUI_ENABLED",
-                        AntiPatternSeverity.Error,
+                        "DevUI enabled outside a development-only guard",
+                        AntiPatternSeverity.Warning,
                         file,
                         line,
-                        text.Length > 60 ? text[..60] + "…" : text));
+                        $"{name}(...) — keep DevUI out of production builds"));
                 }
-
-                // Per-finding de-duplication: collapse multiple references on the same line.
-                return findings
-                    .GroupBy(f => (f.File, f.Line))
-                    .Select(g => g.First())
-                    .ToList();
+                return findings;
             }),
 
-        // MAF-AP-MID-001 — `.Use(runFunc:, runStreamingFunc:)` must provide BOTH callbacks.
-        // Passing only one means the streaming path silently bypasses the middleware.
+        // MAF-AP-MID-001 — `.Use(runFunc:, runStreamingFunc:)` with only runFunc. The
+        // middleware still runs on the streaming path, but "if only one of the delegates is
+        // provided, it will be used for both methods … RunStreamingAsync will employ limited
+        // streaming, as it will be operating on the batch output produced by runFunc"
+        // (AIAgentBuilder.Use, Microsoft.Agents.AI 1.23): the caller gets one batch update.
         new RoslynRule(
             id: "MAF-AP-MID-001",
-            name: "Middleware Use() must provide both runFunc and runStreamingFunc",
-            severity: AntiPatternSeverity.Warning,
+            name: "Middleware Use() without runStreamingFunc — streaming arrives as one batch",
+            severity: AntiPatternSeverity.Info,
             scan: (root, file) =>
             {
                 var findings = new List<AntiPatternFinding>();
@@ -615,37 +584,40 @@ public sealed class AntiPatternScannerTool
                         : "runStreamingFunc not provided";
                     findings.Add(new AntiPatternFinding(
                         "MAF-AP-MID-001",
-                        "Middleware Use() must provide both runFunc and runStreamingFunc",
-                        AntiPatternSeverity.Warning,
+                        "Middleware Use() without runStreamingFunc — streaming arrives as one batch",
+                        AntiPatternSeverity.Info,
                         file,
                         loc.StartLinePosition.Line + 1,
-                        $".Use(...) — {why}; streaming path bypasses the middleware"));
+                        $".Use(...) — {why}; RunStreamingAsync returns runFunc's output as one batch"));
                 }
                 return findings;
             }),
 
-        // MAF-AP-EXEC-001 — Pre-1.3.0 executor patterns. Detects the legacy executor
-        // surface that should have been migrated. Salvaged from the May-6 pre-Phase-O
+        // MAF-AP-EXEC-001 — obsolete executor surface. In Workflows 1.23 all four are still
+        // public but [Obsolete] (a CS0618 warning, not a build break): ReflectingExecutor<T>
+        // and IMessageHandler<…> since 1.0.0, [StreamsMessage] ("does not do anything") and
+        // [YieldsMessage] (use [YieldsOutput]) since 1.2.0. Detects the legacy executor
+        // surface that should be migrated. Salvaged from the May-6 pre-Phase-O
         // sketch (tag: pre-phase-o-may6-sketch). The corresponding CS0618 patterns
         // are also in the registry (`MAF130-EXEC-001`, `MAF130-ATTR-001/002`), but a
         // syntax-only scan catches them BEFORE you run `dotnet build` — useful for
         // the auditor agent's pre-migration pass.
         // RoslynRule (was a regex). The bare token `IMessageHandler<` over-matched every
         // MediatR / NServiceBus / hand-rolled `IMessageHandler<T>` — an extremely common
-        // name unrelated to the removed Microsoft.Agents.AI.Workflows.IMessageHandler<T>.
+        // name unrelated to the obsolete Microsoft.Agents.AI.Workflows.IMessageHandler<T>.
         // Now: the MAF-specific attributes ([StreamsMessage] / [YieldsMessage]) are flagged
         // wherever they appear (low collision), but the generic legacy types
         // (ReflectingExecutor<…> / IMessageHandler<…>) are flagged ONLY when the file
         // actually imports the MAF Workflows namespace.
         new RoslynRule(
             id: "MAF-AP-EXEC-001",
-            name: "Pre-1.3.0 executor pattern (ReflectingExecutor / IMessageHandler / [StreamsMessage] / [YieldsMessage])",
-            severity: AntiPatternSeverity.Error,
+            name: "Obsolete executor surface (ReflectingExecutor / IMessageHandler / [StreamsMessage] / [YieldsMessage])",
+            severity: AntiPatternSeverity.Warning,
             scan: (root, file) =>
             {
                 var findings = new List<AntiPatternFinding>();
 
-                // [StreamsMessage] / [YieldsMessage] — removed MAF attributes; MAF-specific
+                // [StreamsMessage] / [YieldsMessage] — obsolete MAF attributes; MAF-specific
                 // names, so flag wherever they appear (and AST-matching never hits comments).
                 foreach (var attr in root.DescendantNodes().OfType<AttributeSyntax>())
                 {
@@ -656,8 +628,8 @@ public sealed class AntiPatternScannerTool
                         var loc = attr.GetLocation().GetLineSpan();
                         findings.Add(new AntiPatternFinding(
                             "MAF-AP-EXEC-001",
-                            "Pre-1.3.0 executor pattern (ReflectingExecutor / IMessageHandler / [StreamsMessage] / [YieldsMessage])",
-                            AntiPatternSeverity.Error, file, loc.StartLinePosition.Line + 1, $"[{s}]"));
+                            "Obsolete executor surface (ReflectingExecutor / IMessageHandler / [StreamsMessage] / [YieldsMessage])",
+                            AntiPatternSeverity.Warning, file, loc.StartLinePosition.Line + 1, $"[{s}]"));
                     }
                 }
 
@@ -677,8 +649,8 @@ public sealed class AntiPatternScannerTool
                     var loc = g.GetLocation().GetLineSpan();
                     findings.Add(new AntiPatternFinding(
                         "MAF-AP-EXEC-001",
-                        "Pre-1.3.0 executor pattern (ReflectingExecutor / IMessageHandler / [StreamsMessage] / [YieldsMessage])",
-                        AntiPatternSeverity.Error, file, loc.StartLinePosition.Line + 1, $"{id}<…>"));
+                        "Obsolete executor surface (ReflectingExecutor / IMessageHandler / [StreamsMessage] / [YieldsMessage])",
+                        AntiPatternSeverity.Warning, file, loc.StartLinePosition.Line + 1, $"{id}<…>"));
                 }
 
                 // Collapse multiple legacy surfaces on the same line.
@@ -926,50 +898,6 @@ public sealed class AntiPatternScannerTool
            && args.Arguments[0].Expression is LiteralExpressionSyntax keyLit
            && keyLit.RawKind == (int)SyntaxKind.StringLiteralExpression
            && keyLit.Token.ValueText == "EnableSensitiveData";
-
-    /// <summary>
-    /// True if a using/qualified-name reference points at the UNSUPPORTED DevUI /
-    /// Hosting preview surface that has no 1.3.0 equivalent (and therefore must be
-    /// guarded). The A2A hosting family
-    /// (<c>Microsoft.Agents.AI.Hosting.A2A</c> / <c>.A2A.AspNetCore</c>) is a fully
-    /// supported 1.3.0 package and is deliberately NOT flagged.
-    /// </summary>
-    internal static bool IsUnsupportedDevUiOrHostingReference(string text)
-    {
-        // DevUI preview channel — no 1.3.0 equivalent, always guard.
-        if (text.Contains("Microsoft.Agents.AI.DevUI", StringComparison.Ordinal))
-            return true;
-
-        // Hosting: only the bare namespace / non-A2A children are preview surface.
-        if (text.Contains("Microsoft.Agents.AI.Hosting", StringComparison.Ordinal))
-            return !IsSupportedHostingNamespace(text);
-
-        return false;
-    }
-
-    /// <summary>
-    /// True if the reference is in the supported 1.3.0 A2A hosting family. Matches the
-    /// dotted segment AFTER <c>Hosting.</c> so it can't collide on substrings: the bare
-    /// <c>Microsoft.Agents.AI.Hosting</c> (no child segment) is NOT supported.
-    /// </summary>
-    private static bool IsSupportedHostingNamespace(string text)
-    {
-        const string prefix = "Microsoft.Agents.AI.Hosting.";
-        var idx = text.IndexOf(prefix, StringComparison.Ordinal);
-        if (idx < 0) return false; // bare "...Hosting" with no child → unsupported
-        var rest = text[(idx + prefix.Length)..];
-        var segment = rest.Split('.', 2)[0];
-        return segment == "A2A"; // .Hosting.A2A and .Hosting.A2A.AspNetCore
-    }
-
-    /// <summary>
-    /// Returns the inclusive line ranges that lie inside a <c>#if</c> block whose
-    /// condition mentions <c>DEVUI_ENABLED</c> (the canonical guard symbol per the
-    /// 1.3.0 migration guide §14). Used by <c>MAF-AP-DEVUI-001</c> to suppress
-    /// findings for code that IS correctly guarded.
-    /// </summary>
-    internal static IReadOnlyList<(int Start, int End)> CollectDevUiGuardedLineRanges(Microsoft.CodeAnalysis.SyntaxNode root)
-        => CollectGuardedLineRanges(root, c => c.Contains("DEVUI_ENABLED", StringComparison.Ordinal));
 
     /// <summary>
     /// Inclusive line ranges inside an <c>#if</c> whose condition satisfies

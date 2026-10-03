@@ -27,13 +27,13 @@ public class AutoFixToolTests
     // UTF-8 byte (0x80) inside a `//` comment, optionally UTF-8-BOM-prefixed. Because
     // a rewriter matches, the "byte-identical after apply" assertion is load-bearing:
     // if the strict decode were reverted the file would be U+FFFD-decoded, gain
-    // `sealed`, and be written back — no longer byte-identical.
+    // `partial`, and be written back — no longer byte-identical.
     private static byte[] ExecutorSourceWithInvalidByte(bool utf8Bom)
     {
         const string head =
             "using System.Threading.Tasks;\npublic class Executor { }\n" +
             "public sealed class MessageHandlerAttribute : System.Attribute { }\n" +
-            "public partial class MyExec : Executor {\n  // ";
+            "public class MyExec : Executor {\n  // ";
         const string tail =
             "\n  [MessageHandler]\n  public Task<int> Handle(string s) => Task.FromResult(0);\n}\n";
         IEnumerable<byte> bytes = System.Text.Encoding.ASCII.GetBytes(head)
@@ -292,7 +292,25 @@ public class AutoFixToolTests
     // -------------------------------------------------------------------------
 
     [Fact]
-    public void ExecutorSealedRewriter_AddsSealedToPartialClass()
+    public void ExecutorSealedRewriter_AddsOnlyPartial()
+    {
+        // The generator requires `partial` (MAFGENWF003), not `sealed`; adding `sealed`
+        // would break a build that subclasses the executor (CS0509).
+        var input = """
+            using Microsoft.Agents.AI.Workflows;
+            public class MyExec : Executor
+            {
+                [MessageHandler]
+                public ValueTask H(int x) => default;
+            }
+            """;
+        var output = ApplyRewriter(new ExecutorSealedRewriter(), input);
+        Assert.Contains("public partial class MyExec", output);
+        Assert.DoesNotContain("sealed", output);
+    }
+
+    [Fact]
+    public void ExecutorSealedRewriter_NoOpIfAlreadyPartial()
     {
         var input = """
             using Microsoft.Agents.AI.Workflows;
@@ -303,7 +321,7 @@ public class AutoFixToolTests
             }
             """;
         var output = ApplyRewriter(new ExecutorSealedRewriter(), input);
-        Assert.Contains("sealed partial class MyExec", output);
+        Assert.Equal(input, output.TrimEnd());
     }
 
     [Fact]
@@ -339,9 +357,9 @@ public class AutoFixToolTests
     }
 
     [Fact]
-    public void ExecutorSealedRewriter_GenericExecutorBase_AddsSealedPartial()
+    public void ExecutorSealedRewriter_GenericExecutorBase_AddsPartial()
     {
-        // Round-8 parity: a generic `Executor<…>` base must be sealed/partial'd too,
+        // Round-8 parity: a generic `Executor<…>` base must be partial'd too,
         // matching the now generic-aware WF-001 scanner (shared IsExecutorBaseType).
         var input = """
             public class MyExec : Microsoft.Agents.AI.Workflows.Executor<string, int>
@@ -351,7 +369,7 @@ public class AutoFixToolTests
             }
             """;
         var output = ApplyRewriter(new ExecutorSealedRewriter(), input);
-        Assert.Contains("sealed partial class MyExec", output);
+        Assert.Contains("public partial class MyExec", output);
     }
 
     // -------------------------------------------------------------------------
@@ -828,14 +846,13 @@ public class AutoFixToolTests
     // mutually exclusive). Pre-fix the rewriter happily inserted `sealed` on
     // any class deriving from Executor with a [MessageHandler], producing
     // uncompilable user code when the source class was abstract. Same for
-    // `sealed static class` (also rejected by the compiler). Now: leave abstract
-    // and static Executors UNCHANGED — parity with the scanner, which skips them
-    // (so autofix/preview honestly report "no change" instead of dirtying a
-    // scanner-clean file with an advisory comment).
+    // `sealed static class` (also rejected by the compiler). Since 2026-10 the
+    // rewriter never adds `sealed`; an abstract Executor gets `partial` like any
+    // other (the generator requires it), and a static one is left alone.
     // -------------------------------------------------------------------------
 
     [Fact]
-    public void ExecutorSealedRewriter_AbstractClass_LeftUnchanged()
+    public void ExecutorSealedRewriter_AbstractClass_GetsPartialNeverSealed()
     {
         var src = """
             using Microsoft.Agents.AI.Workflow;
@@ -847,12 +864,10 @@ public class AutoFixToolTests
             """;
         var output = ApplyRewriter(new ExecutorSealedRewriter(), src);
 
-        // Parity with the scanner: an abstract Executor is left UNTOUCHED — no
-        // `sealed` (which would be the uncompilable `abstract sealed`), and no
-        // advisory comment that would dirty a scanner-clean file.
+        // `partial` (which the generator requires), never `sealed` (the uncompilable
+        // `abstract sealed`).
+        Assert.Contains("public abstract partial class BaseAuditor", output);
         Assert.DoesNotContain("sealed", output);
-        Assert.DoesNotContain("cannot seal", output);
-        Assert.Equal(src, output.TrimEnd());
     }
 
     [Fact]
@@ -861,14 +876,14 @@ public class AutoFixToolTests
         // Sanity check — the guard doesn't accidentally skip a legitimate target.
         var src = """
             using Microsoft.Agents.AI.Workflow;
-            public partial class FraudAuditor : Executor
+            public class FraudAuditor : Executor
             {
                 [MessageHandler]
-                public System.Threading.Tasks.Task<string> Audit(string input) => null!;
+                public System.Threading.Tasks.ValueTask<string> Audit(string input, IWorkflowContext context) => default;
             }
             """;
         var output = ApplyRewriter(new ExecutorSealedRewriter(), src);
-        Assert.Contains("public sealed partial class FraudAuditor", output);
+        Assert.Contains("public partial class FraudAuditor", output);
     }
 
     // -------------------------------------------------------------------------
@@ -1043,17 +1058,17 @@ public class AutoFixToolTests
                 using System.Threading.Tasks;
                 public class Executor { }
                 public sealed class MessageHandlerAttribute : System.Attribute { }
-                public partial class MyExec : Executor {
+                public class MyExec : Executor {
                   [MessageHandler]
                   public Task<int> Handle(string s) => Task.FromResult(0);
                 }
                 """;
             File.WriteAllText(file, code, new System.Text.UTF8Encoding(encoderShouldEmitUTF8Identifier: true));
-            new AutoFixTool().MafAutoFixAll(dir, dryRun: false); // WF-001 adds `sealed` → file rewritten
+            new AutoFixTool().MafAutoFixAll(dir, dryRun: false); // WF-001 adds `partial` → file rewritten
             var bytes = File.ReadAllBytes(file);
             Assert.True(bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF,
                 "UTF-8 BOM must be preserved across the rewrite");
-            Assert.Contains("sealed partial", File.ReadAllText(file));
+            Assert.Contains("public partial class MyExec", File.ReadAllText(file));
         }
         finally { Directory.Delete(dir, recursive: true); }
     }
@@ -1066,7 +1081,7 @@ public class AutoFixToolTests
         try
         {
             // A WF-001-matching Executor with an invalid byte in a comment — so if the
-            // strict decode were reverted, WF-001 would add `sealed` and the file WOULD
+            // strict decode were reverted, WF-001 would add `partial` and the file WOULD
             // be rewritten (0x80 → EF BF BD), making the byte-identical check fail.
             var file = Path.Combine(dir, "MyExec.cs");
             var badBytes = ExecutorSourceWithInvalidByte(utf8Bom: false);
@@ -1097,7 +1112,7 @@ public class AutoFixToolTests
                 using System.Threading.Tasks;
                 public class Executor { }
                 public sealed class MessageHandlerAttribute : System.Attribute { }
-                public partial class MyExec : Executor {
+                public class MyExec : Executor {
                   [MessageHandler]
                   public async Task<int> Handle(string s) { return FetchAsync().Result; }
                   static Task<int> FetchAsync() => Task.FromResult(0);
@@ -1115,7 +1130,7 @@ public class AutoFixToolTests
             Assert.Equal(1, applyTotal);
 
             var after = File.ReadAllText(file);
-            Assert.Contains("sealed partial", after);        // WF-001 applied
+            Assert.Contains("public partial class MyExec", after);        // WF-001 applied
             Assert.Contains("(await FetchAsync())", after);  // CONC-002 applied in the SAME pass
 
             var again = JsonSerializer.Deserialize<JsonDocument>(tool.MafAutoFixAll(dir, dryRun: false))!;
@@ -1140,7 +1155,7 @@ public class AutoFixToolTests
                 using System.Threading.Tasks;
                 public class Executor { }
                 public sealed class MessageHandlerAttribute : System.Attribute { }
-                public partial class MyExec : Executor {
+                public class MyExec : Executor {
                   [MessageHandler]
                   public Task<int> Handle(string s) => Task.FromResult(0);
                 }
@@ -1152,7 +1167,7 @@ public class AutoFixToolTests
             Assert.Equal(1, diffs.GetArrayLength());
             var diffText = diffs[0].GetProperty("diff").GetString()!;
             Assert.Contains("+", diffText);                    // a real added line, not just a file name
-            Assert.Contains("sealed partial class MyExec", diffText); // the rewrite is shown
+            Assert.Contains("partial class MyExec", diffText); // the rewrite is shown
             Assert.Equal(original, File.ReadAllText(file));    // dry-run wrote nothing
         }
         finally { Directory.Delete(dir, recursive: true); }
@@ -1278,7 +1293,7 @@ public class AutoFixToolTests
     [Fact]
     public void ExecutorSealedRewriter_ZeroModifierClass_KeepsIndentAndDocAttached()
     {
-        // A bare (internal-by-default) Executor with a leading XML doc: `sealed`
+        // A bare (internal-by-default) Executor with a leading XML doc: `partial`
         // must carry the declaration's leading trivia, else the doc is stranded
         // between `partial` and `class` (de-indent + CS1587 doc detachment).
         var input = """
@@ -1293,10 +1308,10 @@ public class AutoFixToolTests
             }
             """;
         var output = ApplyRewriter(new ExecutorSealedRewriter(), input).Replace("\r\n", "\n");
-        Assert.Contains("sealed partial class MyExec", output); // modifiers contiguous, class not stranded
+        Assert.Contains("    partial class MyExec", output); // indented, class not stranded
         var docIdx = output.IndexOf("/// <summary>Doc", StringComparison.Ordinal);
-        var sealedIdx = output.IndexOf("sealed partial class MyExec", StringComparison.Ordinal);
-        Assert.True(docIdx >= 0 && docIdx < sealedIdx, "doc comment must stay attached above the declaration");
+        var partialIdx = output.IndexOf("partial class MyExec", StringComparison.Ordinal);
+        Assert.True(docIdx >= 0 && docIdx < partialIdx, "doc comment must stay attached above the declaration");
     }
 
     [Fact]
@@ -1356,7 +1371,7 @@ public class AutoFixToolTests
                 using System.Threading.Tasks;
                 public class Executor { }
                 public sealed class MessageHandlerAttribute : System.Attribute { }
-                public partial class MyExec : Executor {
+                public class MyExec : Executor {
                   [MessageHandler]
                   public Task<int> Handle(string s) => Task.FromResult(0);
                 }
@@ -1383,7 +1398,7 @@ public class AutoFixToolTests
                 var json = new AutoFixTool().MafAutoFixAll(dir, dryRun: false);
                 var doc = JsonSerializer.Deserialize<JsonDocument>(json)!;
                 Assert.True(doc.RootElement.GetProperty("errors").GetArrayLength() >= 1, json); // unreadable file reported
-                Assert.Contains("sealed partial", File.ReadAllText(Path.Combine(dir, "Good.cs"))); // other file STILL fixed
+                Assert.Contains("public partial class MyExec", File.ReadAllText(Path.Combine(dir, "Good.cs"))); // other file STILL fixed
             }
             finally
             {
@@ -1411,16 +1426,16 @@ public class AutoFixToolTests
                 using System.Threading.Tasks;
                 public class Executor { }
                 public sealed class MessageHandlerAttribute : System.Attribute { }
-                public partial class MyExec : Executor {
+                public class MyExec : Executor {
                   [MessageHandler]
                   public Task<int> Handle(string s) => Task.FromResult(0);
                 }
                 """, enc);
-            new AutoFixTool().MafAutoFixAll(dir, dryRun: false); // WF-001 adds `sealed`
+            new AutoFixTool().MafAutoFixAll(dir, dryRun: false); // WF-001 adds `partial`
             var bytes = File.ReadAllBytes(file);
             if (bigEndian) Assert.True(bytes.Length >= 2 && bytes[0] == 0xFE && bytes[1] == 0xFF, "UTF-16 BE BOM preserved");
             else Assert.True(bytes.Length >= 2 && bytes[0] == 0xFF && bytes[1] == 0xFE, "UTF-16 LE BOM preserved");
-            Assert.Contains("sealed partial", File.ReadAllText(file, enc)); // rewrite applied, still UTF-16
+            Assert.Contains("public partial class MyExec", File.ReadAllText(file, enc)); // rewrite applied, still UTF-16
         }
         finally { Directory.Delete(dir, recursive: true); }
     }
@@ -1440,7 +1455,7 @@ public class AutoFixToolTests
                 using System.Threading.Tasks;
                 public class Executor { }
                 public sealed class MessageHandlerAttribute : System.Attribute { }
-                public partial class MyExec : Executor {
+                public class MyExec : Executor {
                   [MessageHandler]
                   public Task<int> Handle(string s) => Task.FromResult(0);
                 }
@@ -1449,7 +1464,7 @@ public class AutoFixToolTests
             var bytes = File.ReadAllBytes(file);
             if (bigEndian) Assert.True(bytes.Length >= 4 && bytes[0] == 0x00 && bytes[1] == 0x00 && bytes[2] == 0xFE && bytes[3] == 0xFF, "UTF-32 BE BOM preserved");
             else Assert.True(bytes.Length >= 4 && bytes[0] == 0xFF && bytes[1] == 0xFE && bytes[2] == 0x00 && bytes[3] == 0x00, "UTF-32 LE BOM preserved");
-            Assert.Contains("sealed partial", File.ReadAllText(file, enc)); // decoded as UTF-32, rewrite applied
+            Assert.Contains("public partial class MyExec", File.ReadAllText(file, enc)); // decoded as UTF-32, rewrite applied
         }
         finally { Directory.Delete(dir, recursive: true); }
     }
@@ -1466,7 +1481,7 @@ public class AutoFixToolTests
     [Fact]
     public void ExecutorSealedRewriter_AttributedZeroModifierClass_StaysIndented()
     {
-        // A zero-modifier Executor WITH an attribute: `sealed partial` must inherit the
+        // A zero-modifier Executor WITH an attribute: `partial` must inherit the
         // declaration's indentation, not de-indent to column 0.
         var input = """
             namespace N
@@ -1480,8 +1495,8 @@ public class AutoFixToolTests
             }
             """;
         var output = ApplyRewriter(new ExecutorSealedRewriter(), input).Replace("\r\n", "\n");
-        Assert.Contains("    sealed partial class Worker", output); // indented, not column 0
-        Assert.DoesNotContain("\nsealed partial", output);          // never at column 0
+        Assert.Contains("    partial class Worker", output); // indented, not column 0
+        Assert.DoesNotContain("\npartial", output);          // never at column 0
         Assert.Contains("[System.Obsolete]", output);               // attribute untouched
     }
 }

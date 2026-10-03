@@ -395,51 +395,53 @@ entries:
     package: Microsoft.Agents.AI.Workflows
     version_introduced: "1.3.0"
     type: Microsoft.Agents.AI.Workflows.StreamsMessageAttribute
-    method: "(attribute removed)"
+    method: "(attribute, obsolete)"
     obsolete_signature: "[StreamsMessage]"
     replacement_signature: "(delete the attribute)"
     argument_order_change: false
-    fix_description: "Delete [StreamsMessage] attributes. The attribute is removed. The return type of [MessageHandler] methods defines message type — no attribute needed."
+    fix_description: "Delete [StreamsMessage] attributes. The attribute is obsolete since 1.2.0 and does nothing; it still compiles, with a CS0618 warning."
     example_before: |
       [StreamsMessage]
       public sealed partial class MyExecutor : Executor { ... }
     example_after: |
       public sealed partial class MyExecutor : Executor { ... }
-    cs_warning: CS0246
+    cs_warning: CS0618
     guide_section: "16"
     dotnet_inspect_detectable: true
-    applies_to_codebases: "pre-1.0.0"   # Phase W.A correction (2026-05-13)
+    applies_to_codebases: "pre-1.3.0"   # corrected 2026-10-03 (was pre-1.0.0)
     notes: >
-      StreamsMessageAttribute is completely removed (CS0246). Simply delete the attribute.
-      Same applies to [YieldsMessage] — see MAF130-ATTR-002.
-
-      **Phase W.A correction (2026-05-13):** `[StreamsMessage]` doesn't exist
-      in any public MAF NuGet package. Pre-1.0.0 pattern.
+      **Correction (2026-10-03):** checked against the package metadata and XML docs:
+      StreamsMessageAttribute is still public in Microsoft.Agents.AI.Workflows 1.23.0, marked
+      [Obsolete] (no error flag) since 1.2.0 with the remark "This attribute does not do
+      anything". So it is a CS0618 warning, not CS0246, and 1.x codebases can still contain
+      it. The 2026-05-13 note ("doesn't exist in any public MAF NuGet package") was wrong.
+      See MAF130-ATTR-002 for [YieldsMessage].
 
   - id: MAF130-ATTR-002
     package: Microsoft.Agents.AI.Workflows
     version_introduced: "1.3.0"
     type: Microsoft.Agents.AI.Workflows.YieldsMessageAttribute
-    method: "(attribute removed)"
+    method: "(attribute, obsolete)"
     obsolete_signature: "[YieldsMessage(typeof(T))]"
-    replacement_signature: "(delete the attribute)"
+    replacement_signature: "[YieldsOutput(typeof(T))]"
     argument_order_change: false
-    fix_description: "Delete [YieldsMessage] attributes. The attribute is removed. The return type of [MessageHandler] defines output message type."
+    fix_description: "Replace [YieldsMessage(typeof(T))] with [YieldsOutput(typeof(T))]. [YieldsMessage] is obsolete since 1.2.0 and ignored (the framework only reads [YieldsOutput]); it still compiles, with a CS0618 warning. Deleting it instead drops the executor's declared output type."
     example_before: |
       [YieldsMessage(typeof(ValidationResult))]
       public sealed partial class MyExecutor : Executor { ... }
     example_after: |
+      [YieldsOutput(typeof(ValidationResult))]
       public sealed partial class MyExecutor : Executor { ... }
-    cs_warning: CS0246
+    cs_warning: CS0618
     guide_section: "16"
     dotnet_inspect_detectable: true
-    applies_to_codebases: "pre-1.0.0"   # Phase W.A correction (2026-05-13)
+    applies_to_codebases: "pre-1.3.0"   # corrected 2026-10-03 (was pre-1.0.0)
     notes: >
-      YieldsMessageAttribute is completely removed (CS0246). Simply delete the attribute.
-      Same applies to [StreamsMessage] — see MAF130-ATTR-001.
-
-      **Phase W.A correction (2026-05-13):** `[YieldsMessage]` doesn't exist
-      in any public MAF NuGet package. Pre-1.0.0 pattern.
+      **Correction (2026-10-03):** YieldsMessageAttribute is still public in
+      Microsoft.Agents.AI.Workflows 1.23.0, marked [Obsolete] (no error flag) since 1.2.0
+      ("Use YieldsOutput instead"). Both attributes are class-level and take a Type. The
+      2026-05-13 note ("doesn't exist in any public MAF NuGet package") was wrong.
+      See MAF130-ATTR-001 for [StreamsMessage].
 
   - id: MAF130-INSTRUCTIONS-001
     package: Microsoft.Agents.AI
@@ -495,29 +497,37 @@ entries:
     type: Microsoft.Agents.AI.Workflows.Executor
     method: "(class declaration)"
     obsolete_signature: "public class MyExecutor : Executor { ... }"
-    replacement_signature: "public sealed partial class MyExecutor : Executor { ... }"
+    replacement_signature: "public partial class MyExecutor : Executor { ... }"
     argument_order_change: false
-    fix_description: "Executor classes MUST be declared `sealed partial` so the source generator can emit the dispatcher partial. Missing the modifiers causes compile errors at generator-time, NOT at usage-time — easy to miss in casual review."
+    fix_description: "An Executor with [MessageHandler] methods must be declared `partial`, so the source generator (Microsoft.Agents.AI.Workflows.Generators, a development dependency each project references) can emit its handler wiring. Without it the build fails: MAFGENWF003, and CS0534 because the generated ConfigureProtocol is missing. `sealed` is optional."
     example_before: |
       public class MyExecutor : Executor
       {
+          public MyExecutor() : base(nameof(MyExecutor)) { }
+
           [MessageHandler]
-          public Task<string> Handle(int input) => ...;
+          public ValueTask<string> HandleAsync(int input, IWorkflowContext context) => ...;
       }
     example_after: |
-      public sealed partial class MyExecutor : Executor
+      public partial class MyExecutor : Executor
       {
+          public MyExecutor() : base(nameof(MyExecutor)) { }
+
           [MessageHandler]
-          public Task<string> Handle(int input) => ...;
+          public ValueTask<string> HandleAsync(int input, IWorkflowContext context) => ...;
       }
-    cs_warning: CS0246
+    cs_warning: CS0534
     guide_section: "15"
     dotnet_inspect_detectable: false
     applies_to_codebases: "pre-1.3.0"
     notes: >
-      Requires Microsoft.Agents.AI.Workflows.Generators 1.3.0 to be installed. The source
-      generator emits a partial class with the message-dispatch logic; without `partial` the
-      generator output cannot be merged. Without `sealed` the generator emits a warning.
+      **Correction (2026-10-03):** checked against Microsoft.Agents.AI.Workflows.Generators
+      1.23.0: the generator requires `partial` (MAFGENWF003) and nothing about `sealed`
+      (no diagnostic mentions it; MessageHandlerAttribute's own example is
+      `public partial class MyExecutor : Executor`). Without `partial` the class never gets
+      its generated Executor.ConfigureProtocol override, hence CS0534. The earlier example's
+      Task<string> handler would itself fail the generator (MAFGENWF002: void, ValueTask or
+      ValueTask<T>), and handlers take an IWorkflowContext second (MAFGENWF001).
 
   - id: MAF130-MIDDLEWARE-001
     package: Microsoft.Extensions.AI

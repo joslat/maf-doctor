@@ -9,8 +9,8 @@ namespace MafDoctor.Analyzers;
 /// <summary>
 /// MAF003 — EnableSensitiveData = true outside of test code.
 ///
-/// Sensitive-data logging in production leaks PII, prompts, and tool arguments
-/// to whatever log sink is wired. Allowed in tests/samples; not in production.
+/// Sensitive-data telemetry in production sends PII, prompts, and tool arguments
+/// to whatever trace exporter is wired. Allowed in tests/samples; not in production.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class SensitiveDataAnalyzer : DiagnosticAnalyzer
@@ -20,11 +20,11 @@ public sealed class SensitiveDataAnalyzer : DiagnosticAnalyzer
     private static readonly DiagnosticDescriptor Rule = new(
         id: DiagnosticId,
         title: "EnableSensitiveData = true outside test code",
-        messageFormat: "EnableSensitiveData = true leaks prompts, tool arguments, and message contents into log sinks. Gate behind `#if DEBUG` or `builder.Environment.IsDevelopment()` before shipping.",
+        messageFormat: "EnableSensitiveData = true records prompts, tool arguments, and message contents in telemetry (traces and their exporters). Gate behind `#if DEBUG` or `builder.Environment.IsDevelopment()` before shipping.",
         category: "MAF.Security",
         defaultSeverity: DiagnosticSeverity.Warning,
         isEnabledByDefault: true,
-        description: "Sensitive-data logging is intended for development diagnostics only. Production telemetry should default to redacted attributes.",
+        description: "Sensitive-data telemetry is intended for development diagnostics only. It is off by default (unless OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=true); production telemetry should keep it off.",
         // Anchor fragments are slugified by GitHub from the full heading text. Link
         // at the document root; the rule ID is grep-able inside the page.
         helpLinkUri: "https://github.com/joslat/maf-doctor/blob/main/.github/skills/maf-anti-pattern-scanner/SKILL.md");

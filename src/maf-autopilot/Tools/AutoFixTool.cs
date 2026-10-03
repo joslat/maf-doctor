@@ -79,7 +79,7 @@ public sealed class AutoFixTool
     internal static readonly IReadOnlyDictionary<string, string> RuleDescriptions =
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
-            ["MAF-AP-WF-001"]     = "add missing `sealed` to Executor classes",
+            ["MAF-AP-WF-001"]     = "add missing `partial` to Executor classes",
             ["MAF-AP-SEC-003"]    = "drop `EnableSensitiveData = true`",
             ["MAF-AP-SEC-001"]    = "DefaultAzureCredential → ManagedIdentityCredential",
             ["MAF130-FAN-IN-001"] = "fix fan-in barrier-edge argument order",

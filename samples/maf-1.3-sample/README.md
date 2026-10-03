@@ -73,10 +73,9 @@ src/maf-autopilot -- doctor samples/maf-1.3-sample` (grade: F).
 | `MAF-AP-OBS-001` | `ChatClientFactory.cs` | Agent built without `UseOpenTelemetry()` |
 | `MAF-AP-CONC-001` | `Providers/CaseContextProvider.cs` | Mutable instance fields on `AIContextProvider` subclass |
 | `MAF-AP-CONC-002` | `Executors/NotificationExecutor.cs` | Sync-over-async via `.Result` |
-| `MAF-AP-WF-001` | `Executors/TransactionInvestigator.cs` | Executor class missing `sealed` |
 | `MAF130-EXEC-001` / `MAF001` | `Executors/{Osint,History,Transaction}Investigator.cs` | Fan-out `[MessageHandler]` returns non-generic `ValueTask` → silent fan-in starvation |
 | `MAF130-FAN-IN-001` | `Workflows/FraudClaimsWorkflow.cs` | `AddFanInBarrierEdge(target, sources)` — obsolete overload (CS0618) |
-| `MAF130-MIDDLEWARE-001` | `ChatClientFactory.cs` | `.Use(runFunc, null)` — streaming branch bypassed |
+| `MAF130-MIDDLEWARE-001` | `ChatClientFactory.cs` | `.Use(runFunc, null)` — streaming arrives as one batch |
 
 ---
 
@@ -206,7 +205,6 @@ The end-to-end expectation (Phase T.3 → T.5):
 2. **`@maf-migration`** executes that plan:
    - Rewrites the 3 investigators' `[MessageHandler]` returns from `ValueTask` →
      `ValueTask<InvestigationFinding>`.
-   - Adds the missing `sealed` modifier to `TransactionInvestigator`.
    - Flips the fan-in arg order to the new pattern.
    - Replaces `DefaultAzureCredential` with `ManagedIdentityCredential`.
    - Removes `EnableSensitiveData = true`.

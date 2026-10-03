@@ -382,7 +382,7 @@ public sealed class DoctorTool
         "MAF002" => true,            // analyzer-aligned alias
         "MAF-AP-SEC-003" => true,    // EnableSensitiveData = true → removed
         "MAF003" => true,            // analyzer-aligned alias
-        "MAF-AP-WF-001" => true,     // sealed/partial modifiers on Executor
+        "MAF-AP-WF-001" => true,     // `partial` modifier on an Executor with [MessageHandler]s
         "MAF130-FAN-IN-001" => true, // fan-in argument order swap
         // NOT MAF-AP-CONC-002: a safe `.Result`/`.Wait()` → `await` fix requires the
         // caller to be async (signature/caller changes), so it's a judgment call, not
@@ -430,18 +430,18 @@ public sealed class DoctorTool
         "MAF-AP-SEC-001" => "Replace `DefaultAzureCredential` with `ManagedIdentityCredential` in production code.",
         "MAF-AP-SEC-002" => "Remove the hard-coded key; load it from configuration / Key Vault and rotate the leaked value.",
         "MAF-AP-SEC-003" => "Remove `EnableSensitiveData = true` from non-dev configurations.",
-        "MAF-AP-WF-001" => "Add the missing `sealed` / `partial` modifier(s) so the Executor class is `sealed partial`.",
+        "MAF-AP-WF-001" => "Add `partial` to the Executor class (`sealed` is optional).",
         "MAF130-FAN-IN-001" => "Swap `AddFanInBarrierEdge` argument order — sources first, target second.",
         "MAF-AP-CONC-002" => "Make the enclosing method `async` and `await` the call (or use a synchronous API) — `.Result` / `.Wait()` can deadlock.",
-        "MAF-AP-OBS-001" => "Wire `UseOpenTelemetry` on the IChatClient pipeline.",
+        "MAF-AP-OBS-001" => "Wire telemetry on the agent: `agent.AsBuilder().UseOpenTelemetry(sourceName).Build()` (it also turns on the chat-level spans).",
         "MAF-AP-CONC-001" => "Move session state out of `AIContextProvider` instance fields into `ProviderSessionState<T>`.",
         "MAF-AP-AGENT-001" => "Move `Instructions` inside `ChatClientAgentOptions.ChatOptions`; the top-level property does not exist.",
-        "MAF-AP-EXEC-001" => "Migrate the legacy executor surface (`ReflectingExecutor` / `IMessageHandler` / `[StreamsMessage]` / `[YieldsMessage]`) per the MAF130 registry.",
-        "MAF-AP-DEVUI-001" => "Guard the DevUI / Hosting reference with `#if DEVUI_ENABLED`.",
+        "MAF-AP-EXEC-001" => "`ReflectingExecutor` / `IMessageHandler` → a `partial` `Executor` with `[MessageHandler]` methods; delete `[StreamsMessage]` (a no-op); replace `[YieldsMessage]` with `[YieldsOutput]`.",
+        "MAF-AP-DEVUI-001" => "Enable DevUI only in development: `if (app.Environment.IsDevelopment()) { app.MapDevUI(); }`, or `#if DEVUI_ENABLED`.",
         "MAF-AP-APPROVAL-001" => "Pass the same `AgentSession` that produced the approval request: `agent.RunAsync(approvalMessage, session)`.",
         "MAF-AP-WF-002" => "Keep one `[MessageHandler]` per message type: merge the handlers, or give each its own message type.",
         "MAF-AP-WF-003" => "Return `ValueTask` (or `ValueTask<T>`) instead of `async void`.",
-        "MAF-AP-MID-001" => "Provide BOTH `runFunc` and `runStreamingFunc` so the streaming path runs the middleware too.",
+        "MAF-AP-MID-001" => "If callers stream, also provide `runStreamingFunc` (or use the `sharedFunc` overload) so updates arrive incrementally.",
         _ => "See MafRegistryLookup for the canonical fix for this rule.",
     };
 
@@ -469,12 +469,12 @@ public sealed class DoctorTool
         "MAF-AP-SEC-003" or "MAF003" => "Sensitive-data logging writes prompts and responses (often PII / secrets) to your telemetry sink — acceptable in dev, a data-leak in production.",
         "MAF-AP-CONC-001" => "`AIContextProvider` instances are shared across sessions; a mutable instance field leaks one user's state into another's. Use `ProviderSessionState<T>`.",
         "MAF-AP-CONC-002" => "Blocking on async with `.Result` / `.Wait()` can deadlock under a synchronization context and starves the thread pool under load.",
-        "MAF-AP-OBS-001" => "With no `UseOpenTelemetry` on the chat pipeline you get no traces or metrics for agent calls — production failures become invisible.",
+        "MAF-AP-OBS-001" => "MAF emits no telemetry by default: with no `UseOpenTelemetry` on the agent (or its chat client) you get no traces or metrics for agent calls — production failures become invisible.",
         "MAF-AP-AGENT-001" => "`ChatClientAgentOptions` has had no top-level `Instructions` since before MAF 1.0, so this code fails to compile (CS0117); the system prompt belongs in `ChatOptions.Instructions`.",
-        "MAF-AP-WF-001" => "Missing `partial` blocks the workflow source generator from emitting the dispatcher (a generator-time compile error); `sealed` is the canonical form the analyzer expects, though the build still succeeds without it.",
-        "MAF-AP-DEVUI-001" => "DevUI / Hosting have no current-MAF equivalent — an unguarded reference breaks the production build. Guard it with `#if DEVUI_ENABLED`.",
-        "MAF-AP-MID-001" => "Providing only `runFunc` means the streaming path (`RunStreamingAsync`) silently bypasses your middleware — auth / logging / guards don't run when streaming.",
-        "MAF-AP-EXEC-001" => "These executor surfaces (`ReflectingExecutor` / `IMessageHandler` / `[StreamsMessage]` / `[YieldsMessage]`) were removed in 1.3.0 — code using them won't compile against current MAF.",
+        "MAF-AP-WF-001" => "Without `partial` the workflow source generator cannot emit the handler wiring: the build fails (MAFGENWF003, or CS0534 without the generator package).",
+        "MAF-AP-DEVUI-001" => "DevUI exposes system instructions, tool definitions, model identifiers and workflow structure (DevUIOptions docs). It accepts only loopback requests by default, but it does not belong in a production build.",
+        "MAF-AP-MID-001" => "With only `runFunc`, MAF uses it for both paths: the middleware runs, but `RunStreamingAsync` returns `runFunc`'s output as one batch, so callers lose incremental streaming.",
+        "MAF-AP-EXEC-001" => "These executor surfaces are obsolete (CS0618): `ReflectingExecutor` / `IMessageHandler` since 1.0, `[StreamsMessage]` (does nothing) and `[YieldsMessage]` (ignored; use `[YieldsOutput]`) since 1.2. They still compile on 1.23 but will be removed.",
         "MAF-AP-APPROVAL-001" => "MAF only accepts a tool-approval response whose request was recorded in the current `AgentSession`; `RunAsync` without a session starts a new one, so the approval is ignored and the tool never runs.",
         "MAF-AP-WF-002" => "The source generator accepts two handlers for one message type, but running the workflow throws `A handler for message type … is already registered`.",
         "MAF-AP-WF-003" => "The workflow cannot await an `async void` handler: it counts as finished at its first `await`, and an exception after that escapes the workflow instead of failing the run.",

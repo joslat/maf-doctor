@@ -35,10 +35,10 @@ Each is a "rule" with a unique ID, a `severity`, and a deterministic search patt
 **Why:** Keys in source land in git history forever.
 **Fix:** Read from `IConfiguration` / `Azure.Identity` / `Microsoft.Extensions.Configuration.UserSecrets`.
 
-#### `MAF-AP-SEC-003` — `EnableSensitiveData = true` in non-dev  (severity: error)
-**Pattern:** `EnableSensitiveData\s*=\s*true` in a file that is not under `tests/`, not under `samples/`, and not inside an `#if DEBUG` block.
-**Why:** Sensitive-data logging in production leaks PII, prompts, and tool arguments to the log sink.
-**Fix:** Gate behind `#if DEBUG` or `builder.Environment.IsDevelopment()`.
+#### `MAF-AP-SEC-003` — `EnableSensitiveData = true` outside development  (severity: error)
+**Pattern:** `EnableSensitiveData = true` as an initializer entry, a statement, or the body of a configure lambda (`UseOpenTelemetry(configure: c => c.EnableSensitiveData = true)`, the shape Microsoft documents), outside `#if DEBUG` / `#if DEVELOPMENT`.
+**Why:** It records prompts, tool arguments and message contents in telemetry (traces and their exporters). It is off by default unless `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=true`.
+**Fix:** Gate behind `#if DEBUG` or `builder.Environment.IsDevelopment()`. The auto-fix removes the assignment (a configure lambda becomes `c => {}`).
 **Source:** `maf-constraints.instructions.md` hard rule #5.
 
 ### Concurrency / state
@@ -57,15 +57,15 @@ Each is a "rule" with a unique ID, a `severity`, and a deterministic search patt
 ### Observability
 
 #### `MAF-AP-OBS-001` — Missing `UseOpenTelemetry`  (severity: warning)
-**Pattern:** A file constructs an `AIAgentBuilder` / `ChatClientAgent` but never calls `UseOpenTelemetry(...)` (anywhere in the same file or any sibling configuration file).
-**Why:** Without OTel, agent calls are invisible in production. Token usage, latency, errors all silent.
-**Fix:** Add `.UseOpenTelemetry(otelOptions)` to the builder chain. Wire to your existing OTel exporter.
+**Pattern:** A file builds an agent (`AIAgentBuilder` / `ChatClientAgent`) but never calls `UseOpenTelemetry(...)` in the same file.
+**Why:** MAF emits no telemetry by default, so agent calls are invisible in production: token usage, latency and errors all silent.
+**Fix:** `agent.AsBuilder().UseOpenTelemetry(sourceName).Build()` (it also turns on the chat-level spans), wired to your OTel exporter.
 **Source:** Migration guide §13.
 
-#### `MAF-AP-MID-001` — Middleware `Use()` without a streaming callback  (severity: warning)
+#### `MAF-AP-MID-001` — Middleware `Use()` without `runStreamingFunc`  (severity: info)
 **Pattern:** `.Use(runFunc: …)` with no `runStreamingFunc:`, or `runStreamingFunc: null`.
-**Why:** The streaming path (`RunStreamingAsync`) bypasses the middleware silently.
-**Fix:** Provide both callbacks, or the `sharedFunc:` overload.
+**Why:** MAF uses `runFunc` for both paths ("if only one of the delegates is provided, it will be used for both methods", `AIAgentBuilder.Use`, 1.23). The middleware runs, but `RunStreamingAsync` returns `runFunc`'s output as one batch, so callers lose incremental streaming.
+**Fix:** If callers stream, also provide `runStreamingFunc:`, or use the `sharedFunc:` overload.
 
 ### Agents and tool approval
 
@@ -81,10 +81,10 @@ Each is a "rule" with a unique ID, a `severity`, and a deterministic search patt
 
 ### Workflows
 
-#### `MAF-AP-WF-001` — Executor class must be `sealed partial`  (severity: error)
-**Pattern:** A class deriving from `Executor` that is not `partial` (and not `sealed`).
-**Why:** Without `partial` the source generator cannot emit the handler wiring (a build error); `sealed` is the canonical form, though the build succeeds without it.
-**Fix:** `public sealed partial class MyExecutor : Executor`.
+#### `MAF-AP-WF-001` — Executor with `[MessageHandler]` methods must be `partial`  (severity: error)
+**Pattern:** A class deriving from `Executor` with `[MessageHandler]` methods and no `partial` modifier (abstract or not).
+**Why:** The source generator cannot emit the handler wiring: the build fails (MAFGENWF003, or CS0534 without the generator package). `sealed` is not required (Workflows.Generators 1.23; `MessageHandlerAttribute`'s own example is `public partial class MyExecutor : Executor`).
+**Fix:** Add `partial`. The auto-fix adds only `partial`.
 
 #### `MAF-AP-WF-002` — Two `[MessageHandler]` methods for the same message type  (severity: error)
 **Pattern:** Two handlers in one class whose first parameter is the same type (`string` and `System.String` count as the same).
@@ -96,17 +96,17 @@ Each is a "rule" with a unique ID, a `severity`, and a deterministic search patt
 **Why:** The generator accepts a `void` handler, so nothing flags it, but the workflow cannot await it: it counts as finished at its first `await`, and an exception after that escapes the workflow.
 **Fix:** Return `ValueTask` (or `ValueTask<T>`).
 
-#### `MAF-AP-EXEC-001` — Pre-1.3.0 executor surface  (severity: error)
+#### `MAF-AP-EXEC-001` — Obsolete executor surface  (severity: warning)
 **Pattern:** `[StreamsMessage]`, `[YieldsMessage]`, `ReflectingExecutor<…>`, or `IMessageHandler<…>` in a file that imports the MAF Workflows namespace.
-**Why:** Removed in 1.3.0; the code does not compile against current MAF.
-**Fix:** `sealed partial : Executor` with `[MessageHandler]` methods.
+**Why:** Obsolete, a CS0618 warning (still public in Workflows 1.23): `ReflectingExecutor` / `IMessageHandler` since 1.0, `[StreamsMessage]` ("does not do anything") and `[YieldsMessage]` (ignored) since 1.2.
+**Fix:** A `partial` `Executor` with `[MessageHandler]` methods; delete `[StreamsMessage]`; replace `[YieldsMessage(typeof(T))]` with `[YieldsOutput(typeof(T))]`.
 
 ### Hosting
 
-#### `MAF-AP-DEVUI-001` — Unguarded DevUI / Hosting preview reference  (severity: error)
-**Pattern:** A DevUI or unsupported Hosting reference outside `#if DEVUI_ENABLED`.
-**Why:** It has no current-MAF equivalent; an unguarded reference breaks the production build.
-**Fix:** Wrap it in `#if DEVUI_ENABLED`.
+#### `MAF-AP-DEVUI-001` — DevUI enabled outside a development-only guard  (severity: warning)
+**Pattern:** `AddDevUI(...)` / `MapDevUI(...)` outside `#if DEVUI_ENABLED` / `#if DEBUG` and outside an `if (… IsDevelopment())` block.
+**Why:** DevUI "exposes agent metadata that is sensitive in production contexts: system instructions, tool definitions, model identifiers, and workflow structure" (`DevUIOptions`, 1.23-preview). It accepts only loopback requests by default. Hosting (`AddAIAgent`, A2A, AG-UI) is production hosting and is not flagged.
+**Fix:** `if (app.Environment.IsDevelopment()) { app.MapDevUI(); }`, or `#if DEVUI_ENABLED`.
 
 ## Output format
 

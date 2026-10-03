@@ -151,9 +151,14 @@ public sealed class SimulateWorkflowTool
 
     private static WorkflowTopology AnalyzeTopology(string repoPath)
     {
+        // REP-19: repo-relative names, so a verdict's location is readable and leaks no
+        // absolute path into the report.
         var sources = new List<(string, string)>();
         foreach (var path in EnumerateScannableFiles(repoPath))
-            sources.Add((path, File.ReadAllText(path)));
+        {
+            var name = Directory.Exists(repoPath) ? SourceFileWalker.MakeRelative(repoPath, path) : Path.GetFileName(path);
+            sources.Add((name, File.ReadAllText(path)));
+        }
         return AnalyzeSources(sources);
     }
 
@@ -173,7 +178,8 @@ public sealed class SimulateWorkflowTool
                 handlers.Add(new HandlerInfo(
                     MethodName: method.Identifier.ValueText,
                     ReturnType: method.ReturnType.ToString(),
-                    Verdict: ClassifyHandler(method.ReturnType.ToString())));
+                    Verdict: ClassifyHandler(method.ReturnType.ToString()),
+                    Line: method.ReturnType.GetLocation().GetLineSpan().StartLinePosition.Line + 1));
             }
             if (handlers.Count == 0) continue;
 
@@ -428,8 +434,8 @@ public sealed class SimulateWorkflowTool
         // Per-executor handler verdicts
         sb.AppendLine("### Executors");
         sb.AppendLine();
-        sb.AppendLine("| Executor | Handler | Return Type | Verdict |");
-        sb.AppendLine("|---|---|---|---|");
+        sb.AppendLine("| Executor | Handler | Return Type | Verdict | Location |");
+        sb.AppendLine("|---|---|---|---|---|");
         foreach (var exec in topology.Executors)
             foreach (var h in exec.Handlers)
             {
@@ -439,7 +445,8 @@ public sealed class SimulateWorkflowTool
                     HandlerVerdict.ProducesNothing => "❌ starves",
                     _ => "⚠️ unusual",
                 };
-                sb.AppendLine($"| `{exec.Name}` | `{h.MethodName}` | `{h.ReturnType}` | {icon} |");
+                // REP-19: file:line so a verdict is actionable without a second tool call.
+                sb.AppendLine($"| `{exec.Name}` | `{h.MethodName}` | `{h.ReturnType}` | {icon} | `{LlmFencing.MdInline(exec.SourceFile).Replace("|", "\\|")}:{h.Line}` |");
             }
         sb.AppendLine();
 
@@ -475,7 +482,7 @@ public enum HandlerVerdict { ProducesMessage, ProducesNothing, UnusualReturnType
 public enum EdgeKind { Direct, FanOut, FanInBarrier, Unknown }
 public enum EdgeVerdict { Unchecked, Ok, WouldStarve, UnresolvedExecutor }
 
-public sealed record HandlerInfo(string MethodName, string ReturnType, HandlerVerdict Verdict);
+public sealed record HandlerInfo(string MethodName, string ReturnType, HandlerVerdict Verdict, int Line = 0);
 
 public sealed record ExecutorInfo(string Name, string SourceFile, IReadOnlyList<HandlerInfo> Handlers);
 

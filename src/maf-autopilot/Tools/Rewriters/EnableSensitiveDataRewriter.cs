@@ -20,6 +20,9 @@ namespace MafDoctor.Tools.Rewriters;
 ///         The whole statement is removed via <see cref="VisitExpressionStatement"/>.</item>
 ///   <item>D. Standalone dictionary-key assignment statement — <c>dict["EnableSensitiveData"] = true;</c>.
 ///         Same removal path.</item>
+///   <item>E. Expression-bodied lambda — <c>cfg =&gt; cfg.EnableSensitiveData = true</c>, the form
+///         Microsoft documents for <c>UseOpenTelemetry(configure: …)</c>. The body becomes
+///         an empty block: <c>cfg =&gt; {}</c>.</item>
 /// </list>
 ///
 /// <para>Phase 4.G fixup: shapes C and D were missing pre-Phase-4.G. The analyzer
@@ -114,6 +117,33 @@ internal sealed class EnableSensitiveDataRewriter : CSharpSyntaxRewriter, IRuleR
         }
         return base.VisitExpressionStatement(node);
     }
+
+    public override SyntaxNode? VisitSimpleLambdaExpression(SimpleLambdaExpressionSyntax node)
+    {
+        var visited = (SimpleLambdaExpressionSyntax)base.VisitSimpleLambdaExpression(node)!;
+        return IsMemberAccessTrueAssignment(visited.ExpressionBody)
+            ? visited.WithExpressionBody(null).WithBlock(EmptyBodyLike(visited.ExpressionBody!))
+            : visited;
+    }
+
+    public override SyntaxNode? VisitParenthesizedLambdaExpression(ParenthesizedLambdaExpressionSyntax node)
+    {
+        var visited = (ParenthesizedLambdaExpressionSyntax)base.VisitParenthesizedLambdaExpression(node)!;
+        return IsMemberAccessTrueAssignment(visited.ExpressionBody)
+            ? visited.WithExpressionBody(null).WithBlock(EmptyBodyLike(visited.ExpressionBody!))
+            : visited;
+    }
+
+    // Shape E: `x => x.EnableSensitiveData = true` (the lambda's whole body).
+    private static bool IsMemberAccessTrueAssignment(ExpressionSyntax? body) =>
+        body is AssignmentExpressionSyntax
+        {
+            Left: MemberAccessExpressionSyntax { Name.Identifier.ValueText: "EnableSensitiveData" },
+            Right: LiteralExpressionSyntax value,
+        } && value.IsKind(SyntaxKind.TrueLiteralExpression);
+
+    private static BlockSyntax EmptyBodyLike(ExpressionSyntax body) =>
+        SyntaxFactory.Block().WithLeadingTrivia(body.GetLeadingTrivia()).WithTrailingTrivia(body.GetTrailingTrivia());
 
     private static bool IsEnableSensitiveDataTrueAssignment(ExpressionSyntax expr)
     {

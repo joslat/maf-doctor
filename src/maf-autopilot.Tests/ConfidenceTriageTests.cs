@@ -54,11 +54,12 @@ public sealed class ConfidenceTriageTests
         // (COST-001) — both must surface their confidence so a remediation loop can triage.
         using var repo = new TempRepo(
             ("Program.cs", """
-                using Microsoft.Agents.AI.Hosting;
+                using Microsoft.Agents.AI.DevUI;
                 public class Program
                 {
-                    public static async System.Threading.Tasks.Task Main(dynamic agent)
+                    public static async System.Threading.Tasks.Task Main(dynamic agent, dynamic app)
                     {
+                        app.MapDevUI();
                         var r = await agent.RunAsync("hi");
                     }
                 }

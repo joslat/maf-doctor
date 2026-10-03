@@ -399,7 +399,10 @@ public class AntiPatternScannerToolTests
             }
             """;
         var findings = AntiPatternScannerTool.ScanFile(source, "src/Setup.cs");
-        Assert.Contains(findings, f => f.RuleId == "MAF-AP-MID-001");
+        // Info, not a warning: MAF uses runFunc for both paths (AIAgentBuilder.Use docs);
+        // the middleware runs, streaming just arrives as one batch.
+        var finding = Assert.Single(findings, f => f.RuleId == "MAF-AP-MID-001");
+        Assert.Equal(AntiPatternSeverity.Info, finding.Severity);
     }
 
     [Fact]
@@ -472,35 +475,35 @@ public class AntiPatternScannerToolTests
     }
 
     // -------------------------------------------------------------------------
-    // MAF-AP-DEVUI-001 — DevUI references must be guarded
+    // MAF-AP-DEVUI-001 — DevUI enabled outside a development-only guard
+    // (real entry points in Microsoft.Agents.AI.DevUI 1.23-preview: AddDevUI, MapDevUI)
     // -------------------------------------------------------------------------
 
     [Fact]
-    public void DevUi001_UnguardedUsing_Flags()
+    public void DevUi001_UsingAlone_DoesNotFlag()
     {
+        // A using directive runs nothing; only enabling DevUI is flagged.
         const string source = """
             using Microsoft.Agents.AI.DevUI;
-            public class Setup
-            {
-                public void Start() { var ui = new DevUIServer(); }
-            }
+            public class Setup { public void Start() { } }
             """;
         var findings = AntiPatternScannerTool.ScanFile(source, "src/Setup.cs");
-        Assert.Contains(findings, f => f.RuleId == "MAF-AP-DEVUI-001");
+        Assert.DoesNotContain(findings, f => f.RuleId == "MAF-AP-DEVUI-001");
     }
 
     [Fact]
-    public void DevUi001_GuardedUsing_DoesNotFlag()
+    public void DevUi001_GuardedMapDevUI_DoesNotFlag()
     {
         const string source = """
-            #if DEVUI_ENABLED
             using Microsoft.Agents.AI.DevUI;
-            #endif
             public class Setup
             {
+                public void Start(dynamic app)
+                {
             #if DEVUI_ENABLED
-                public void Start() { var ui = new DevUIServer(); }
+                    app.MapDevUI();
             #endif
+                }
             }
             """;
         var findings = AntiPatternScannerTool.ScanFile(source, "src/Setup.cs");
@@ -508,14 +511,14 @@ public class AntiPatternScannerToolTests
     }
 
     [Fact]
-    public void DevUi001_QualifiedReferenceUnguarded_Flags()
+    public void DevUi001_QualifiedStaticMapDevUI_Flags()
     {
         const string source = """
             public class Setup
             {
-                public void Start()
+                public void Start(object app)
                 {
-                    var ui = new Microsoft.Agents.AI.DevUI.DevUIServer();
+                    Microsoft.Agents.AI.DevUI.DevUIExtensions.MapDevUI(app);
                 }
             }
             """;

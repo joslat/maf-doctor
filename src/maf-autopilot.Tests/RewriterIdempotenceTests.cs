@@ -61,26 +61,27 @@ public sealed class RewriterIdempotenceTests
     // -------------------------------------------------------------------------
 
     [Fact]
-    public void ExecutorSealedRewriter_Idempotent_PartialClass()
+    public void ExecutorSealedRewriter_Idempotent_AddsPartialOnce()
     {
         const string src = """
             using Microsoft.Agents.AI.Workflow;
-            public partial class FraudAuditor : Executor
+            public class FraudAuditor : Executor
             {
                 [MessageHandler]
                 public System.Threading.Tasks.Task<string> Audit(string input) => null!;
             }
             """;
         var output = ApplyTwice(new ExecutorSealedRewriter(), src);
-        Assert.Contains("public sealed partial class FraudAuditor", output);
+        Assert.Contains("public partial class FraudAuditor", output);
+        Assert.Single(output.Split("partial").Skip(1).ToArray()); // added once, not twice
+        Assert.DoesNotContain("sealed", output);
     }
 
     [Fact]
-    public void ExecutorSealedRewriter_AbstractClass_LeftUnchanged_Idempotent()
+    public void ExecutorSealedRewriter_AbstractClass_GetsPartialOnce_Idempotent()
     {
-        // Parity with the scanner: an abstract Executor is left untouched. Running
-        // the rewriter twice is a no-op — no `sealed`, no advisory comment, output
-        // identical to input on both passes.
+        // The generator requires `partial` on an abstract Executor too; `sealed` is never
+        // added (`abstract sealed` would not compile). Two passes add `partial` once.
         const string src = """
             using Microsoft.Agents.AI.Workflow;
             public abstract class BaseAuditor : Executor
@@ -90,15 +91,14 @@ public sealed class RewriterIdempotenceTests
             }
             """;
         var output = ApplyTwice(new ExecutorSealedRewriter(), src);
-        Assert.DoesNotContain("cannot seal", output);
         Assert.DoesNotContain("sealed", output);
-        Assert.Equal(src, output.TrimEnd());
+        Assert.Equal(src.Replace("public abstract class", "public abstract partial class"), output.TrimEnd());
     }
 
     [Fact]
-    public void ExecutorSealedRewriter_TwoAbstractExecutors_BothLeftUnchanged()
+    public void ExecutorSealedRewriter_TwoAbstractExecutors_BothGetPartial()
     {
-        // Two abstract Executor-derived classes in one source — both left untouched.
+        // Two abstract Executor-derived classes in one source — both get `partial`, once.
         const string src = """
             using Microsoft.Agents.AI.Workflow;
             public abstract class FirstAuditor : Executor
@@ -113,8 +113,7 @@ public sealed class RewriterIdempotenceTests
             }
             """;
         var output = ApplyTwice(new ExecutorSealedRewriter(), src);
-        Assert.DoesNotContain("cannot seal", output);
-        Assert.Equal(src, output.TrimEnd());
+        Assert.Equal(src.Replace("public abstract class", "public abstract partial class"), output.TrimEnd());
     }
 
     [Fact]

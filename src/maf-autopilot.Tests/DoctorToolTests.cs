@@ -629,9 +629,13 @@ public class DoctorToolTests
         // Statement assignment → fixable → flagged.
         const string stmt = "class C { void M(Opts o) { o.EnableSensitiveData = true; } } class Opts { public bool EnableSensitiveData; }";
         Assert.Single(AntiPatternScannerTool.ScanFile(stmt, "S.cs").Where(f => f.RuleId == "MAF-AP-SEC-003"));
-        // Expression-bodied lambda → the rewriter can't fix it → NOT flagged (no false auto-fixable).
-        const string lambda = "class C { System.Action F(Opts o) => () => o.EnableSensitiveData = true; } class Opts { public bool EnableSensitiveData; }";
-        Assert.Empty(AntiPatternScannerTool.ScanFile(lambda, "L.cs").Where(f => f.RuleId == "MAF-AP-SEC-003"));
+        // Expression-bodied lambda — the documented `UseOpenTelemetry(configure: c => c.EnableSensitiveData = true)`
+        // shape — is flagged; the rewriter turns it into `c => {}`.
+        const string lambda = "class C { System.Action<Opts> F() => c => c.EnableSensitiveData = true; } class Opts { public bool EnableSensitiveData; }";
+        Assert.Single(AntiPatternScannerTool.ScanFile(lambda, "L.cs").Where(f => f.RuleId == "MAF-AP-SEC-003"));
+        // A nested/parenthesized assignment is still out of the rewriter's reach → NOT flagged.
+        const string nested = "class C { bool M(Opts o) { bool b; b = (o.EnableSensitiveData = true); return b; } } class Opts { public bool EnableSensitiveData; }";
+        Assert.Empty(AntiPatternScannerTool.ScanFile(nested, "N.cs").Where(f => f.RuleId == "MAF-AP-SEC-003"));
     }
 
     [Fact]
@@ -1256,14 +1260,16 @@ public class DoctorToolTests
     }
 
     [Fact]
-    public void Wf001_SkipsAbstractExecutor_ButFlagsConcrete()
+    public void Wf001_FlagsOnlyAMissingPartial()
     {
-        // Abstract Executor can never be `sealed partial` → not flagged (no impossible auto-fix promise).
-        const string abstractCls = "public abstract class Base : Executor { [MessageHandler] public abstract System.Threading.Tasks.Task<int> H(string s); }";
-        Assert.Empty(AntiPatternScannerTool.ScanFile(abstractCls, "B.cs").Where(f => f.RuleId == "MAF-AP-WF-001"));
-        // Concrete Executor missing sealed/partial still fires.
-        const string concrete = "public class Conc : Executor { [MessageHandler] public System.Threading.Tasks.Task<int> H(string s) => null; }";
+        // The generator requires `partial` (MAFGENWF003), abstract or not; `sealed` is optional.
+        const string abstractCls = "public abstract class Base : Executor { [MessageHandler] public abstract System.Threading.Tasks.ValueTask<int> H(string s, IWorkflowContext c); }";
+        Assert.Single(AntiPatternScannerTool.ScanFile(abstractCls, "B.cs").Where(f => f.RuleId == "MAF-AP-WF-001"));
+        const string concrete = "public class Conc : Executor { [MessageHandler] public System.Threading.Tasks.ValueTask<int> H(string s, IWorkflowContext c) => default; }";
         Assert.Single(AntiPatternScannerTool.ScanFile(concrete, "C.cs").Where(f => f.RuleId == "MAF-AP-WF-001"));
+        // `partial` without `sealed` — MessageHandlerAttribute's own documented example — is fine.
+        const string partialOnly = "public partial class MyExecutor : Executor { [MessageHandler] public System.Threading.Tasks.ValueTask<int> H(string s, IWorkflowContext c) => default; }";
+        Assert.Empty(AntiPatternScannerTool.ScanFile(partialOnly, "P.cs").Where(f => f.RuleId == "MAF-AP-WF-001"));
     }
 
     [Fact]

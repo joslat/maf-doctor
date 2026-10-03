@@ -80,10 +80,10 @@ Run these in your terminal, one beat at a time. Each beat is 30-60 seconds with 
 |---|---|---|---|
 | **1** | `cd samples/maf-1.3-sample` | — | _"This is a real MAF 1.3.0 codebase. A small fraud-claims triage workflow. Looks fine. Let's see if it is."_ |
 | **2** | `dotnet build` | 4 Warning(s), 0 Error(s) — 1 × `CS0618` + 3 × `MAF001` | _"Builds clean — well, with 4 warnings the developer probably dismissed. The analyzer's already firing on three executor methods. We'll see why in a second."_ |
-| **3** | `maf-doctor doctor .` | 🔴 **Grade F** — 7 errors + 3 silent-starvation risks | _"The toolkit grades it: F. Seven anti-pattern errors — and three silent-starvation risks that compile clean and BREAK at runtime. No build warning. No exception. Just silently wrong output."_ |
+| **3** | `maf-doctor doctor .` | 🔴 **Grade F** — 5 errors + 3 silent-starvation risks | _"The toolkit grades it: F. Five anti-pattern errors — and three silent-starvation risks that compile clean and BREAK at runtime. No build warning. No exception. Just silently wrong output."_ |
 | **4** | `maf-doctor autofix-all . --dry-run` | human-readable: 4 files would change, per-rule breakdown (add `--json` for machine output) | _"This is what would change — preview only. Four files, across the mechanical rules. Deterministic. No LLM in this loop."_ |
 | **5** | `maf-doctor autofix-all . --apply` | human-readable: 4 files changed + next step | _"Apply for real. Roslyn rewriters under the hood — same code path you'd trust in a Microsoft refactor extension."_ |
-| **6** | `maf-doctor doctor .` | 🟠 **Grade F** — 4 errors + 3 starvation (down from 7+3) | _"Three mechanical errors gone — deterministically, no LLM. Still F: the rest are semantic — a hard-coded key, shared provider state, and the fan-out starvation bugs — and those need judgment. That's the hand-off to the `@maf-migration` agent (next section), which is what drives the grade to A."_ |
+| **6** | `maf-doctor doctor .` | 🟠 **Grade F** — 4 errors + 3 starvation (down from 5+3; warnings 4 → 2) | _"One mechanical error and two warnings gone — deterministically, no LLM. Still F: the rest are semantic — a hard-coded key, shared provider state, and the fan-out starvation bugs — and those need judgment. That's the hand-off to the `@maf-migration` agent (next section), which is what drives the grade to A."_ |
 | **7** | `maf-doctor doctor . --plan` | ordered remediation plan | _"And here's the punch list: Phase 1 was the autofix we just ran; Phase 2 is the semantic work, as checkboxes you can paste into a GitHub issue or hand to the agent."_ |
 
 ### Visual bonus beat (~30 seconds, optional but high impact)
@@ -292,7 +292,7 @@ Each row below is one Copilot Chat prompt. Run them sequentially — each surfac
 
 | # | Ask Copilot | Tool invoked | What you'll see |
 |---|---|---|---|
-| **5a** | "show me every anti-pattern in this code" | `MafScanAntiPatterns` | 7 errors + 3 warnings; each finding with file + line + rule ID |
+| **5a** | "show me every anti-pattern in this code" | `MafScanAntiPatterns` | Errors and warnings by rule; each finding with file + line + rule ID |
 | **5b** | "check the fan-out executors for silent-starvation risks" | `MafValidateFanOut` | The 3 investigators flagged — `HandleAsync` returns `ValueTask` not `ValueTask<T>` |
 | **5c** | "diagram the workflow topology" | `MafSimulateWorkflow` | Mermaid graph: intake → fan-out → fan-in → decision → notify |
 | **5d** | "find any CS0618 warnings the compiler reports" | `MafRunCs0618Hunt` | `WorkflowBuilder.AddFanInBarrierEdge` obsolete overload at `Workflows/FraudClaimsWorkflow.cs:50` |
@@ -401,11 +401,11 @@ Expected JSON output:
     "MAF130-FAN-IN-001",
     "MAF-AP-CONC-002"
   ],
-  "totalDistinctFilesChanged": 4,
+  "totalDistinctFilesChanged": 3,
   "affectedFiles": [
     "ChatClientFactory.cs",
-    "Executors/TransactionInvestigator.cs",
-    ...
+    "Executors/NotificationExecutor.cs",
+    "Workflows/FraudClaimsWorkflow.cs"
   ]
 }
 ```
@@ -418,9 +418,9 @@ Re-run the doctor:
 maf-doctor doctor .
 ```
 
-Should still report **grade F**, but with **errors down from 7 to 4** — auto-fix cleared the mechanical rule families (DefaultAzureCredential, EnableSensitiveData, the `sealed partial` executor, the fan-in arg-order swap, and the sync-over-async warning). The remaining errors are *semantic* — a hard-coded API key and shared `AIContextProvider` state — and the 3 fan-out starvation risks need a return-type change that's a judgment call. Those go to the agent flow (Step 9), which is what drives the grade to A.
+Should still report **grade F**, but with **errors down from 5 to 4 and warnings from 4 to 2** — auto-fix cleared the mechanical rule families (DefaultAzureCredential, EnableSensitiveData, the fan-in arg-order swap, and the sync-over-async warning). The remaining errors are *semantic* — a hard-coded API key and shared `AIContextProvider` state — and the 3 fan-out starvation risks need a return-type change that's a judgment call. Those go to the agent flow (Step 9), which is what drives the grade to A.
 
-> **Talk-track:** _"Five rule families. Four files. Zero LLM calls. Took 800 milliseconds. A CI bot can do this on every PR — no Copilot subscription required, no token costs, fully deterministic. It won't reach grade A on its own — the semantic fixes need the agent — but it clears the mechanical backlog every time."_
+> **Talk-track:** _"Four rule families. Three files. Zero LLM calls. Took 800 milliseconds. A CI bot can do this on every PR — no Copilot subscription required, no token costs, fully deterministic. It won't reach grade A on its own — the semantic fixes need the agent — but it clears the mechanical backlog every time."_
 
 #### Step 9 — The agent-driven flow (`@maf-auditor` + `@maf-migration`)
 
@@ -448,16 +448,15 @@ Then execute the plan:
 
 Watch each task land. The agent should:
 
-1. Add `sealed` to `TransactionInvestigator`.
-2. Change all 3 investigators' `HandleAsync` returns from `ValueTask` → `ValueTask<InvestigationFinding>`.
-3. Flip the `AddFanInBarrierEdge` arg order (sources first, target second).
-4. Replace `new DefaultAzureCredential()` with `new ManagedIdentityCredential()`.
-5. Remove `EnableSensitiveData = true`.
-6. Add `.UseOpenTelemetry()` to the chat-client pipeline.
-7. Lift the mutable fields off `CaseContextProvider` into `ProviderSessionState<T>` ← _the agent's judgement value-add; AutoFix can't do this safely_.
-8. Eliminate the `.Result` blocking call in `NotificationExecutor`.
-9. Wire both branches of the `.Use(...)` middleware.
-10. Delete the hard-coded `api-key=…` string literal.
+1. Change all 3 investigators' `HandleAsync` returns from `ValueTask` → `ValueTask<InvestigationFinding>`.
+2. Flip the `AddFanInBarrierEdge` arg order (sources first, target second).
+3. Replace `new DefaultAzureCredential()` with `new ManagedIdentityCredential()`.
+4. Remove `EnableSensitiveData = true`.
+5. Add `.UseOpenTelemetry()` to the chat-client pipeline.
+6. Lift the mutable fields off `CaseContextProvider` into `ProviderSessionState<T>` ← _the agent's judgement value-add; AutoFix can't do this safely_.
+7. Eliminate the `.Result` blocking call in `NotificationExecutor`.
+8. Wire both branches of the `.Use(...)` middleware.
+9. Delete the hard-coded `api-key=…` string literal.
 
 After each task, `dotnet build` should stay green (modulo the deliberate CS0618 which goes away after task 3).
 
@@ -622,7 +621,7 @@ The first two are **automatable** (just run the `.tape` scripts). The last two a
 | **Before state** | Terminal: empty prompt at `samples/maf-1.3-sample/`. VS Code: OsintInvestigator.cs visible, MAF001 squiggly already showing on the `ValueTask` return type. |
 | **What to do** | Follow the 7-beat speedrun above, in order. Each beat ~30-60 seconds with voiceover. |
 | **What to say** | The "What to say" column of the speedrun table. Adapt the wording to your voice. |
-| **After state** | Terminal: doctor reports grade **F** — 4 errors (down from 7) + 3 starvation; the remaining errors are semantic, so Grade A is the next-section agent flow, NOT the autofix. VS Code: the OsintInvestigator.cs MAF001 squiggle is STILL there (fan-out starvation needs judgment, not auto-fix). |
+| **After state** | Terminal: doctor reports grade **F** — 4 errors (down from 5) + 3 starvation; the remaining errors are semantic, so Grade A is the next-section agent flow, NOT the autofix. VS Code: the OsintInvestigator.cs MAF001 squiggle is STILL there (fan-out starvation needs judgment, not auto-fix). |
 | **Cleanup (~30 sec)** | `git restore samples/maf-1.3-sample/` then refresh VS Code so the squiggles come back for the next take. |
 | **Where it goes** | YouTube / Loom / Mux / wherever you host. Embed in `/README.md` as a "Watch the 7-minute demo" link below the GIFs. |
 

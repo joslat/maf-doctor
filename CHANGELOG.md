@@ -57,6 +57,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   checklist, the migration agent and the smoke-tester skill used
   `FunctionApprovalRequestContent` / `request.FunctionCall`; they now use
   `ToolApprovalRequestContent` / `request.ToolCall` and say to answer in the same session.
+- **Five existing rules corrected against the MAF 1.23 packages:**
+  - `MAF-AP-WF-001` flagged a `partial` executor that is not `sealed` as an error, and its
+    auto-fix added `sealed` (which breaks a build that subclasses the executor, CS0509).
+    The generator requires only `partial` (MAFGENWF003; `MessageHandlerAttribute`'s own
+    example is `public partial class MyExecutor : Executor`). The rule and the auto-fix
+    now deal with `partial` only, abstract executors included. The samples planted a
+    missing `sealed` as a bug; that finding is gone (5 errors, was 6).
+  - `MAF-AP-DEVUI-001` flagged `Microsoft.Agents.AI.Hosting` (production hosting such as
+    `AddAIAgent`) and called it "no current-MAF equivalent"; Hosting, A2A and DevUI all ship
+    a preview with every MAF release. It now flags only `AddDevUI` / `MapDevUI` outside a
+    development guard (`#if DEVUI_ENABLED` / `#if DEBUG` or `IsDevelopment()`), at Warning,
+    because DevUI exposes system instructions, tool definitions, model identifiers and
+    workflow structure.
+  - `MAF-AP-EXEC-001` said the executor surface was "removed in 1.3.0" and "won't
+    compile". In Workflows 1.23 it is still public and obsolete (CS0618): Warning now, and
+    `[YieldsMessage]` is replaced with `[YieldsOutput]` rather than deleted. Registry
+    entries `MAF130-ATTR-001/002` are CS0618 (were CS0246, filed as pre-1.0) and
+    `MAF130-EXEC-002` asks for `partial` only (CS0534).
+  - `MAF-AP-MID-001` said a middleware without `runStreamingFunc` is "bypassed" when
+    streaming. MAF uses `runFunc` for both paths; streaming just arrives as one batch.
+    Info now.
+  - `MAF-AP-SEC-003` missed the shape Microsoft documents,
+    `UseOpenTelemetry(configure: c => c.EnableSensitiveData = true)`; it is detected and
+    auto-fixed (`c => {}`). MAF003 says "telemetry", not "log sinks".
+- **The draft-issue tests walked the whole system temp folder**, about 17 s each on a
+  machine with a crowded `%TEMP%`; each test now gets its own empty directory. The .NET
+  suite runs in seconds again.
 - **The anti-pattern scanner skill listed two rules that do not exist** (`OBS-002`,
   `ID-001`) and missed five that do; it now matches the scanner.
 
