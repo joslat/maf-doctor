@@ -176,9 +176,9 @@ public sealed class NewAgentToolMcpTests : IDisposable
         Assert.True(File.Exists(executorPath));
         Assert.True(File.Exists(testPath));
 
-        // Verify generated executor uses the supplied types AND defaults to Task<T>.
+        // Verify generated executor uses the supplied types AND returns ValueTask<T> (the generator rejects Task<T>).
         var body = File.ReadAllText(executorPath);
-        Assert.Contains("Task<FraudReport>", body);
+        Assert.Contains("ValueTask<FraudReport>", body);
         Assert.Contains("FraudCheck input", body);
         Assert.Contains("sealed partial class", body);
     }
@@ -190,7 +190,7 @@ public sealed class NewAgentToolMcpTests : IDisposable
         Assert.Contains("✅", result);
 
         var body = File.ReadAllText(Path.Combine(_tempDir, "Workflows", "DefaultExecutor.cs"));
-        Assert.Contains("Task<string>", body);
+        Assert.Contains("ValueTask<string>", body);
         Assert.Contains("string input", body);
     }
 

@@ -120,7 +120,7 @@ Expected when you run `maf-doctor doctor samples/find-the-bug/` (verified 2026-0
 1 error(s) + 1 starvation risk(s) — fix before shipping
 
 Top fixes (ordered by impact):
-  1. [MafValidateFanOut]    HandleAsync at snippet-2.cs:12 returns `ValueTask` — fan-out handler must return Task<T>
+  1. [MafValidateFanOut]    HandleAsync at snippet-2.cs:12 returns `ValueTask` — fan-out handler must return ValueTask<T>
   2. [MafScanAntiPatterns]  MAF-AP-AGENT-001 at snippet-1.cs:17 — Instructions outside ChatOptions — no such property since MAF 1.0 (CS0117)
   3. [MafScanAntiPatterns]  MAF-AP-OBS-001 at snippet-1.cs:13 — Missing UseOpenTelemetry in file that builds an agent
 ```

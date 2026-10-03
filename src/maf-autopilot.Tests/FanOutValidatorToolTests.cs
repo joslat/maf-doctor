@@ -175,8 +175,9 @@ public class FanOutValidatorToolTests
         Assert.Equal(FanOutVerdict.Ok, Assert.Single(findings).Verdict);
     }
 
+    // Task<T> fails the source generator (MAFGENWF002) on Workflows 1.3.0 and 1.23.0.
     [Fact]
-    public void AnalyzeSource_GenericTaskHandler_IsOk()
+    public void AnalyzeSource_GenericTaskHandler_IsLikelyInvalid()
     {
         var source = """
             using System.Threading.Tasks;
@@ -191,7 +192,7 @@ public class FanOutValidatorToolTests
             """;
 
         var findings = FanOutValidatorTool.AnalyzeSource(source);
-        Assert.Equal(FanOutVerdict.Ok, Assert.Single(findings).Verdict);
+        Assert.Equal(FanOutVerdict.LikelyInvalid, Assert.Single(findings).Verdict);
     }
 
     [Fact]
@@ -260,7 +261,7 @@ public class FanOutValidatorToolTests
 
         Assert.Equal(3, findings.Count);
         Assert.Equal(FanOutVerdict.SilentStarvationRisk, findings[0].Verdict); // void
-        Assert.Equal(FanOutVerdict.Ok, findings[1].Verdict);                    // Task<int>
+        Assert.Equal(FanOutVerdict.LikelyInvalid, findings[1].Verdict);         // Task<int>: MAFGENWF002
         Assert.Equal(FanOutVerdict.SilentStarvationRisk, findings[2].Verdict); // ValueTask
     }
 
@@ -269,12 +270,13 @@ public class FanOutValidatorToolTests
     [InlineData("Task", FanOutVerdict.SilentStarvationRisk)]
     [InlineData("ValueTask", FanOutVerdict.SilentStarvationRisk)]
     [InlineData("System.Threading.Tasks.Task", FanOutVerdict.SilentStarvationRisk)]
-    [InlineData("Task<int>", FanOutVerdict.Ok)]
+    // Checked by building and running a workflow on Microsoft.Agents.AI.Workflows 1.23.
     [InlineData("ValueTask<string>", FanOutVerdict.Ok)]
-    [InlineData("Task<MyMessage>", FanOutVerdict.Ok)]
-    [InlineData("IAsyncEnumerable<int>", FanOutVerdict.Ok)] // legitimate streaming pattern
-    [InlineData("int", FanOutVerdict.LikelyInvalid)]
-    [InlineData("MyMessage", FanOutVerdict.LikelyInvalid)]  // raw type — not awaitable
+    [InlineData("int", FanOutVerdict.Ok)]                           // synchronous TResult: sent downstream
+    [InlineData("MyMessage", FanOutVerdict.Ok)]
+    [InlineData("Task<int>", FanOutVerdict.LikelyInvalid)]          // MAFGENWF002
+    [InlineData("Task<MyMessage>", FanOutVerdict.LikelyInvalid)]
+    [InlineData("IAsyncEnumerable<int>", FanOutVerdict.LikelyInvalid)] // iterator sent as one message: the run fails
     public void ClassifyReturnType_KnownPatterns(string returnType, FanOutVerdict expected)
     {
         Assert.Equal(expected, FanOutValidatorTool.ClassifyReturnType(returnType));

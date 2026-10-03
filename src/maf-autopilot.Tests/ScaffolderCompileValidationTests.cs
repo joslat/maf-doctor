@@ -100,7 +100,13 @@ public class ScaffolderCompileValidationTests
 
         namespace Microsoft.Agents.AI.Workflows
         {
-            public abstract class Executor { }
+            // As in 1.23: no parameterless constructor; handlers take an IWorkflowContext.
+            public abstract class Executor
+            {
+                protected Executor(string id) { }
+            }
+
+            public interface IWorkflowContext { }
         }
 
         namespace Azure.AI.OpenAI

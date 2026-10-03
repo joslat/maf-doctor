@@ -273,8 +273,8 @@ _7 error(s) + 3 silent-starvation risk(s)_
 
 ### Top fixes (ordered by impact)
 
-1. [MafValidateFanOut] HandleAsync at Executors/HistoryInvestigator.cs:21 returns ValueTask — fan-out handler must return Task<T> · needs your judgment
-   - Why: a fan-out handler that doesn't return Task<T>/ValueTask<T>/IAsyncEnumerable<T> yields no message to the fan-in barrier — aggregation silently runs on partial data, no exception.
+1. [MafValidateFanOut] HandleAsync at Executors/HistoryInvestigator.cs:21 returns ValueTask — fan-out handler must return ValueTask<T> · needs your judgment
+   - Why: a fan-out handler that doesn't return ValueTask<T> (or a T) yields no message to the fan-in barrier — aggregation silently runs on partial data, no exception.
    - Fix: change the return type to Task<T>, ValueTask<T>, or IAsyncEnumerable<T>.
 2. [MafValidateFanOut] HandleAsync at Executors/OsintInvestigator.cs:25 returns ValueTask — …
 3. [MafValidateFanOut] HandleAsync at Executors/TransactionInvestigator.cs:23 returns ValueTask — …

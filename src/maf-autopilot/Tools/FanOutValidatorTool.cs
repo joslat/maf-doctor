@@ -190,11 +190,17 @@ public sealed class FanOutValidatorTool
             });
 
     /// <summary>
-    /// Classifies a handler return type. Generic <c>Task&lt;T&gt;</c> / <c>ValueTask&lt;T&gt;</c>
-    /// /<c>IAsyncEnumerable&lt;T&gt;</c> are OK; non-generic <c>Task</c> / <c>ValueTask</c>
-    /// and <c>void</c> are the silent-starvation risk; anything else (e.g., a raw
-    /// concrete type, primitive, or non-awaitable) is <see cref="FanOutVerdict.LikelyInvalid"/>
-    /// — MAF cannot fan-out from such a handler.
+    /// Classifies a handler return type against the shapes MessageHandlerAttribute
+    /// documents (void, ValueTask, TResult, ValueTask&lt;TResult&gt;), checked by building
+    /// and running a workflow on Microsoft.Agents.AI.Workflows 1.23 (2026-10-03):
+    /// <list type="bullet">
+    ///   <item><c>ValueTask&lt;T&gt;</c> and a synchronous <c>T</c> send the returned value downstream: OK.</item>
+    ///   <item><c>void</c> and non-generic <c>Task</c> / <c>ValueTask</c> send nothing: the silent-starvation risk
+    ///   (unless the body emits through the context; see <see cref="EmitsDownstreamViaContext"/>).</item>
+    ///   <item><c>Task&lt;T&gt;</c> fails the source generator (MAFGENWF002), and <c>IAsyncEnumerable&lt;T&gt;</c>
+    ///   fails at run time (the iterator object is sent as one message of an undeclared type):
+    ///   <see cref="FanOutVerdict.LikelyInvalid"/>.</item>
+    /// </list>
     /// </summary>
     internal static FanOutVerdict ClassifyReturnType(string returnType)
     {
@@ -205,22 +211,18 @@ public sealed class FanOutValidatorTool
         // Strip any qualification (System.Threading.Tasks.Task → Task)
         var simple = trimmed.Contains('.') ? trimmed[(trimmed.LastIndexOf('.') + 1)..] : trimmed;
 
-        // Generic Task<T> / ValueTask<T> — safe (returns a downstream message).
-        if (simple.StartsWith("Task<", StringComparison.Ordinal)
-            || simple.StartsWith("ValueTask<", StringComparison.Ordinal))
-            return FanOutVerdict.Ok;
-
-        // IAsyncEnumerable<T> — legitimate streaming pattern, safe.
-        if (simple.StartsWith("IAsyncEnumerable<", StringComparison.Ordinal))
-            return FanOutVerdict.Ok;
-
         // Non-generic Task or ValueTask — produces no message, starves the fan-in.
         if (simple is "Task" or "ValueTask")
             return FanOutVerdict.SilentStarvationRisk;
 
-        // Anything else (concrete message type, primitive, etc.) cannot satisfy
-        // MAF's fan-out contract — almost certainly a bug.
-        return FanOutVerdict.LikelyInvalid;
+        // Task<T>: the generator rejects it (MAFGENWF002). IAsyncEnumerable<T>: the run
+        // fails sending the iterator ("cannot send messages of type …<Handle>d__1").
+        if (simple.StartsWith("Task<", StringComparison.Ordinal)
+            || simple.StartsWith("IAsyncEnumerable<", StringComparison.Ordinal))
+            return FanOutVerdict.LikelyInvalid;
+
+        // ValueTask<T> or a synchronous T (a documented TResult handler): the value is sent.
+        return FanOutVerdict.Ok;
     }
 
     /// <summary>Workflow-context emission APIs. A handler that calls one of these
@@ -315,18 +317,20 @@ public sealed class FanOutValidatorTool
             foreach (var f in risks)
                 sb.AppendLine($"| {f.File} | {f.Line} | `{f.MethodName}` | `{f.ReturnType}` |");
             sb.AppendLine();
-            sb.AppendLine("**Fix:** either change the return type to `ValueTask<T>` (or `Task<T>`) where T is the downstream message type and `return` a value, OR emit explicitly with `await context.SendMessageAsync(...)` (a non-fan-out-edge handler may keep its `void` / `ValueTask` return). See `maf://skills?name=maf-fan-out-validator`.");
+            sb.AppendLine("**Fix:** either change the return type to `ValueTask<T>` (or a synchronous `T`) where T is the downstream message type and `return` a value, OR emit explicitly with `await context.SendMessageAsync(...)` (a non-fan-out-edge handler may keep its `void` / `ValueTask` return). See `maf://skills?name=maf-fan-out-validator`.");
             sb.AppendLine();
         }
 
         if (invalid.Count > 0)
         {
-            sb.AppendLine($"### ❌ {invalid.Count} likely invalid return type — handler cannot satisfy MAF's fan-out contract");
+            sb.AppendLine($"### ❌ {invalid.Count} invalid return type — `Task<T>` does not build, `IAsyncEnumerable<T>` fails at run time");
             sb.AppendLine();
             sb.AppendLine("| File | Line | Method | Return Type |");
             sb.AppendLine("|---|---|---|---|");
             foreach (var f in invalid)
                 sb.AppendLine($"| {f.File} | {f.Line} | `{f.MethodName}` | `{f.ReturnType}` |");
+            sb.AppendLine();
+            sb.AppendLine("**Fix:** return `ValueTask<T>`. The source generator rejects `Task<T>` (MAFGENWF002), and an `IAsyncEnumerable<T>` handler sends the iterator itself as one message, which fails the run; send each item with `await context.SendMessageAsync(item)` instead.");
             sb.AppendLine();
         }
 

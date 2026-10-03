@@ -8,13 +8,19 @@ using Microsoft.CodeAnalysis.Diagnostics;
 namespace MafDoctor.Analyzers;
 
 /// <summary>
-/// MAF001 — fan-out handler must return Task&lt;T&gt; or ValueTask&lt;T&gt;.
+/// MAF001 — fan-out handler must return ValueTask&lt;T&gt; (or a synchronous T).
 ///
 /// Detects the silent fan-in starvation pattern at WRITE-TIME, before the
 /// developer ever commits. A [MessageHandler] method that returns void,
-/// Task, or ValueTask (non-generic) produces NO output message — the fan-in
-/// barrier then starves silently. This is not a build error; without an
-/// analyzer, only static scanning (post-edit) or runtime tracing catches it.
+/// Task, or ValueTask (non-generic) and does not emit through the workflow
+/// context produces NO output message — the fan-in barrier then starves
+/// silently. This is not a build error; without an analyzer, only static
+/// scanning (post-edit) or runtime tracing catches it.
+///
+/// Only that shape is reported. A synchronous T or ValueTask&lt;T&gt; sends its value
+/// (checked on Microsoft.Agents.AI.Workflows 1.23); Task&lt;T&gt; already fails the
+/// source generator (MAFGENWF002); IAsyncEnumerable&lt;T&gt; fails at run time and is
+/// reported by MafValidateFanOut.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class FanOutHandlerAnalyzer : DiagnosticAnalyzer
@@ -22,13 +28,13 @@ public sealed class FanOutHandlerAnalyzer : DiagnosticAnalyzer
     public const string DiagnosticId = "MAF001";
 
     private static readonly LocalizableString Title =
-        "Fan-out handler must return Task<T> or ValueTask<T>";
+        "Fan-out handler must return ValueTask<T>";
 
     private static readonly LocalizableString MessageFormat =
-        "Method '{0}' is decorated with [MessageHandler] but returns '{1}' — this produces no downstream message and silently starves the fan-in barrier. Return Task<T> or ValueTask<T> where T is the downstream message type.";
+        "Method '{0}' is decorated with [MessageHandler] but returns '{1}' — this produces no downstream message and silently starves the fan-in barrier. Return ValueTask<T> where T is the downstream message type (Task<T> is rejected by the source generator, MAFGENWF002).";
 
     private static readonly LocalizableString Description =
-        "A [MessageHandler] method that returns void, Task, or ValueTask (non-generic) produces no output. The workflow exits cleanly but incompletely — invisible to dotnet build, visible only at runtime. Return a typed Task<TMessage> / ValueTask<TMessage>.";
+        "A [MessageHandler] method that returns void, Task, or ValueTask (non-generic) produces no output. The workflow exits cleanly but incompletely — invisible to dotnet build, visible only at runtime. Return a typed ValueTask<TMessage> (the source generator rejects Task<TMessage>, MAFGENWF002).";
 
     private static readonly DiagnosticDescriptor Rule = new(
         id: DiagnosticId,
@@ -70,7 +76,7 @@ public sealed class FanOutHandlerAnalyzer : DiagnosticAnalyzer
         if (!HasMessageHandlerAttribute(method)) return;
 
         var returnType = method.ReturnType.ToString().Trim();
-        if (IsFanOutSafeReturnType(returnType)) return;
+        if (!ProducesNoValue(returnType) || EmitsThroughContext(method)) return;
 
         var diagnostic = Diagnostic.Create(
             Rule,
@@ -90,15 +96,31 @@ public sealed class FanOutHandlerAnalyzer : DiagnosticAnalyzer
                 return simpleName == "MessageHandler" || simpleName == "MessageHandlerAttribute";
             });
 
-    private static bool IsFanOutSafeReturnType(string returnType)
+    // void, Task or ValueTask (non-generic): the handler returns no message.
+    private static bool ProducesNoValue(string returnType)
     {
         var simple = returnType.Contains(".")
             ? returnType.Substring(returnType.LastIndexOf('.') + 1)
             : returnType;
+        return simple == "void" || simple == "Task" || simple == "ValueTask";
+    }
 
-        // Generic Task<T> / ValueTask<T> / IAsyncEnumerable<T> are all fan-out-safe.
-        return simple.StartsWith("Task<", System.StringComparison.Ordinal)
-            || simple.StartsWith("ValueTask<", System.StringComparison.Ordinal)
-            || simple.StartsWith("IAsyncEnumerable<", System.StringComparison.Ordinal);
+    // context.SendMessageAsync / YieldOutputAsync / AddEventAsync: the handler emits
+    // without returning a value — the documented void / ValueTask pattern.
+    private static bool EmitsThroughContext(MethodDeclarationSyntax method)
+    {
+        var body = (SyntaxNode?)method.Body ?? method.ExpressionBody;
+        if (body == null) return false;
+        return body.DescendantNodes().OfType<InvocationExpressionSyntax>().Any(invocation =>
+        {
+            SimpleNameSyntax? name = invocation.Expression switch
+            {
+                MemberAccessExpressionSyntax member => member.Name,
+                SimpleNameSyntax simple => simple,
+                _ => null,
+            };
+            var text = name?.Identifier.ValueText;
+            return text == "SendMessageAsync" || text == "YieldOutputAsync" || text == "AddEventAsync";
+        });
     }
 }

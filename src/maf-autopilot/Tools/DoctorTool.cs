@@ -209,14 +209,14 @@ public sealed class DoctorTool
             .Select(h => new DoctorRecommendation(
                 Priority: 1,
                 Source: "MafValidateFanOut",
-                Description: $"`{h.MethodName}` at {LlmFencing.MdInline(h.File)}:{h.Line} returns `{h.ReturnType}` — fan-out handler must return Task<T>", // SEC-02: neutralize untrusted path
+                Description: $"`{h.MethodName}` at {LlmFencing.MdInline(h.File)}:{h.Line} returns `{h.ReturnType}` — fan-out handler must return ValueTask<T>", // SEC-02: neutralize untrusted path
                 RuleId: "MAF001",
                 File: h.File,
                 Line: h.Line,
-                Issue: $"`{h.MethodName}` returns `{h.ReturnType}` — fan-out handler must return Task<T>",
+                Issue: $"`{h.MethodName}` returns `{h.ReturnType}` — fan-out handler must return ValueTask<T>",
                 FixDescription: Maf001Fix,
                 AutoFixable: false,
-                Why: "This handler produces no downstream message — it neither returns a value (Task<T> / ValueTask<T> / IAsyncEnumerable<T>) nor emits via context.SendMessageAsync/YieldOutputAsync. The fan-in barrier then starves: aggregation silently runs on partial data with no exception. (Handlers that DO emit via the context are not flagged.)"))
+                Why: "This handler produces no downstream message — it neither returns a value (ValueTask<T> or a synchronous T) nor emits via context.SendMessageAsync/YieldOutputAsync. The fan-in barrier then starves: aggregation silently runs on partial data with no exception. (Handlers that DO emit via the context are not flagged.)"))
             .Concat(antiPatterns
                 .Where(a => a.Severity == AntiPatternSeverity.Error)
                 .Select(a => new DoctorRecommendation(
@@ -407,7 +407,8 @@ public sealed class DoctorTool
             or "MAF-AP-SEC-001" or "MAF-AP-SEC-003"
             or "MAF-AP-CONC-001" or "MAF-AP-CONC-002"
             or "MAF-AP-WF-001" or "MAF-AP-AGENT-001"
-            or "MAF-AP-DEVUI-001" or "MAF-AP-EXEC-001" => "high",
+            or "MAF-AP-DEVUI-001" or "MAF-AP-EXEC-001"
+            or "MAF-AP-APPROVAL-001" or "MAF-AP-WF-002" or "MAF-AP-WF-003" => "high",
         // Compiler ground-truth, if ever surfaced through the doctor aggregate.
         _ when ruleId.StartsWith("CS06", StringComparison.Ordinal) => "certain",
         // COST-001, MAF-AP-SEC-002, MAF-AP-OBS-001, MAF-AP-MID-001, PROMPT-00x, …
@@ -422,7 +423,7 @@ public sealed class DoctorTool
     /// pane so the three surfaces cannot drift into three different fix strings.
     /// </summary>
     internal const string Maf001Fix =
-        "Return Task<T> / ValueTask<T> / IAsyncEnumerable<T> (the value is sent automatically), OR emit explicitly with `await context.SendMessageAsync(...)`. NOTE: an `AddFanOutEdge` source must use the return-value form — SendMessageAsync doesn't broadcast on that edge.";
+        "Return ValueTask<T> or a synchronous T (the value is sent automatically; the source generator rejects `Task<T>` (MAFGENWF002), and `IAsyncEnumerable<T>` fails at run time), OR emit explicitly with `await context.SendMessageAsync(...)`. NOTE: an `AddFanOutEdge` source must use the return-value form — SendMessageAsync doesn't broadcast on that edge.";
 
     internal static string GetAntiPatternFix(string ruleId) => ruleId switch // internal: shared with SARIF help (REP-11)
     {
@@ -437,6 +438,9 @@ public sealed class DoctorTool
         "MAF-AP-AGENT-001" => "Move `Instructions` inside `ChatClientAgentOptions.ChatOptions`; the top-level property does not exist.",
         "MAF-AP-EXEC-001" => "Migrate the legacy executor surface (`ReflectingExecutor` / `IMessageHandler` / `[StreamsMessage]` / `[YieldsMessage]`) per the MAF130 registry.",
         "MAF-AP-DEVUI-001" => "Guard the DevUI / Hosting reference with `#if DEVUI_ENABLED`.",
+        "MAF-AP-APPROVAL-001" => "Pass the same `AgentSession` that produced the approval request: `agent.RunAsync(approvalMessage, session)`.",
+        "MAF-AP-WF-002" => "Keep one `[MessageHandler]` per message type: merge the handlers, or give each its own message type.",
+        "MAF-AP-WF-003" => "Return `ValueTask` (or `ValueTask<T>`) instead of `async void`.",
         "MAF-AP-MID-001" => "Provide BOTH `runFunc` and `runStreamingFunc` so the streaming path runs the middleware too.",
         _ => "See MafRegistryLookup for the canonical fix for this rule.",
     };
@@ -471,6 +475,9 @@ public sealed class DoctorTool
         "MAF-AP-DEVUI-001" => "DevUI / Hosting have no current-MAF equivalent — an unguarded reference breaks the production build. Guard it with `#if DEVUI_ENABLED`.",
         "MAF-AP-MID-001" => "Providing only `runFunc` means the streaming path (`RunStreamingAsync`) silently bypasses your middleware — auth / logging / guards don't run when streaming.",
         "MAF-AP-EXEC-001" => "These executor surfaces (`ReflectingExecutor` / `IMessageHandler` / `[StreamsMessage]` / `[YieldsMessage]`) were removed in 1.3.0 — code using them won't compile against current MAF.",
+        "MAF-AP-APPROVAL-001" => "MAF only accepts a tool-approval response whose request was recorded in the current `AgentSession`; `RunAsync` without a session starts a new one, so the approval is ignored and the tool never runs.",
+        "MAF-AP-WF-002" => "The source generator accepts two handlers for one message type, but running the workflow throws `A handler for message type … is already registered`.",
+        "MAF-AP-WF-003" => "The workflow cannot await an `async void` handler: it counts as finished at its first `await`, and an exception after that escapes the workflow instead of failing the run.",
         "MAF130-FAN-IN-001" => "The legacy `AddFanInBarrierEdge(target, sources)` overload is obsolete; with the arguments swapped the barrier wires the wrong way and never fires.",
 
         // Prompt-lint rules (PromptLintTool)
@@ -863,7 +870,7 @@ public sealed class DoctorTool
     /// </summary>
     private static string GroupHeaderTitle(DoctorRecommendation rep) => rep.RuleId switch
     {
-        "MAF001" => "fan-out handler must return `Task<T>`",
+        "MAF001" => "fan-out handler must return `ValueTask<T>`",
         "COST-001" => "uncapped agent call — no `MaxOutputTokens`",
         "PROMPT-002" => "oversized Instructions (token bloat)",
         "PROMPT-004" => "untrusted input concatenated into `Instructions` (prompt injection)",

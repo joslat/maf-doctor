@@ -196,6 +196,42 @@ entries:
       marked `applies_to_codebases: "pre-1.0.0"` — will not fire on any
       modern customer codebase pinned to MAF 1.0+.
 
+  - id: MAF130-APPROVAL-001
+    package: Microsoft.Extensions.AI.Abstractions
+    version_introduced: "1.3.0"
+    type: Microsoft.Extensions.AI.FunctionApprovalRequestContent
+    method: Microsoft.Extensions.AI.FunctionApprovalRequestContent
+    obsolete_signature: "FunctionApprovalRequestContent / FunctionApprovalResponseContent (request.FunctionCall)"
+    replacement_signature: "ToolApprovalRequestContent / ToolApprovalResponseContent (request.ToolCall)"
+    argument_order_change: false
+    fix_description: "Tool-approval requests are ToolApprovalRequestContent, not FunctionApprovalRequestContent, in every MAF 1.x release. Replace FunctionApprovalRequestContent with ToolApprovalRequestContent and FunctionApprovalResponseContent with ToolApprovalResponseContent. request.FunctionCall becomes request.ToolCall, a ToolCallContent that only has CallId: read the function name from (request.ToolCall as FunctionCallContent)?.Name. Answer with request.CreateResponse(approved) in the same AgentSession."
+    example_before: |
+      var requests = response.Messages
+          .SelectMany(m => m.Contents)
+          .OfType<FunctionApprovalRequestContent>()
+          .ToList();
+      foreach (var request in requests)
+          Console.WriteLine($"Approve {request.FunctionCall.Name}?");
+    example_after: |
+      var requests = response.Messages
+          .SelectMany(m => m.Contents)
+          .OfType<ToolApprovalRequestContent>()
+          .ToList();
+      foreach (var request in requests)
+          Console.WriteLine($"Approve {(request.ToolCall as FunctionCallContent)?.Name}?");
+    cs_warning: CS0246
+    guide_section: "17.7"
+    dotnet_inspect_detectable: true
+    applies_to_codebases: "pre-1.0.0"
+    notes: >
+      Checked against the package binaries (2026-10-03): FunctionApprovalRequestContent and
+      FunctionApprovalResponseContent exist in Microsoft.Extensions.AI.Abstractions 10.3.0
+      and earlier, and not from 10.4.0 on. Microsoft.Agents.AI(.Abstractions) 1.0.0 already
+      requires 10.4.0, so the types appear only in pre-1.0 preview code (and in docs written
+      for it; this repo's own guide used them until 2026-10-03). In 1.23 (MEAI 10.10.1)
+      ToolApprovalRequestContent has ToolCall, RequiresConfirmation and
+      CreateResponse(bool approved, string? reason = null).
+
   - id: MAF130-EXEC-001
     package: Microsoft.Agents.AI.Workflows
     version_introduced: "1.3.0"

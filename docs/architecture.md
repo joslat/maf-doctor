@@ -100,7 +100,7 @@ The MCP server, the analyzer NuGet, and the skill bundle are independently shipp
 **Dependencies:** `Microsoft.CodeAnalysis.CSharp` 4.11.0, `Microsoft.CodeAnalysis.Analyzers` 3.11.0 (both `PrivateAssets="all"`).
 
 **What it does:** ships 3 diagnostic rules that fire at write-time in any consumer project:
-- `MAF001` — fan-out handler must return `Task<T>` / `ValueTask<T>` / `IAsyncEnumerable<T>` (else silent fan-in starvation).
+- `MAF001` — fan-out handler must return `ValueTask<T>` or a synchronous `T` (else silent fan-in starvation; the source generator rejects `Task<T>` (MAFGENWF002), and `IAsyncEnumerable<T>` fails at run time).
 - `MAF002` — avoid `DefaultAzureCredential` in production code.
 - `MAF003` — avoid `EnableSensitiveData = true` outside test code.
 

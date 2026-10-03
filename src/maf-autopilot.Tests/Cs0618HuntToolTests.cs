@@ -249,6 +249,7 @@ public class Cs0618HuntToolTests
     [InlineData("CS1061", "'AgentFileStore' does not contain a definition for 'DeleteFileAsync' and no accessible extension method 'DeleteFileAsync' accepting a first argument of type 'AgentFileStore' could be found (are you missing a using directive or an assembly reference?)", "MAF1130-FILESTORE-003")]
     [InlineData("CS0117", "'ChatClientAgentOptions' does not contain a definition for 'EnableNonApprovalRequiredFunctionBypassing'", "MAF114-OPTIONS-001")]
     [InlineData("CS0246", "The type or namespace name 'SessionIsolationKeyProvider' could not be found (are you missing a using directive or an assembly reference?)", "MAF118-HOSTING-PROVIDER-001")]
+    [InlineData("CS0246", "The type or namespace name 'FunctionApprovalRequestContent' could not be found (are you missing a using directive or an assembly reference?)", "MAF130-APPROVAL-001")]
     public void MatchToRegistry_PrefersTheEntryForTheNamedMember(string code, string message, string expectedId)
     {
         var diag = new BuildDiagnostic("/repo/src/A.cs", 3, "error", code, message);

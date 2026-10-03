@@ -57,7 +57,7 @@ internal static class SarifExportTool
             .Select(f => new SarifFinding(
                 RuleId: "MAF001",
                 Severity: SarifSeverity.Error,
-                Message: $"`{f.MethodName}` returns `{f.ReturnType}` — fan-out handler must return Task<T> or ValueTask<T>",
+                Message: $"`{f.MethodName}` returns `{f.ReturnType}` — fan-out handler must return ValueTask<T>",
                 File: f.File,
                 Line: f.Line));
 
@@ -100,7 +100,7 @@ internal static class SarifExportTool
         const string full = "A [MessageHandler] method that returns void, Task, or ValueTask (non-generic) produces no downstream message and silently starves the fan-in barrier.";
         yield return new SarifRule(
             Id: "MAF001",
-            Name: "Fan-out handler must return Task<T> or ValueTask<T>",
+            Name: "Fan-out handler must return ValueTask<T>",
             Severity: SarifSeverity.Error,
             FullDescription: full,
             HelpUri: "https://github.com/joslat/maf-doctor/blob/main/.github/skills/maf-fan-out-validator/SKILL.md",

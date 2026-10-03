@@ -16,8 +16,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and reports `LINK MISSING` when a user's upgrade error would not reach the entry. Across
   MAF 1.10–1.23 it found the hunt linking only 28 of 81 such errors to the right entry.
   Report-only; the fill agent fixes what it can.
+- **Three scanner rules, each checked against the MAF 1.23 packages:**
+  - `MAF-AP-APPROVAL-001` (warning): a tool-approval response sent with `RunAsync` /
+    `RunStreamingAsync` but no session. MAF only accepts a response whose request was
+    recorded in the current `AgentSession`, so the approval is ignored and the tool never
+    runs. Follows the response through locals, assignments and `Add` calls.
+  - `MAF-AP-WF-002` (error): two `[MessageHandler]` methods for the same message type.
+    The generator accepts it; running the workflow throws "A handler for message type …
+    is already registered".
+  - `MAF-AP-WF-003` (warning): an `async void` `[MessageHandler]`, which the workflow
+    cannot await.
+  Structured output and agent creation were checked too; no verifiably wrong pattern
+  turned up, so they have no rule.
+- **Registry entry `MAF130-APPROVAL-001`**: `FunctionApprovalRequestContent` /
+  `FunctionApprovalResponseContent` exist only in Microsoft.Extensions.AI 10.3 and
+  earlier; MAF 1.0 already requires 10.4, so they are a pre-1.0 break (CS0246). The
+  build-log hunt now links that error to `ToolApprovalRequestContent`.
 
 ### Fixed
+
+- **Fan-out advice was wrong about `Task<T>` and `IAsyncEnumerable<T>`.** Built and run
+  against Microsoft.Agents.AI.Workflows 1.3.0 and 1.23.0: a `[MessageHandler]` returning
+  `Task<T>` fails the source generator (MAFGENWF002), and one returning
+  `IAsyncEnumerable<T>` fails at run time (the iterator is sent as one message);
+  `ValueTask<T>` and a synchronous `T` send their value. `MafValidateFanOut` now reports
+  `Task<T>` and `IAsyncEnumerable<T>` as invalid and accepts a synchronous `T`, and
+  every fix text, prompt, resource, skill and sample says `ValueTask<T>`.
+- **The `MAF001` analyzer no longer breaks valid builds.** It reported an error on every
+  handler not returning `Task<T>` / `ValueTask<T>` / `IAsyncEnumerable<T>`, including a
+  synchronous `T` and the documented `void` / `ValueTask` handler that sends with
+  `context.SendMessageAsync`. It now reports only `void` / `Task` / `ValueTask` handlers
+  that emit nothing.
+- **`maf-doctor new executor` generated code that did not compile.** Its handler took a
+  `CancellationToken` second (the generator requires `IWorkflowContext`, MAFGENWF001),
+  returned `Task<T>`, and had no constructor for `Executor`'s id. It now builds
+  against MAF 1.23 with the generator.
+- **The guide taught a type that no MAF 1.x has.** The tool-approval section, the
+  checklist, the migration agent and the smoke-tester skill used
+  `FunctionApprovalRequestContent` / `request.FunctionCall`; they now use
+  `ToolApprovalRequestContent` / `request.ToolCall` and say to answer in the same session.
+- **The anti-pattern scanner skill listed two rules that do not exist** (`OBS-002`,
+  `ID-001`) and missed five that do; it now matches the scanner.
 
 - **`MafRunCs0618Hunt` links build errors to the right registry entry.** It took the
   first entry sharing any identifier with the message, so every `AgentFileStore` error

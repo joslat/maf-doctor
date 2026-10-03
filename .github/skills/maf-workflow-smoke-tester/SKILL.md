@@ -17,13 +17,13 @@ The maf-autopilot MCP server now covers most of the smoke-test surface automatic
 
 | What you want to verify                              | Use this tool                                |
 |------------------------------------------------------|----------------------------------------------|
-| Every fan-out `[MessageHandler]` returns `Task<T>`   | `MafValidateFanOut(repoPath)`                |
+| Every fan-out `[MessageHandler]` returns `ValueTask<T>` | `MafValidateFanOut(repoPath)`                |
 | Workflow topology can complete (no silent starvation) | `MafSimulateWorkflow(repoPath)`             |
 | New agent/executor scaffold ships with smoke test    | `MafNewAgent` / `MafNewExecutor`             |
 | Agent prompt quality (injection, refusals, bloat)    | `MafLintAgentPrompt(repoPath)`               |
 | Single-command health letter                         | `MafDoctor(repoPath)` — covers all of above  |
 
-When you call `MafNewExecutor`, the generated `*Tests.cs` already includes the reflection-based "fan-out handler returns `Task<T>`" structural assertion — that's the canonical smoke-test pattern. It's compile-validated against `AntiPatternScannerTool` and `FanOutValidatorTool` by the project's own dogfood test suite.
+When you call `MafNewExecutor`, the generated `*Tests.cs` already includes the reflection-based "fan-out handler returns `ValueTask<T>`" structural assertion — that's the canonical smoke-test pattern. It's compile-validated against `AntiPatternScannerTool` and `FanOutValidatorTool` by the project's own dogfood test suite.
 
 ## When to use the manual templates below
 
@@ -45,7 +45,7 @@ Select-String -Path "src/**/*.cs" -Pattern "RunStreamingAsync" -Recurse -List
 Select-String -Path "src/**/*.cs" -Pattern "RunAsync<" -Recurse -List
 
 # Tool invocation / approval
-Select-String -Path "src/**/*.cs" -Pattern "ApprovalRequiredAIFunction|FunctionApprovalRequestContent" -Recurse -List
+Select-String -Path "src/**/*.cs" -Pattern "ApprovalRequiredAIFunction|ToolApprovalRequestContent" -Recurse -List
 
 # Session round-trip
 Select-String -Path "src/**/*.cs" -Pattern "CreateSessionAsync|SerializeSessionAsync" -Recurse -List
@@ -76,9 +76,8 @@ public void FanOutHandlers_AllReturnGenericTask()
             if (method.GetCustomAttribute<MessageHandlerAttribute>() is null) continue;
             var name = method.ReturnType.Name;
             Assert.True(
-                name.StartsWith("Task`") || name.StartsWith("ValueTask`")
-                || name.StartsWith("IAsyncEnumerable`"),
-                $"{t.Name}.{method.Name} returns {method.ReturnType.FullName} — fan-out handlers must return Task<T> / ValueTask<T> / IAsyncEnumerable<T>.");
+                name.StartsWith("ValueTask`"),
+                $"{t.Name}.{method.Name} returns {method.ReturnType.FullName} — fan-out handlers must return ValueTask<T>.");
         }
     }
 }
@@ -136,7 +135,7 @@ public async Task ToolApproval_FlowsToApprovalContent()
     var response = await agent.RunAsync("call the tool");
     var approvalRequest = response.Messages
         .SelectMany(m => m.Contents)
-        .OfType<FunctionApprovalRequestContent>()
+        .OfType<ToolApprovalRequestContent>()
         .FirstOrDefault();
     Assert.NotNull(approvalRequest);
 }

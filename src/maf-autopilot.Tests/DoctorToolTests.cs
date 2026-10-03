@@ -486,7 +486,7 @@ public class DoctorToolTests
                 """);
             var output = new DoctorTool().Run(tempDir, "markdown", excludes: null, full: true);
             // The ×2 MAF001 header is generic — it does NOT name a single method.
-            Assert.Contains("`MAF001` — fan-out handler must return `Task<T>` ×2", output, StringComparison.Ordinal);
+            Assert.Contains("`MAF001` — fan-out handler must return `ValueTask<T>` ×2", output, StringComparison.Ordinal);
             Assert.DoesNotContain("`AlphaAsync` returns", output, StringComparison.Ordinal); // not in the header
         }
         finally { Directory.Delete(tempDir, recursive: true); }

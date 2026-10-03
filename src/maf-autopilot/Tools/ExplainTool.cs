@@ -210,7 +210,7 @@ public sealed class ExplainTool
         "AddFanInBarrierEdge" =>
             "Argument order in 1.3.0: `(sources, target)`. The legacy `(target, sources)` overload is `[Obsolete]` and triggers CS0618.",
         "MessageHandler" or "MessageHandlerAttribute" =>
-            "✅ Marks an executor method as a workflow handler. MUST return `Task<T>` or `ValueTask<T>` — `void` / non-generic causes silent fan-in starvation.",
+            "✅ Marks an executor method as a workflow handler. On a fan-out edge it MUST return `ValueTask<T>` — `void` / non-generic causes silent fan-in starvation, and the source generator rejects `Task<T>` (MAFGENWF002), and `IAsyncEnumerable<T>` fails at run time.",
         "ChatClientAgent" =>
             "✅ The canonical MAF agent base. `Instructions` lives inside `ChatOptions`, not at the options top level.",
         _ => null,

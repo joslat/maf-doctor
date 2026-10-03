@@ -91,7 +91,7 @@ public static class MafResources
 
         sb.AppendLine("## Fan-out validator (`MafValidateFanOut`)");
         sb.AppendLine();
-        sb.AppendLine("Built-in single rule: every `[MessageHandler]` method must return `Task<T>` / `ValueTask<T>` / `IAsyncEnumerable<T>`. `void` / non-generic `Task` / non-generic `ValueTask` → `SilentStarvationRisk`. Raw types → `LikelyInvalid`. See the SARIF emitter for the analyzer-aligned `MAF001` ID.");
+        sb.AppendLine("Built-in single rule: every `[MessageHandler]` method must return `ValueTask<T>` or a synchronous `T` (the source generator rejects `Task<T>` (MAFGENWF002), and `IAsyncEnumerable<T>` fails at run time). `void` / non-generic `Task` / non-generic `ValueTask` → `SilentStarvationRisk`. Raw types → `LikelyInvalid`. See the SARIF emitter for the analyzer-aligned `MAF001` ID.");
         sb.AppendLine();
 
         sb.AppendLine("## Prompt-lint rules (`MafLintAgentPrompt`)");
@@ -108,7 +108,7 @@ public static class MafResources
         sb.AppendLine();
         sb.AppendLine("| Rule ID | Description | Same intent as scanner |");
         sb.AppendLine("|---|---|---|");
-        sb.AppendLine("| `MAF001` | Fan-out handler must return `Task<T>` / `ValueTask<T>` / `IAsyncEnumerable<T>`. **Error.** | `MafValidateFanOut` (runtime/post-hoc) |");
+        sb.AppendLine("| `MAF001` | Fan-out handler must return `ValueTask<T>` or a synchronous `T`. **Error.** | `MafValidateFanOut` (runtime/post-hoc) |");
         sb.AppendLine("| `MAF002` | Avoid `DefaultAzureCredential` in production code. Warning. | `MAF-AP-SEC-001` via `MafScanAntiPatterns` |");
         sb.AppendLine("| `MAF003` | `EnableSensitiveData = true` outside test code. Warning. | `MAF-AP-SEC-003` via `MafScanAntiPatterns` |");
         sb.AppendLine();

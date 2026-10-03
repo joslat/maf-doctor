@@ -105,6 +105,41 @@ public class FanOutHandlerAnalyzerTests
     }
 
     [Fact]
+    public async Task SynchronousResultHandler_NoReport()
+    {
+        // `TResult Handler(TMessage, IWorkflowContext)` is a documented shape; on
+        // Workflows 1.23 the returned value is sent downstream like ValueTask<T>'s.
+        var source = """
+            using Microsoft.Agents.AI;
+            public partial class Exec
+            {
+                [MessageHandler]
+                public string Handle(string s) => s + "!";
+            }
+            """ + MessageHandlerStub;
+
+        await new Verify { TestCode = source }.RunAsync();
+    }
+
+    [Fact]
+    public async Task VoidHandlerThatSendsThroughTheContext_NoReport()
+    {
+        // The documented void / ValueTask pattern: emit with context.SendMessageAsync.
+        var source = """
+            using System.Threading.Tasks;
+            using Microsoft.Agents.AI;
+            public interface IWorkflowContext { ValueTask SendMessageAsync(object message); }
+            public partial class Exec
+            {
+                [MessageHandler]
+                public async ValueTask Handle(string s, IWorkflowContext context) => await context.SendMessageAsync(s);
+            }
+            """ + MessageHandlerStub;
+
+        await new Verify { TestCode = source }.RunAsync();
+    }
+
+    [Fact]
     public async Task MethodWithoutAttribute_NoReport()
     {
         var source = """

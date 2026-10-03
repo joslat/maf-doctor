@@ -106,7 +106,7 @@ public class AgentScaffolderTests
         var executor = files.Single(f => f.RelativePath == "Workflows/FraudReviewerExecutor.cs").Content;
 
         Assert.Contains("[MessageHandler]", executor);
-        Assert.Contains("Task<FraudReport>", executor);          // fan-out-safe
+        Assert.Contains("ValueTask<FraudReport>", executor);     // fan-out-safe (the generator rejects Task<T>)
         Assert.Contains("sealed partial class", executor);       // correct 1.3.0 shape
         Assert.DoesNotContain("public void Handle", executor);   // never void
         Assert.DoesNotContain("public Task Handle", executor);   // never non-generic Task

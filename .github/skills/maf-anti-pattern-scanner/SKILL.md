@@ -62,16 +62,51 @@ Each is a "rule" with a unique ID, a `severity`, and a deterministic search patt
 **Fix:** Add `.UseOpenTelemetry(otelOptions)` to the builder chain. Wire to your existing OTel exporter.
 **Source:** Migration guide §13.
 
-#### `MAF-AP-OBS-002` — `IChatClient` instantiated without telemetry  (severity: info)
-**Pattern:** `new ChatClient(` or `new OpenAIChatClient(` not chained with `.UseOpenTelemetry()` before being passed to an agent builder.
-**Why:** OpenTelemetry must wrap the client to capture token costs. Wrap at the lowest level so every agent benefits.
+#### `MAF-AP-MID-001` — Middleware `Use()` without a streaming callback  (severity: warning)
+**Pattern:** `.Use(runFunc: …)` with no `runStreamingFunc:`, or `runStreamingFunc: null`.
+**Why:** The streaming path (`RunStreamingAsync`) bypasses the middleware silently.
+**Fix:** Provide both callbacks, or the `sharedFunc:` overload.
 
-### Identity
+### Agents and tool approval
 
-#### `MAF-AP-ID-001` — Missing `ManagedIdentityCredential` for Azure hosting  (severity: info)
-**Pattern:** A project references `Microsoft.Extensions.Azure` or `Azure.AI.OpenAI` and uses a secret-based credential (`ClientSecretCredential`, `EnvironmentCredential`) without a comment / config explaining why MSI was rejected.
-**Why:** Secret rotation is operational toil and a credential-leak risk. Azure-hosted services should default to managed identity.
-**Fix:** `new ManagedIdentityCredential(clientId)`.
+#### `MAF-AP-AGENT-001` — `Instructions` at the top of `ChatClientAgentOptions`  (severity: error)
+**Pattern:** `new ChatClientAgentOptions { Instructions = … }`.
+**Why:** No MAF release from 1.0 on has that property (it was removed before 1.0 GA), so the code fails with CS0117.
+**Fix:** `ChatOptions = new ChatOptions { Instructions = … }`.
+
+#### `MAF-AP-APPROVAL-001` — Tool-approval response sent without the session  (severity: warning)
+**Pattern:** `RunAsync` / `RunStreamingAsync` whose message carries `request.CreateResponse(…)` (directly, or through a local, an assignment or an `Add` call) but no session argument, or `null`.
+**Why:** MAF only accepts a tool-approval response whose request was recorded in the current `AgentSession` (`ChatClientAgentOptions.DisableApprovalResponseBinding` docs, 1.23). Without a session the run starts a new one, the response is ignored, and the tool never runs.
+**Fix:** `await agent.RunAsync(approvalMessage, session)` with the session that produced the request.
+
+### Workflows
+
+#### `MAF-AP-WF-001` — Executor class must be `sealed partial`  (severity: error)
+**Pattern:** A class deriving from `Executor` that is not `partial` (and not `sealed`).
+**Why:** Without `partial` the source generator cannot emit the handler wiring (a build error); `sealed` is the canonical form, though the build succeeds without it.
+**Fix:** `public sealed partial class MyExecutor : Executor`.
+
+#### `MAF-AP-WF-002` — Two `[MessageHandler]` methods for the same message type  (severity: error)
+**Pattern:** Two handlers in one class whose first parameter is the same type (`string` and `System.String` count as the same).
+**Why:** The generator accepts it, but running the workflow throws "A handler for message type … is already registered" (checked on Workflows 1.23).
+**Fix:** One handler per message type: merge them, or give each its own message type.
+
+#### `MAF-AP-WF-003` — `async void` `[MessageHandler]`  (severity: warning)
+**Pattern:** A `[MessageHandler]` method declared `async void`.
+**Why:** The generator accepts a `void` handler, so nothing flags it, but the workflow cannot await it: it counts as finished at its first `await`, and an exception after that escapes the workflow.
+**Fix:** Return `ValueTask` (or `ValueTask<T>`).
+
+#### `MAF-AP-EXEC-001` — Pre-1.3.0 executor surface  (severity: error)
+**Pattern:** `[StreamsMessage]`, `[YieldsMessage]`, `ReflectingExecutor<…>`, or `IMessageHandler<…>` in a file that imports the MAF Workflows namespace.
+**Why:** Removed in 1.3.0; the code does not compile against current MAF.
+**Fix:** `sealed partial : Executor` with `[MessageHandler]` methods.
+
+### Hosting
+
+#### `MAF-AP-DEVUI-001` — Unguarded DevUI / Hosting preview reference  (severity: error)
+**Pattern:** A DevUI or unsupported Hosting reference outside `#if DEVUI_ENABLED`.
+**Why:** It has no current-MAF equivalent; an unguarded reference breaks the production build.
+**Fix:** Wrap it in `#if DEVUI_ENABLED`.
 
 ## Output format
 

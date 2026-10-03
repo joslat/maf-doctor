@@ -5,6 +5,6 @@
 
 Rule ID | Category      | Severity | Notes
 --------|---------------|----------|------------------------------------------------------------------
-MAF001  | MAF.Workflow  | Error    | Fan-out handler must return Task<T> or ValueTask<T>
+MAF001  | MAF.Workflow  | Error    | Fan-out handler must return ValueTask<T>
 MAF002  | MAF.Security  | Warning  | Avoid DefaultAzureCredential in production code
 MAF003  | MAF.Security  | Warning  | EnableSensitiveData = true outside test code

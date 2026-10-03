@@ -21,6 +21,9 @@ public sealed class ConfidenceTriageTests
     [InlineData("MAF-AP-AGENT-001", "high")]
     [InlineData("MAF-AP-SEC-001", "high")]
     [InlineData("MAF-AP-WF-001", "high")]
+    [InlineData("MAF-AP-WF-002", "high")]
+    [InlineData("MAF-AP-WF-003", "high")]
+    [InlineData("MAF-AP-APPROVAL-001", "high")]
     // Name-only / text / scope-limited → heuristic (verify first).
     [InlineData("COST-001", "heuristic")]
     [InlineData("MAF-AP-SEC-002", "heuristic")]

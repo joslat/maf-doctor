@@ -61,7 +61,7 @@ private sealed class QueuedChatClient : IChatClient
 
 ## Fan-out shape verification (the canonical contract test)
 
-Every `[MessageHandler]` method MUST return `Task<T>` / `ValueTask<T>` / `IAsyncEnumerable<T>`. Verify structurally with reflection — no DI, no execution, no chat client at all:
+Every fan-out `[MessageHandler]` method MUST return `ValueTask<T>` or a synchronous `T` (the source generator rejects `Task<T>` (MAFGENWF002), and `IAsyncEnumerable<T>` fails at run time). Verify structurally with reflection — no DI, no execution, no chat client at all:
 
 ```csharp
 [Fact]
@@ -77,9 +77,8 @@ public void HandleAsync_HasFanOutSafeReturnType()
 
     // Assert
     Assert.True(
-        returnTypeName.StartsWith("Task`", StringComparison.Ordinal)
-        || returnTypeName.StartsWith("ValueTask`", StringComparison.Ordinal),
-        $"Handler must return Task<T> or ValueTask<T>, got {handler.ReturnType.FullName}.");
+        returnTypeName.StartsWith("ValueTask`", StringComparison.Ordinal),
+        $"Handler must return ValueTask<T>, got {handler.ReturnType.FullName}.");
 }
 ```
 

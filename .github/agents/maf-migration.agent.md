@@ -183,6 +183,6 @@ Use `maf-migration-guide` skill for full API details. Quick reference:
 7. **Executors/Workflows** — `partial class : Executor` + `[MessageHandler]`. Remove `[StreamsMessage]`/`[YieldsMessage]`. Use `.BindAsExecutor(emitEvents: true)`.
 8. **Response Processing** — `AgentResponse.Text` / `.Messages`. `AgentResponseUpdate.Text` / `.Contents` for streaming.
 9. **Structured Output** — `RunAsync<T>()` returning `AgentResponse<T>`.
-10. **Tool Approval** — `new ApprovalRequiredAIFunction(tool)`. Handle `FunctionApprovalRequestContent`.
+10. **Tool Approval** — `new ApprovalRequiredAIFunction(tool)`. Handle `ToolApprovalRequestContent` and answer it with `request.CreateResponse(approved)` in the **same session** (a response without the session is ignored).
 11. **Observability** — `.UseOpenTelemetry(sourceName:)` on both `IChatClient` builder and agent builder.
 12. **Verification** — `dotnet build`, `dotnet test`, verify multi-turn, tools, streaming, workflows.

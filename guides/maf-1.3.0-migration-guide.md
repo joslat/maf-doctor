@@ -1556,16 +1556,20 @@ AgentResponse response = await agent.RunAsync("What's the weather in Amsterdam?"
 // Check for approval requests in the response
 var approvalRequests = response.Messages
     .SelectMany(m => m.Contents)
-    .OfType<FunctionApprovalRequestContent>()
+    .OfType<ToolApprovalRequestContent>()
     .ToList();
 
 if (approvalRequests.Any())
 {
     var request = approvalRequests.First();
-    Console.WriteLine($"Approve '{request.FunctionCall.Name}'? (Y/N)");
+    // ToolCall is a ToolCallContent; the function name is on FunctionCallContent.
+    string toolName = (request.ToolCall as FunctionCallContent)?.Name ?? request.ToolCall.CallId;
+    Console.WriteLine($"Approve '{toolName}'? (Y/N)");
     bool approved = Console.ReadLine()?.Trim().ToUpper() == "Y";
 
-    // Send approval/rejection back to the agent
+    // Send approval/rejection back to the agent IN THE SAME SESSION: a response only
+    // takes effect when its request was recorded in that session (otherwise it is
+    // ignored). maf-doctor rule MAF-AP-APPROVAL-001 flags a response sent without one.
     var approvalMessage = new ChatMessage(ChatRole.User,
         [request.CreateResponse(approved)]);
     response = await agent.RunAsync(approvalMessage, session);
@@ -2152,7 +2156,7 @@ Use this checklist when upgrading your project:
 
 ### Phase 7.6: Tool Approval
 - [ ] Wrap sensitive tools with `ApprovalRequiredAIFunction`
-- [ ] Handle `FunctionApprovalRequestContent` in response processing loops
+- [ ] Handle `ToolApprovalRequestContent` in response processing loops, and send each response with the same session
 - [ ] Implement user approval UI / confirmation flow
 
 ### Phase 7.7: Observability
@@ -2300,7 +2304,9 @@ The [official Sessions page](https://learn.microsoft.com/en-us/agent-framework/a
 
 ### 2. `FunctionApprovalRequestContent` vs `ToolApprovalRequestContent`
 
-The official [Tool Approval docs](https://learn.microsoft.com/en-us/agent-framework/agents/tools/tool-approval?pivots=programming-language-csharp) reference `FunctionApprovalRequestContent`. Some MAFVnext samples reference `ToolApprovalRequestContent`. These may be renamed between versions. Check your actual package version's API to determine the correct type name.
+The official [Tool Approval docs](https://learn.microsoft.com/en-us/agent-framework/agents/tools/tool-approval?pivots=programming-language-csharp) reference `FunctionApprovalRequestContent`. Some MAFVnext samples reference `ToolApprovalRequestContent`.
+
+**Resolved (checked against the packages, 2026-10-03):** `FunctionApprovalRequestContent` and `FunctionApprovalResponseContent` exist only in `Microsoft.Extensions.AI.Abstractions` 10.3.0 and earlier, which pre-1.0 MAF previews used. They are gone from 10.4.0, and MAF 1.0.0 already requires 10.4.0, so no MAF 1.x project can use them. Use `ToolApprovalRequestContent` / `ToolApprovalResponseContent` (`Microsoft.Extensions.AI`). Its `ToolCall` is a `ToolCallContent` (only `CallId`); the function name is on the `FunctionCallContent` subclass.
 
 ### 3. `ChatClientAgent` Constructor — `instructions:` as Named Parameter
 

@@ -125,9 +125,9 @@ Expected output (current state, 2026-05-13):
 10 error(s) + 3 silent-starvation risk(s)
 
 Top fixes (ordered by impact):
-  1. HandleAsync at Executors/HistoryInvestigator.cs:19 returns ValueTask — fan-out handler must return Task<T>
-  2. HandleAsync at Executors/OsintInvestigator.cs:23 returns ValueTask — fan-out handler must return Task<T>
-  3. HandleAsync at Executors/TransactionInvestigator.cs:21 returns ValueTask — fan-out handler must return Task<T>
+  1. HandleAsync at Executors/HistoryInvestigator.cs:19 returns ValueTask — fan-out handler must return ValueTask<T>
+  2. HandleAsync at Executors/OsintInvestigator.cs:23 returns ValueTask — fan-out handler must return ValueTask<T>
+  3. HandleAsync at Executors/TransactionInvestigator.cs:21 returns ValueTask — fan-out handler must return ValueTask<T>
 ```
 
 ---

@@ -337,7 +337,7 @@ public static class MafPrompts
         sb.AppendLine("**Review checklist (MAF):**");
         sb.AppendLine("1. Executors: `sealed partial class : Executor` + `[MessageHandler]` on handlers. NO `ReflectingExecutor<T>`, NO `IMessageHandler<>`, NO `[StreamsMessage]` / `[YieldsMessage]`.");
         sb.AppendLine("2. Sessions: `AgentSession` via `CreateSessionAsync` (NOT `AgentThread.GetNewThread()`). State in `ProviderSessionState<T>`, NEVER instance fields on providers.");
-        sb.AppendLine("3. Fan-out / fan-in: handlers MUST return `Task<T>` / `ValueTask<T>` / `IAsyncEnumerable<T>` (void or non-generic Task starves the barrier). `AddFanInBarrierEdge(sources, target)` — sources first.");
+        sb.AppendLine("3. Fan-out / fan-in: handlers MUST return `ValueTask<T>` or a synchronous `T` (void or non-generic ValueTask starves the barrier; the source generator rejects `Task<T>` (MAFGENWF002), and `IAsyncEnumerable<T>` fails at run time). `AddFanInBarrierEdge(sources, target)` — sources first.");
         sb.AppendLine("4. Security: `ManagedIdentityCredential` (NOT `DefaultAzureCredential`); no `EnableSensitiveData = true` outside dev. Roslyn analyzers `MAF002` / `MAF003` enforce at write-time.");
         sb.AppendLine("5. Streaming: `RunStreamingAsync()` (NOT `InProcessExecution.StreamAsync()`).");
         sb.AppendLine("6. A2A: `services.AddA2AServer(...)` + `app.MapA2AHttpJson(path)` (or `MapA2AJsonRpc`).");
@@ -406,7 +406,7 @@ public static class MafPrompts
         sb.AppendLine("- `MafRegistryLookup(id)` — full registry entry once you have the ID.");
         sb.AppendLine();
         sb.AppendLine("**Silent runtime failures (workflow completes, output empty/wrong):**");
-        sb.AppendLine("- `MafValidateFanOut(repoPath)` — checks every `[MessageHandler]` returns `Task<T>` / `ValueTask<T>` / `IAsyncEnumerable<T>`. Void / non-generic Task starves the fan-in barrier — the #1 silent-failure class.");
+        sb.AppendLine("- `MafValidateFanOut(repoPath)` — checks every `[MessageHandler]` returns `ValueTask<T>` or a synchronous `T`. Void / non-generic ValueTask starves the fan-in barrier — the #1 silent-failure class.");
         sb.AppendLine("- `MafSimulateWorkflow(repoPath)` — Mermaid topology diagram + per-edge forecast. Shows where the message stops flowing.");
         sb.AppendLine();
         sb.AppendLine("**Wrong API / pattern not in any registry hit:**");

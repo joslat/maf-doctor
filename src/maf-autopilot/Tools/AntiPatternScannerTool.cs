@@ -685,6 +685,198 @@ public sealed class AntiPatternScannerTool
                 return findings.GroupBy(f => (f.File, f.Line)).Select(grp => grp.First()).ToList();
             },
             skipInTestFiles: false),
+
+        // MAF-AP-APPROVAL-001 — a tool-approval response sent with no session is ignored.
+        // MAF binds each ToolApprovalResponseContent to the request it recorded in the
+        // current AgentSession ("A response takes effect only when its matching request was
+        // recorded in the current AgentSession", ChatClientAgentOptions.DisableApprovalResponseBinding,
+        // 1.23); RunAsync with no session creates a new one, so the response matches nothing.
+        new RoslynRule(
+            id: "MAF-AP-APPROVAL-001",
+            name: "Tool-approval response sent without the session — ignored",
+            severity: AntiPatternSeverity.Warning,
+            scan: (root, file) =>
+            {
+                var findings = new List<AntiPatternFinding>();
+                if (!UsesAiStack(root)) return findings;
+                foreach (var invocation in root.DescendantNodes().OfType<InvocationExpressionSyntax>())
+                {
+                    var name = InvokedName(invocation);
+                    if (name is not ("RunAsync" or "RunStreamingAsync")) continue;
+                    var args = invocation.ArgumentList.Arguments;
+                    if (args.Count == 0 || PassesSession(args)) continue;
+                    var scope = invocation.Ancestors().FirstOrDefault(a =>
+                        a is BaseMethodDeclarationSyntax or LocalFunctionStatementSyntax or AccessorDeclarationSyntax) ?? root;
+                    if (!args.Any(a => CarriesApprovalResponse(a.Expression, scope, depth: 3))) continue;
+
+                    var loc = invocation.GetLocation().GetLineSpan();
+                    findings.Add(new AntiPatternFinding(
+                        "MAF-AP-APPROVAL-001",
+                        "Tool-approval response sent without the session — ignored",
+                        AntiPatternSeverity.Warning,
+                        file,
+                        loc.StartLinePosition.Line + 1,
+                        $"{name}(...) sends a tool-approval response but no session"));
+                }
+                return findings;
+            }),
+
+        // MAF-AP-WF-002 — two [MessageHandler] methods for the same message type. The
+        // source generator accepts it, but running the workflow throws "A handler for
+        // message type … is already registered" (Microsoft.Agents.AI.Workflows 1.23).
+        new RoslynRule(
+            id: "MAF-AP-WF-002",
+            name: "Two [MessageHandler] methods for the same message type — throws at run time",
+            severity: AntiPatternSeverity.Error,
+            scan: (root, file) =>
+            {
+                var findings = new List<AntiPatternFinding>();
+                foreach (var cls in root.DescendantNodes().OfType<ClassDeclarationSyntax>())
+                {
+                    var byMessageType = cls.Members.OfType<MethodDeclarationSyntax>()
+                        .Where(m => IsMessageHandler(m) && m.ParameterList.Parameters.FirstOrDefault()?.Type is not null)
+                        .GroupBy(m => MessageTypeKey(m.ParameterList.Parameters[0].Type!), StringComparer.Ordinal);
+                    foreach (var handlers in byMessageType)
+                    {
+                        var first = handlers.First();
+                        foreach (var duplicate in handlers.Skip(1))
+                        {
+                            var loc = duplicate.Identifier.GetLocation().GetLineSpan();
+                            findings.Add(new AntiPatternFinding(
+                                "MAF-AP-WF-002",
+                                "Two [MessageHandler] methods for the same message type — throws at run time",
+                                AntiPatternSeverity.Error,
+                                file,
+                                loc.StartLinePosition.Line + 1,
+                                $"{cls.Identifier.ValueText}.{duplicate.Identifier.ValueText} handles {handlers.Key}, already handled by {first.Identifier.ValueText}"));
+                        }
+                    }
+                }
+                return findings;
+            }),
+
+        // MAF-AP-WF-003 — `async void` [MessageHandler]. The generator accepts a void
+        // handler, so nothing flags it, but the workflow cannot await it: the handler counts
+        // as finished at its first await, and an exception after that escapes the workflow.
+        new RoslynRule(
+            id: "MAF-AP-WF-003",
+            name: "async void [MessageHandler] — the workflow cannot await it",
+            severity: AntiPatternSeverity.Warning,
+            scan: (root, file) => root.DescendantNodes().OfType<MethodDeclarationSyntax>()
+                .Where(m => IsMessageHandler(m)
+                    && m.Modifiers.Any(modifier => modifier.RawKind == (int)SyntaxKind.AsyncKeyword)
+                    && m.ReturnType is PredefinedTypeSyntax { Keyword.RawKind: (int)SyntaxKind.VoidKeyword })
+                .Select(m => new AntiPatternFinding(
+                    "MAF-AP-WF-003",
+                    "async void [MessageHandler] — the workflow cannot await it",
+                    AntiPatternSeverity.Warning,
+                    file,
+                    m.Identifier.GetLocation().GetLineSpan().StartLinePosition.Line + 1,
+                    $"async void {m.Identifier.ValueText}(...) — return ValueTask instead"))
+                .ToList()),
+    };
+
+    private static string? InvokedName(InvocationExpressionSyntax call) => call.Expression switch
+    {
+        MemberAccessExpressionSyntax member => member.Name.Identifier.ValueText,
+        MemberBindingExpressionSyntax binding => binding.Name.Identifier.ValueText,
+        SimpleNameSyntax simple => simple.Identifier.ValueText,
+        _ => null,
+    };
+
+    /// <summary>
+    /// <c>RunAsync(message, session, …)</c>: the session is the second positional argument
+    /// or the one named <c>session:</c>; a <c>null</c>/<c>default</c> literal is no session.
+    /// </summary>
+    private static bool PassesSession(Microsoft.CodeAnalysis.SeparatedSyntaxList<ArgumentSyntax> args)
+    {
+        var session = args.FirstOrDefault(a => a.NameColon?.Name.Identifier.ValueText == "session")
+            ?? (args.Count > 1 && args[1].NameColon is null ? args[1] : null);
+        return session is not null && session.Expression is not (
+            LiteralExpressionSyntax { RawKind: (int)SyntaxKind.NullLiteralExpression or (int)SyntaxKind.DefaultLiteralExpression }
+            or DefaultExpressionSyntax);
+    }
+
+    private static readonly HashSet<string> ApprovalResponseFactories = new(StringComparer.Ordinal)
+    {
+        "CreateResponse", "CreateAlwaysApproveToolResponse", "CreateAlwaysApproveToolWithArgumentsResponse",
+    };
+
+    /// <summary>
+    /// True when <paramref name="expression"/> builds a tool-approval response, directly or
+    /// through a local in <paramref name="scope"/> that is initialized with one, assigned
+    /// one, or given one with <c>Add</c>/<c>AddRange</c> (up to <paramref name="depth"/> hops).
+    /// </summary>
+    private static bool CarriesApprovalResponse(ExpressionSyntax expression, Microsoft.CodeAnalysis.SyntaxNode scope, int depth)
+    {
+        if (expression.DescendantNodesAndSelf().Any(IsApprovalResponse)) return true;
+        if (depth == 0) return false;
+        var names = expression.DescendantNodesAndSelf().OfType<IdentifierNameSyntax>()
+            .Select(n => n.Identifier.ValueText)
+            .ToHashSet(StringComparer.Ordinal);
+        foreach (var node in scope.DescendantNodes())
+        {
+            IEnumerable<ExpressionSyntax> sources = node switch
+            {
+                VariableDeclaratorSyntax { Initializer.Value: var value } d when names.Contains(d.Identifier.ValueText) => [value],
+                AssignmentExpressionSyntax { Left: IdentifierNameSyntax left } a when names.Contains(left.Identifier.ValueText) => [a.Right],
+                InvocationExpressionSyntax
+                {
+                    Expression: MemberAccessExpressionSyntax { Expression: IdentifierNameSyntax target, Name.Identifier.ValueText: "Add" or "AddRange" },
+                } add when names.Contains(target.Identifier.ValueText) => add.ArgumentList.Arguments.Select(a => a.Expression),
+                _ => [],
+            };
+            if (sources.Any(source => CarriesApprovalResponse(source, scope, depth - 1))) return true;
+        }
+        return false;
+    }
+
+    // `request.CreateResponse(approved)` builds a ToolApprovalResponseContent; Azure Functions'
+    // and ASP.NET's `req.CreateResponse()` / `CreateResponse(HttpStatusCode.OK)` do not.
+    private static bool IsApprovalResponse(Microsoft.CodeAnalysis.SyntaxNode node) => node switch
+    {
+        InvocationExpressionSyntax call when InvokedName(call) is { } name && ApprovalResponseFactories.Contains(name) =>
+            name != "CreateResponse"
+            || (call.ArgumentList.Arguments.Count > 0
+                && !call.ArgumentList.Arguments[0].Expression.ToString().Contains("StatusCode", StringComparison.Ordinal)),
+        BaseObjectCreationExpressionSyntax creation => ObjectCreationTypeName(creation) == "ToolApprovalResponseContent",
+        _ => false,
+    };
+
+    private static bool IsMessageHandler(MethodDeclarationSyntax method) =>
+        method.AttributeLists.SelectMany(list => list.Attributes).Any(attribute =>
+        {
+            var name = attribute.Name.ToString();
+            name = name.Contains('.') ? name[(name.LastIndexOf('.') + 1)..] : name;
+            return name is "MessageHandler" or "MessageHandlerAttribute";
+        });
+
+    /// <summary>
+    /// The runtime message type a handler registers for, from syntax: qualifiers and
+    /// <c>global::</c> dropped, keywords mapped to their CLR names (<c>string</c> and
+    /// <c>System.String</c> collide, as they do at run time).
+    /// </summary>
+    private static string MessageTypeKey(TypeSyntax type) => type switch
+    {
+        PredefinedTypeSyntax predefined => predefined.Keyword.ValueText switch
+        {
+            "string" => "String", "object" => "Object", "bool" => "Boolean", "char" => "Char",
+            "byte" => "Byte", "sbyte" => "SByte", "short" => "Int16", "ushort" => "UInt16",
+            "int" => "Int32", "uint" => "UInt32", "long" => "Int64", "ulong" => "UInt64",
+            "float" => "Single", "double" => "Double", "decimal" => "Decimal",
+            var keyword => keyword,
+        },
+        QualifiedNameSyntax qualified => MessageTypeKey(qualified.Right),
+        AliasQualifiedNameSyntax alias => MessageTypeKey(alias.Name),
+        GenericNameSyntax generic =>
+            $"{generic.Identifier.ValueText}<{string.Join(",", generic.TypeArgumentList.Arguments.Select(MessageTypeKey))}>",
+        // `string?` is the same runtime type; for value types `T?` is Nullable<T>, a different one.
+        NullableTypeSyntax { ElementType: PredefinedTypeSyntax { Keyword.ValueText: "string" or "object" } } nullable =>
+            MessageTypeKey(nullable.ElementType),
+        NullableTypeSyntax nullable => MessageTypeKey(nullable.ElementType) + "?",
+        ArrayTypeSyntax array => MessageTypeKey(array.ElementType) + string.Concat(array.RankSpecifiers.Select(r => r.ToString())),
+        SimpleNameSyntax simple => simple.Identifier.ValueText,
+        _ => type.ToString(),
     };
 
     /// <summary>

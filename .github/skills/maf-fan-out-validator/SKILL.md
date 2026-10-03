@@ -16,9 +16,10 @@ description: "Validates fan-out / fan-in workflow topology — detects the silen
 ## The bug class — "silent fan-in starvation"
 
 A fan-out executor's `[MessageHandler]` method MUST return one of:
-- `Task<TMessage>`
 - `ValueTask<TMessage>`
-- `IAsyncEnumerable<TMessage>` (streaming)
+- `TMessage` (a synchronous handler; the returned value is sent the same way)
+
+Checked by building and running a workflow on Microsoft.Agents.AI.Workflows 1.3.0 and 1.23.0 (2026-10-03). `Task<TMessage>` is **not** one of them: the source generator rejects it (`MAFGENWF002`). `IAsyncEnumerable<TMessage>` builds but does **not** stream: the iterator object is sent as one message, which fails the run. Send items one at a time with `await context.SendMessageAsync(item)`.
 
 A handler that returns `void`, `Task`, or `ValueTask` (non-generic) produces **no output message**. The fan-in barrier on the downstream edge then **starves silently** — the workflow exits cleanly but incompletely.
 
@@ -28,11 +29,14 @@ A handler that returns `void`, `Task`, or `ValueTask` (non-generic) produces **n
 
 | Return type                              | Verdict                  | Why                                       |
 |------------------------------------------|--------------------------|-------------------------------------------|
-| `Task<TMessage>`, `ValueTask<TMessage>`  | ✅ OK                    | Produces a downstream message             |
-| `IAsyncEnumerable<TMessage>`             | ✅ OK (streaming pattern)| Produces a stream of messages             |
+| `ValueTask<TMessage>`                    | ✅ OK                    | Produces a downstream message             |
+| `int`, `string`, any concrete `TMessage` | ✅ OK                    | Synchronous handler; the value is sent    |
 | `void`                                   | ❌ SILENT_STARVATION_RISK | No completion signal AND no message      |
 | `Task`, `ValueTask` (non-generic)        | ❌ SILENT_STARVATION_RISK | Completes but emits nothing               |
-| `int`, `string`, raw concrete types      | ⚠ LIKELY_INVALID         | Cannot satisfy MAF's fan-out contract    |
+| `Task<TMessage>`                         | ❌ LIKELY_INVALID         | Source generator rejects it (`MAFGENWF002`) |
+| `IAsyncEnumerable<TMessage>`             | ❌ LIKELY_INVALID         | Sends the iterator as one message; the run fails |
+
+A `void` / `ValueTask` handler that emits with `context.SendMessageAsync` / `YieldOutputAsync` / `AddEventAsync` is OK.
 
 ## Fan-in argument-order rule
 
