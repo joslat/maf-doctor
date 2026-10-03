@@ -71,7 +71,7 @@ public sealed class Phase5ReportSurfacesTests
                 "using System.Threading.Tasks; public partial class Inv : Executor { [MessageHandler] public void H(string m) {} }");
             var report = PullRequestAuditTool.BuildReport(repo, "main", new[] { "Wf.cs" });
             Assert.Contains("🔴 Starvation risk", report);           // own label, not "❌ Error"
-            Assert.Contains("SendMessageAsync doesn't broadcast", report); // DoctorTool.Maf001Fix canonical text
+            Assert.Contains("declare the sent type", report); // DoctorTool.Maf001Fix canonical text
             Assert.Contains(DoctorTool.Maf001Fix, report);
         }
         finally { Directory.Delete(repo, recursive: true); }

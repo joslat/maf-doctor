@@ -408,7 +408,7 @@ public sealed class DoctorTool
             or "MAF-AP-CONC-001" or "MAF-AP-CONC-002"
             or "MAF-AP-WF-001" or "MAF-AP-AGENT-001"
             or "MAF-AP-DEVUI-001" or "MAF-AP-EXEC-001"
-            or "MAF-AP-APPROVAL-001" or "MAF-AP-WF-002" or "MAF-AP-WF-003" => "high",
+            or "MAF-AP-APPROVAL-001" or "MAF-AP-WF-002" or "MAF-AP-WF-003" or "MAF-AP-WF-004" => "high",
         // Compiler ground-truth, if ever surfaced through the doctor aggregate.
         _ when ruleId.StartsWith("CS06", StringComparison.Ordinal) => "certain",
         // COST-001, MAF-AP-SEC-002, MAF-AP-OBS-001, MAF-AP-MID-001, PROMPT-00x, …
@@ -423,7 +423,7 @@ public sealed class DoctorTool
     /// pane so the three surfaces cannot drift into three different fix strings.
     /// </summary>
     internal const string Maf001Fix =
-        "Return ValueTask<T> or a synchronous T (the value is sent automatically; the source generator rejects `Task<T>` (MAFGENWF002), and `IAsyncEnumerable<T>` fails at run time), OR emit explicitly with `await context.SendMessageAsync(...)`. NOTE: an `AddFanOutEdge` source must use the return-value form — SendMessageAsync doesn't broadcast on that edge.";
+        "Return ValueTask<T> or a synchronous T (the value is sent automatically; the source generator rejects `Task<T>` (MAFGENWF002), and `IAsyncEnumerable<T>` fails at run time), OR send explicitly with `await context.SendMessageAsync(...)` and declare the sent type (`[MessageHandler(Send = [typeof(T)])]` or `[SendsMessage(typeof(T))]` on the class) — an undeclared send fails the run. A declared send reaches every target, fan-out edges included.";
 
     internal static string GetAntiPatternFix(string ruleId) => ruleId switch // internal: shared with SARIF help (REP-11)
     {
@@ -441,6 +441,7 @@ public sealed class DoctorTool
         "MAF-AP-APPROVAL-001" => "Pass the same `AgentSession` that produced the approval request: `agent.RunAsync(approvalMessage, session)`.",
         "MAF-AP-WF-002" => "Keep one `[MessageHandler]` per message type: merge the handlers, or give each its own message type.",
         "MAF-AP-WF-003" => "Return `ValueTask` (or `ValueTask<T>`) instead of `async void`.",
+        "MAF-AP-WF-004" => "Declare what the handler sends and yields: `[MessageHandler(Send = [typeof(T)], Yield = [typeof(U)])]`, or `[SendsMessage(typeof(T))]` / `[YieldsOutput(typeof(U))]` on the executor class.",
         "MAF-AP-MID-001" => "If callers stream, also provide `runStreamingFunc` (or use the `sharedFunc` overload) so updates arrive incrementally.",
         _ => "See MafRegistryLookup for the canonical fix for this rule.",
     };
@@ -477,6 +478,7 @@ public sealed class DoctorTool
         "MAF-AP-EXEC-001" => "These executor surfaces are obsolete (CS0618): `ReflectingExecutor` / `IMessageHandler` since 1.0, `[StreamsMessage]` (does nothing) and `[YieldsMessage]` (ignored; use `[YieldsOutput]`) since 1.2. They still compile on 1.23 but will be removed.",
         "MAF-AP-APPROVAL-001" => "MAF only accepts a tool-approval response whose request was recorded in the current `AgentSession`; `RunAsync` without a session starts a new one, so the approval is ignored and the tool never runs.",
         "MAF-AP-WF-002" => "The source generator accepts two handlers for one message type, but running the workflow throws `A handler for message type … is already registered`.",
+        "MAF-AP-WF-004" => "MAF only lets an executor send and yield the types it declares: an undeclared `SendMessageAsync` fails the run (`Executor '…' cannot send messages of type '…'`), and so does an undeclared `YieldOutputAsync` (`Cannot output object of type …`). Declared, a sent message reaches every target, fan-out edges included.",
         "MAF-AP-WF-003" => "The workflow cannot await an `async void` handler: it counts as finished at its first `await`, and an exception after that escapes the workflow instead of failing the run.",
         "MAF130-FAN-IN-001" => "The legacy `AddFanInBarrierEdge(target, sources)` overload is obsolete; with the arguments swapped the barrier wires the wrong way and never fires.",
 

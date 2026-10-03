@@ -19,7 +19,7 @@ public class SimulateWorkflowToolTests
         const string source = """
             public partial class FraudExecutor
             {
-                [MessageHandler] public Task<FraudReport> Handle(FraudCheck c) => null!;
+                [MessageHandler] public ValueTask<FraudReport> Handle(FraudCheck c, IWorkflowContext ctx) => default;
             }
             public class NotAnExecutor { public void X() { } }
             """;
@@ -31,6 +31,28 @@ public class SimulateWorkflowToolTests
         var handler = Assert.Single(executor.Handlers);
         Assert.Equal("Handle", handler.MethodName);
         Assert.Equal(HandlerVerdict.ProducesMessage, handler.Verdict);
+        Assert.Equal(3, handler.Line); // REP-19: the verdict carries its location
+    }
+
+    // Checked by building and running workflows on Microsoft.Agents.AI.Workflows 1.23.
+    [Theory]
+    [InlineData("public string Handle(string m, IWorkflowContext c) => m;", HandlerVerdict.ProducesMessage)]           // synchronous T: sent
+    [InlineData("public async ValueTask Handle(string m, IWorkflowContext c) => await c.SendMessageAsync(m);", HandlerVerdict.ProducesMessage)] // sends through the context
+    [InlineData("public ValueTask Handle(string m, IWorkflowContext c) => default;", HandlerVerdict.ProducesNothing)]
+    [InlineData("public Task<string> Handle(string m, IWorkflowContext c) => null!;", HandlerVerdict.UnusualReturnType)]    // MAFGENWF002
+    [InlineData("public IAsyncEnumerable<string> Handle(string m, IWorkflowContext c) => null!;", HandlerVerdict.UnusualReturnType)] // fails the run
+    public void Analyze_ClassifiesHandlersLikeTheValidator(string member, HandlerVerdict expected)
+    {
+        var source = $$"""
+            public partial class E : Executor
+            {
+                [MessageHandler] {{member}}
+            }
+            """;
+
+        var topology = SimulateWorkflowTool.AnalyzeSources(new[] { ("file.cs", source) });
+
+        Assert.Equal(expected, Assert.Single(Assert.Single(topology.Executors).Handlers).Verdict);
     }
 
     [Fact]
@@ -57,8 +79,8 @@ public class SimulateWorkflowToolTests
     public void Analyze_DiscoversAddEdgeCalls()
     {
         const string source = """
-            public partial class A { [MessageHandler] public Task<string> Handle(string s) => null!; }
-            public partial class B { [MessageHandler] public Task<string> Handle(string s) => null!; }
+            public partial class A { [MessageHandler] public ValueTask<string> Handle(string s) => null!; }
+            public partial class B { [MessageHandler] public ValueTask<string> Handle(string s) => null!; }
 
             public class Wiring
             {
@@ -82,9 +104,9 @@ public class SimulateWorkflowToolTests
     public void Analyze_FanInBarrierWithVoidSource_FlagsWouldStarve()
     {
         const string source = """
-            public partial class Producer { [MessageHandler] public Task<string> Run(int x) => null!; }
+            public partial class Producer { [MessageHandler] public ValueTask<string> Run(int x) => null!; }
             public partial class Silent   { [MessageHandler] public void Run(int x) { } }
-            public partial class Sink     { [MessageHandler] public Task<int> Collect(string s) => null!; }
+            public partial class Sink     { [MessageHandler] public ValueTask<int> Collect(string s) => null!; }
 
             public class Wiring
             {
@@ -107,9 +129,9 @@ public class SimulateWorkflowToolTests
     public void Analyze_FanInBarrierAllProducing_VerdictOk()
     {
         const string source = """
-            public partial class P1   { [MessageHandler] public Task<string> Run(int x) => null!; }
-            public partial class P2   { [MessageHandler] public Task<string> Run(int x) => null!; }
-            public partial class Sink { [MessageHandler] public Task<int> Collect(string s) => null!; }
+            public partial class P1   { [MessageHandler] public ValueTask<string> Run(int x) => null!; }
+            public partial class P2   { [MessageHandler] public ValueTask<string> Run(int x) => null!; }
+            public partial class Sink { [MessageHandler] public ValueTask<int> Collect(string s) => null!; }
 
             public class Wiring
             {
@@ -138,8 +160,8 @@ public class SimulateWorkflowToolTests
         // variables, then passed to AddEdge by name. The previous PascalCase-only
         // regex would silently return zero edges here.
         const string source = """
-            public partial class Reviewer  { [MessageHandler] public Task<string> Run(int x) => null!; }
-            public partial class Finalizer { [MessageHandler] public Task<int>    Done(string s) => null!; }
+            public partial class Reviewer  { [MessageHandler] public ValueTask<string> Run(int x) => null!; }
+            public partial class Finalizer { [MessageHandler] public ValueTask<int>    Done(string s) => null!; }
 
             public class Wiring
             {
@@ -164,8 +186,8 @@ public class SimulateWorkflowToolTests
     public void Analyze_ExplicitTypeDeclarations_AreResolved()
     {
         const string source = """
-            public partial class Producer { [MessageHandler] public Task<string> P(int x) => null!; }
-            public partial class Consumer { [MessageHandler] public Task<int>    C(string s) => null!; }
+            public partial class Producer { [MessageHandler] public ValueTask<string> P(int x) => null!; }
+            public partial class Consumer { [MessageHandler] public ValueTask<int>    C(string s) => null!; }
 
             public class Wiring
             {
@@ -189,8 +211,8 @@ public class SimulateWorkflowToolTests
     {
         // Pattern: a wiring method receives executor instances as parameters.
         const string source = """
-            public partial class Reviewer  { [MessageHandler] public Task<string> Run(int x) => null!; }
-            public partial class Finalizer { [MessageHandler] public Task<int>    Done(string s) => null!; }
+            public partial class Reviewer  { [MessageHandler] public ValueTask<string> Run(int x) => null!; }
+            public partial class Finalizer { [MessageHandler] public ValueTask<int>    Done(string s) => null!; }
 
             public class Wiring
             {
@@ -212,9 +234,9 @@ public class SimulateWorkflowToolTests
         // The flagship failure case: a variable-bound fan-in barrier where one
         // source returns `void`. Before the fix, this would silently pass.
         const string source = """
-            public partial class Producer { [MessageHandler] public Task<string> Run(int x) => null!; }
+            public partial class Producer { [MessageHandler] public ValueTask<string> Run(int x) => null!; }
             public partial class Silent   { [MessageHandler] public void         Run(int x) { } }
-            public partial class Sink     { [MessageHandler] public Task<int>    Collect(string s) => null!; }
+            public partial class Sink     { [MessageHandler] public ValueTask<int>    Collect(string s) => null!; }
 
             public class Wiring
             {
@@ -241,7 +263,7 @@ public class SimulateWorkflowToolTests
     {
         // GhostExecutor is referenced but never defined.
         const string source = """
-            public partial class Real { [MessageHandler] public Task<string> Run(int x) => null!; }
+            public partial class Real { [MessageHandler] public ValueTask<string> Run(int x) => null!; }
 
             public class Wiring
             {

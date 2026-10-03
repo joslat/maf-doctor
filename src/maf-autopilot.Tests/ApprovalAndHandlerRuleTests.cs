@@ -144,6 +144,79 @@ public class ApprovalAndHandlerRuleTests
     }
 
     // -------------------------------------------------------------------------
+    // MAF-AP-WF-004 (an undeclared SendMessageAsync fails the run; Workflows 1.23)
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public void Wf004_UndeclaredSend_Fires()
+    {
+        var source = Executor("""
+            [MessageHandler]
+            private async ValueTask HandleAsync(string message, IWorkflowContext context) =>
+                await context.SendMessageAsync(message.ToUpperInvariant());
+            """);
+        var finding = Assert.Single(AntiPatternScannerTool.ScanFile(source, "src/Router.cs"), f => f.RuleId == "MAF-AP-WF-004");
+        Assert.Equal(AntiPatternSeverity.Error, finding.Severity);
+    }
+
+    [Theory]
+    // Declared on the handler.
+    [InlineData("[MessageHandler(Send = [typeof(string)])]\nprivate async ValueTask HandleAsync(string message, IWorkflowContext context) => await context.SendMessageAsync(message);")]
+    // The handler returns its message instead of sending it.
+    [InlineData("[MessageHandler]\nprivate ValueTask<string> HandleAsync(string message, IWorkflowContext context) => ValueTask.FromResult(message);")]
+    // Sends nothing at all (a sink).
+    [InlineData("[MessageHandler]\nprivate void Handle(string message, IWorkflowContext context) { }")]
+    public void Wf004_DeclaredOrNoSend_DoesNotFire(string member)
+    {
+        Assert.False(Fires(Executor(member), "MAF-AP-WF-004"));
+    }
+
+    [Fact]
+    public void Wf004_UndeclaredYield_Fires()
+    {
+        var source = Executor("""
+            [MessageHandler(Send = [typeof(string)])]
+            private async ValueTask HandleAsync(string message, IWorkflowContext context)
+            {
+                await context.SendMessageAsync(message);
+                await context.YieldOutputAsync("done: " + message);
+            }
+            """);
+        var finding = Assert.Single(AntiPatternScannerTool.ScanFile(source, "src/Router.cs"), f => f.RuleId == "MAF-AP-WF-004");
+        Assert.Contains("YieldOutputAsync", finding.Match, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Wf004_DeclaredSendAndYield_DoesNotFire()
+    {
+        var source = Executor("""
+            [MessageHandler(Send = [typeof(string)], Yield = [typeof(string)])]
+            private async ValueTask HandleAsync(string message, IWorkflowContext context)
+            {
+                await context.SendMessageAsync(message);
+                await context.YieldOutputAsync("done: " + message);
+            }
+            """);
+        Assert.False(Fires(source, "MAF-AP-WF-004"));
+    }
+
+    [Fact]
+    public void Wf004_ClassLevelSendsMessage_DoesNotFire()
+    {
+        const string source = """
+            using Microsoft.Agents.AI.Workflows;
+
+            [SendsMessage(typeof(string))]
+            public sealed partial class Router() : Executor("router")
+            {
+                [MessageHandler]
+                private async ValueTask HandleAsync(string message, IWorkflowContext context) => await context.SendMessageAsync(message);
+            }
+            """;
+        Assert.False(Fires(source, "MAF-AP-WF-004"));
+    }
+
+    // -------------------------------------------------------------------------
     // MAF-AP-WF-003
     // -------------------------------------------------------------------------
 

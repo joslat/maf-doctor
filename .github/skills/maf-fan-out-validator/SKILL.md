@@ -36,7 +36,7 @@ A handler that returns `void`, `Task`, or `ValueTask` (non-generic) produces **n
 | `Task<TMessage>`                         | ❌ LIKELY_INVALID         | Source generator rejects it (`MAFGENWF002`) |
 | `IAsyncEnumerable<TMessage>`             | ❌ LIKELY_INVALID         | Sends the iterator as one message; the run fails |
 
-A `void` / `ValueTask` handler that emits with `context.SendMessageAsync` / `YieldOutputAsync` / `AddEventAsync` is OK.
+A `void` / `ValueTask` handler that emits with `context.SendMessageAsync` / `YieldOutputAsync` / `AddEventAsync` is OK, provided the sent and yielded types are declared (`[MessageHandler(Send = [...], Yield = [...])]`, or `[SendsMessage]` / `[YieldsOutput]` on the class). Undeclared, the run fails; `MAF-AP-WF-004` reports it. A declared send reaches every target, fan-out edges included.
 
 ## Fan-in argument-order rule
 

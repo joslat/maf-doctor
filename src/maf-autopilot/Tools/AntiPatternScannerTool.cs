@@ -727,6 +727,52 @@ public sealed class AntiPatternScannerTool
                 return findings;
             }),
 
+        // MAF-AP-WF-004 — a handler sends (context.SendMessageAsync) or yields
+        // (context.YieldOutputAsync) a message type nothing declares: no `Send = [...]` /
+        // `Yield = [...]` on its [MessageHandler] and no [SendsMessage] / [YieldsOutput] on the
+        // class. Running the workflow fails: "Executor 'x' cannot send messages of type 'T'",
+        // "Cannot output object of type T. Expecting one of []" (Workflows 1.23; checked by
+        // running one). Declared, a sent message reaches every target, fan-out edges included.
+        // Only executors whose handlers all return no value are checked: a returned value's
+        // type is registered for the handler that returns it, and whether it covers another
+        // handler's sends is not verified.
+        new RoslynRule(
+            id: "MAF-AP-WF-004",
+            name: "[MessageHandler] sends or yields a type it does not declare — the run fails",
+            severity: AntiPatternSeverity.Error,
+            scan: (root, file) =>
+            {
+                var findings = new List<AntiPatternFinding>();
+                foreach (var cls in root.DescendantNodes().OfType<ClassDeclarationSyntax>())
+                {
+                    var handlers = cls.Members.OfType<MethodDeclarationSyntax>().Where(IsMessageHandler).ToList();
+                    if (handlers.Count == 0 || handlers.Any(ReturnsAValue)) continue;
+                    foreach (var handler in handlers)
+                    {
+                        foreach (var (call, property, classAttribute) in new[]
+                        {
+                            ("SendMessageAsync", "Send", "SendsMessage"),
+                            ("YieldOutputAsync", "Yield", "YieldsOutput"),
+                        })
+                        {
+                            if (HasAttribute(cls.AttributeLists, classAttribute)
+                                || DeclaresHandlerTypes(handler, property)
+                                || !FanOutValidatorTool.EmitsDownstreamViaContext(handler, call))
+                                continue;
+                            var loc = handler.Identifier.GetLocation().GetLineSpan();
+                            findings.Add(new AntiPatternFinding(
+                                "MAF-AP-WF-004",
+                                "[MessageHandler] sends or yields a type it does not declare — the run fails",
+                                AntiPatternSeverity.Error,
+                                file,
+                                loc.StartLinePosition.Line + 1,
+                                $"{cls.Identifier.ValueText}.{handler.Identifier.ValueText} calls {call} with no {property} = [...] and no [{classAttribute}] on the class"));
+                        }
+                    }
+                }
+                return findings;
+            }),
+
         // MAF-AP-WF-003 — `async void` [MessageHandler]. The generator accepts a void
         // handler, so nothing flags it, but the workflow cannot await it: the handler counts
         // as finished at its first await, and an exception after that escapes the workflow.
@@ -814,6 +860,25 @@ public sealed class AntiPatternScannerTool
         BaseObjectCreationExpressionSyntax creation => ObjectCreationTypeName(creation) == "ToolApprovalResponseContent",
         _ => false,
     };
+
+    private static bool HasAttribute(Microsoft.CodeAnalysis.SyntaxList<AttributeListSyntax> lists, string simpleName) =>
+        lists.SelectMany(list => list.Attributes).Any(attribute =>
+        {
+            var name = attribute.Name.ToString();
+            name = name.Contains('.') ? name[(name.LastIndexOf('.') + 1)..] : name;
+            return name == simpleName || name == simpleName + "Attribute";
+        });
+
+    // `[MessageHandler(Send = [typeof(T)])]` / `Yield = [...]` — the handler declares its types.
+    private static bool DeclaresHandlerTypes(MethodDeclarationSyntax handler, string property) =>
+        handler.AttributeLists.SelectMany(list => list.Attributes)
+            .Where(a => a.Name.ToString() is var n && (n.EndsWith("MessageHandler", StringComparison.Ordinal) || n.EndsWith("MessageHandlerAttribute", StringComparison.Ordinal)))
+            .SelectMany(a => a.ArgumentList?.Arguments ?? default)
+            .Any(arg => arg.NameEquals?.Name.Identifier.ValueText == property);
+
+    // ValueTask<T>, Task<T> or a synchronous T: the handler returns a message.
+    private static bool ReturnsAValue(MethodDeclarationSyntax method) =>
+        FanOutValidatorTool.ClassifyReturnType(method.ReturnType.ToString()) != FanOutVerdict.SilentStarvationRisk;
 
     private static bool IsMessageHandler(MethodDeclarationSyntax method) =>
         method.AttributeLists.SelectMany(list => list.Attributes).Any(attribute =>

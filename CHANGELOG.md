@@ -26,6 +26,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     is already registered".
   - `MAF-AP-WF-003` (warning): an `async void` `[MessageHandler]`, which the workflow
     cannot await.
+  - `MAF-AP-WF-004` (error): a handler that sends with `context.SendMessageAsync` or
+    yields with `context.YieldOutputAsync` a type nothing declares (`Send = [...]` /
+    `Yield = [...]` on `[MessageHandler]`, or `[SendsMessage]` / `[YieldsOutput]` on the
+    class). Running such a workflow on 1.23 fails ("cannot send messages of type …",
+    "Cannot output object of type …"). Checked only for executors whose handlers all
+    return no value.
   Structured output and agent creation were checked too; no verifiably wrong pattern
   turned up, so they have no rule.
 - **Registry entry `MAF130-APPROVAL-001`**: `FunctionApprovalRequestContent` /
@@ -81,6 +87,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `MAF-AP-SEC-003` missed the shape Microsoft documents,
     `UseOpenTelemetry(configure: c => c.EnableSensitiveData = true)`; it is detected and
     auto-fixed (`c => {}`). MAF003 says "telemetry", not "log sinks".
+- **"SendMessageAsync doesn't broadcast on a fan-out edge" was false.** Run on Workflows
+  1.23, a declared send reaches every fan-out target. The fan-out fix text, playbook and
+  guide now say so, and add the declaration the send needs. The guide's
+  `IWorkflowContext` example sent and yielded undeclared types (the run fails); it now
+  declares them. `MafSimulateWorkflow` classifies handlers like `MafValidateFanOut` (a
+  synchronous `T` or a context send produces a message; `Task<T>` / `IAsyncEnumerable<T>`
+  are invalid) and its executor table shows each handler's file and line.
 - **The draft-issue tests walked the whole system temp folder**, about 17 s each on a
   machine with a crowded `%TEMP%`; each test now gets its own empty directory. The .NET
   suite runs in seconds again.

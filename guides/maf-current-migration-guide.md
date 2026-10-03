@@ -1217,7 +1217,11 @@ internal sealed partial class MultiTypeExecutor() : Executor("MultiType")
 ```csharp
 internal sealed partial class OutputExecutor() : Executor("Output")
 {
-    [MessageHandler]
+    // Declare what the handler sends and yields: an undeclared SendMessageAsync or
+    // YieldOutputAsync fails the run ("cannot send messages of type 'String'",
+    // "Cannot output object of type String. Expecting one of []"). The class-level
+    // [SendsMessage(typeof(string))] / [YieldsOutput(typeof(string))] work too.
+    [MessageHandler(Send = [typeof(string)], Yield = [typeof(string)])]
     private async ValueTask HandleAsync(string message, IWorkflowContext context)
     {
         // Send to connected executors
@@ -1228,6 +1232,8 @@ internal sealed partial class OutputExecutor() : Executor("Output")
     }
 }
 ```
+
+> Checked on Microsoft.Agents.AI.Workflows 1.23 (2026-10-03). maf-doctor rule `MAF-AP-WF-004` flags an undeclared send or yield.
 
 ### Function-Based Executors (Quick & Simple)
 
@@ -2179,7 +2185,7 @@ Use this checklist when upgrading your project:
 - [ ] Add `Microsoft.Agents.AI.Workflows.Generators 1.3.0` package reference
 - [ ] Ensure all executor classes are `partial` and `sealed`
 - [ ] **Remove `[StreamsMessage]` and `[YieldsMessage]` attributes** — both were removed in 1.3.0 (build error `CS0246` if still present); replace with `ValueTask<T>` return types or explicit `context.YieldOutputAsync()` calls
-- [ ] Executor `[MessageHandler]` methods: void / `ValueTask` (fire-and-forget), `ValueTask<T>` (auto-send result), or use `context.SendMessageAsync`/`context.YieldOutputAsync` explicitly
+- [ ] Executor `[MessageHandler]` methods: void / `ValueTask` (fire-and-forget), `ValueTask<T>` (auto-send result), or use `context.SendMessageAsync`/`context.YieldOutputAsync` explicitly — and declare those types (`Send = [...]` / `Yield = [...]`, or `[SendsMessage]` / `[YieldsOutput]`), or the run fails
 - [ ] **Fan-out handlers MUST return `ValueTask<T>`** — a `void`/`ValueTask` return silently produces no message; the fan-in barrier never fills and the workflow exits without reaching the aggregator
 - [ ] **`AddFanInBarrierEdge` argument order is `(sources, target)`** — the `(target, params sources[])` overload is `[Obsolete]` (CS0618); always put the source list first
 - [ ] Use `.BindAsExecutor(emitEvents: true)` for agents in workflows
@@ -2419,12 +2425,17 @@ private async ValueTask<ValidationResult> HandleAsync(string route, IWorkflowCon
     return state.OriginalClaim!;   // this value goes to all fan-out targets
 }
 
-// ❌ WRONG — void return, fan-in never triggered
-[MessageHandler]
+// ✅ ALSO CORRECT — an explicit send, with the sent type declared, reaches every
+// fan-out target too (checked on Workflows 1.23)
+[MessageHandler(Send = [typeof(ValidationResult)])]
 private async ValueTask HandleAsync(string route, IWorkflowContext ctx, CancellationToken ct)
 {
-    await ctx.SendMessageAsync(state.OriginalClaim!);   // does NOT work with AddFanOutEdge
+    var state = await ReadStateAsync(ctx);
+    await ctx.SendMessageAsync(state.OriginalClaim!);
 }
+
+// ❌ WRONG — the same send without `Send = [...]` (or [SendsMessage] on the class):
+// the run fails with "Executor '…' cannot send messages of type 'ValidationResult'"
 ```
 
 **`AddFanInBarrierEdge` argument order** — sources first, target last.  

@@ -20,11 +20,9 @@ namespace MafDoctor.Tools;
 /// starves silently. This is NOT a build error; only static analysis or runtime
 /// tracing can catch it.
 ///
-/// (The narrower fan-out-EDGE rule — an <c>AddFanOutEdge</c> source must RETURN
-/// <c>ValueTask&lt;T&gt;</c> because <c>SendMessageAsync</c> doesn't broadcast on
-/// that edge — is topology-specific and resolved cross-file by
-/// <see cref="SimulateWorkflowTool"/>; this source-level heuristic stays
-/// conservative to avoid false positives.)
+/// (A handler that sends with <c>SendMessageAsync</c> reaches every target, fan-out
+/// edges included, once the sent type is declared; an undeclared send fails the run,
+/// which <c>MAF-AP-WF-004</c> reports. Both checked on Workflows 1.23.)
 /// </summary>
 [McpServerToolType]
 public sealed class FanOutValidatorTool
@@ -152,11 +150,9 @@ public sealed class FanOutValidatorTool
             // in sequential / group-chat / handoff topologies (see the MAF
             // migration guide: "void / ValueTask … or use context.SendMessageAsync
             // / context.YieldOutputAsync explicitly"). Only a handler that returns
-            // nothing AND emits nothing is a genuine silent dead-end. The narrower
-            // fan-out-EDGE rule ("an `AddFanOutEdge` source must return `ValueTask<T>`;
-            // `SendMessageAsync` does not broadcast there") is topology-specific and
-            // resolved cross-file by SimulateWorkflowTool — this single-file
-            // heuristic stays conservative to avoid false positives.
+            // nothing AND emits nothing is a genuine silent dead-end. (A declared
+            // SendMessageAsync also broadcasts on a fan-out edge — Workflows 1.23; an
+            // undeclared one fails the run, reported by MAF-AP-WF-004.)
             if (verdict == FanOutVerdict.SilentStarvationRisk && EmitsDownstreamViaContext(method))
                 verdict = FanOutVerdict.Ok;
 
@@ -243,7 +239,7 @@ public sealed class FanOutValidatorTool
     /// all count. Indirect emission (through a helper) is intentionally NOT
     /// followed — the heuristic stays conservative and local.
     /// </summary>
-    internal static bool EmitsDownstreamViaContext(MethodDeclarationSyntax method)
+    internal static bool EmitsDownstreamViaContext(MethodDeclarationSyntax method, string? only = null)
     {
         SyntaxNode? body = method.Body ?? (SyntaxNode?)method.ExpressionBody;
         if (body is null)
@@ -252,7 +248,7 @@ public sealed class FanOutValidatorTool
         return body.DescendantNodes()
             .OfType<InvocationExpressionSyntax>()
             .Select(inv => InvokedSimpleName(inv.Expression))
-            .Any(name => name is not null && EmissionMethodNames.Contains(name));
+            .Any(name => name is not null && (only is null ? EmissionMethodNames.Contains(name) : name == only));
     }
 
     /// <summary>Extracts the simple (unqualified, non-generic) method name from an
@@ -317,7 +313,7 @@ public sealed class FanOutValidatorTool
             foreach (var f in risks)
                 sb.AppendLine($"| {f.File} | {f.Line} | `{f.MethodName}` | `{f.ReturnType}` |");
             sb.AppendLine();
-            sb.AppendLine("**Fix:** either change the return type to `ValueTask<T>` (or a synchronous `T`) where T is the downstream message type and `return` a value, OR emit explicitly with `await context.SendMessageAsync(...)` (a non-fan-out-edge handler may keep its `void` / `ValueTask` return). See `maf://skills?name=maf-fan-out-validator`.");
+            sb.AppendLine("**Fix:** either change the return type to `ValueTask<T>` (or a synchronous `T`) where T is the downstream message type and `return` a value, OR send explicitly with `await context.SendMessageAsync(...)` and declare the type (`[MessageHandler(Send = [typeof(T)])]` or `[SendsMessage(typeof(T))]`; undeclared, the run fails). See `maf://skills?name=maf-fan-out-validator`.");
             sb.AppendLine();
         }
 

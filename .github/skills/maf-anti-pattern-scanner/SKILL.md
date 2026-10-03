@@ -96,6 +96,11 @@ Each is a "rule" with a unique ID, a `severity`, and a deterministic search patt
 **Why:** The generator accepts a `void` handler, so nothing flags it, but the workflow cannot await it: it counts as finished at its first `await`, and an exception after that escapes the workflow.
 **Fix:** Return `ValueTask` (or `ValueTask<T>`).
 
+#### `MAF-AP-WF-004` — `[MessageHandler]` sends or yields a type it does not declare  (severity: error)
+**Pattern:** A handler calls `SendMessageAsync(...)` with no `Send = [...]` on its `[MessageHandler]` and no `[SendsMessage]` on its class, or `YieldOutputAsync(...)` with no `Yield = [...]` and no `[YieldsOutput]`. Only executors whose handlers all return no value are checked.
+**Why:** Running the workflow fails: "Executor 'x' cannot send messages of type 'T'" / "Cannot output object of type T. Expecting one of []" (Workflows 1.23, checked by running one). Declared, a sent message reaches every target, fan-out edges included.
+**Fix:** `[MessageHandler(Send = [typeof(T)], Yield = [typeof(U)])]`, or `[SendsMessage(typeof(T))]` / `[YieldsOutput(typeof(U))]` on the executor class.
+
 #### `MAF-AP-EXEC-001` — Obsolete executor surface  (severity: warning)
 **Pattern:** `[StreamsMessage]`, `[YieldsMessage]`, `ReflectingExecutor<…>`, or `IMessageHandler<…>` in a file that imports the MAF Workflows namespace.
 **Why:** Obsolete, a CS0618 warning (still public in Workflows 1.23): `ReflectingExecutor` / `IMessageHandler` since 1.0, `[StreamsMessage]` ("does not do anything") and `[YieldsMessage]` (ignored) since 1.2.

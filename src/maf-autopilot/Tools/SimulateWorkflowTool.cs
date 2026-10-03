@@ -178,7 +178,7 @@ public sealed class SimulateWorkflowTool
                 handlers.Add(new HandlerInfo(
                     MethodName: method.Identifier.ValueText,
                     ReturnType: method.ReturnType.ToString(),
-                    Verdict: ClassifyHandler(method.ReturnType.ToString()),
+                    Verdict: ClassifyHandler(method),
                     Line: method.ReturnType.GetLocation().GetLineSpan().StartLinePosition.Line + 1));
             }
             if (handlers.Count == 0) continue;
@@ -199,18 +199,19 @@ public sealed class SimulateWorkflowTool
                 return s is "MessageHandler" or "MessageHandlerAttribute";
             });
 
-    private static HandlerVerdict ClassifyHandler(string returnType)
-    {
-        var t = returnType.Trim();
-        var simple = t.Contains('.') ? t[(t.LastIndexOf('.') + 1)..] : t;
-        if (simple.StartsWith("Task<", StringComparison.Ordinal)
-            || simple.StartsWith("ValueTask<", StringComparison.Ordinal)
-            || simple.StartsWith("IAsyncEnumerable<", StringComparison.Ordinal))
-            return HandlerVerdict.ProducesMessage;
-        if (t == "void" || simple is "Task" or "ValueTask")
-            return HandlerVerdict.ProducesNothing;
-        return HandlerVerdict.UnusualReturnType;
-    }
+    // The same classification as MafValidateFanOut (checked on Workflows 1.23): ValueTask<T> or a
+    // synchronous T sends the returned value; void / ValueTask sends nothing unless it emits
+    // through the context (a declared SendMessageAsync reaches every target, fan-out edges
+    // included); Task<T> fails the generator and IAsyncEnumerable<T> fails the run.
+    private static HandlerVerdict ClassifyHandler(MethodDeclarationSyntax method) =>
+        FanOutValidatorTool.ClassifyReturnType(method.ReturnType.ToString()) switch
+        {
+            FanOutVerdict.Ok => HandlerVerdict.ProducesMessage,
+            FanOutVerdict.SilentStarvationRisk => FanOutValidatorTool.EmitsDownstreamViaContext(method)
+                ? HandlerVerdict.ProducesMessage
+                : HandlerVerdict.ProducesNothing,
+            _ => HandlerVerdict.UnusualReturnType,
+        };
 
     // Phase 7.G fixup — regex hygiene. Identifier-class anchored regexes are
     // backtracking-safe but the policy requires NonBacktracking + 2s timeout.
@@ -443,7 +444,7 @@ public sealed class SimulateWorkflowTool
                 {
                     HandlerVerdict.ProducesMessage => "✅",
                     HandlerVerdict.ProducesNothing => "❌ starves",
-                    _ => "⚠️ unusual",
+                    _ => "❌ invalid return type (`Task<T>` does not build, `IAsyncEnumerable<T>` fails the run)",
                 };
                 // REP-19: file:line so a verdict is actionable without a second tool call.
                 sb.AppendLine($"| `{exec.Name}` | `{h.MethodName}` | `{h.ReturnType}` | {icon} | `{LlmFencing.MdInline(exec.SourceFile).Replace("|", "\\|")}:{h.Line}` |");
