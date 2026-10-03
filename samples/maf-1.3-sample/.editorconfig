@@ -1,5 +1,5 @@
-# Per-sample analyzer config — demote MAF001/MAF002/MAF003 from
-# error → warning so the workshop sample still builds. The diagnostics
+# Per-sample analyzer config — pin MAF001/MAF002/MAF003 to warning (their
+# default; MAF001 was error until 2026-10) so the workshop sample still builds. The diagnostics
 # still appear in the IDE (squigglies, problems panel) — they just
 # don't break `dotnet build`.
 #
@@ -13,7 +13,7 @@
 root = true
 
 [*.cs]
-# Fan-out handler must return Task<T> / ValueTask<T>.
+# Fan-out handler must return ValueTask<T> (or a synchronous T).
 dotnet_diagnostic.MAF001.severity = warning
 
 # Avoid DefaultAzureCredential in production code.

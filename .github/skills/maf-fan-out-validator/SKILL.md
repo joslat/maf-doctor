@@ -56,4 +56,4 @@ When the MCP tools are unavailable, walk every `MethodDeclarationSyntax` in the 
 
 ## Companion analyzer (write-time enforcement)
 
-The `maf-doctor.Analyzers` NuGet package ships **`MAF001`** (Error severity) for exactly this pattern — `[MessageHandler]` returning a non-generic awaitable. Add `<PackageReference Include="maf-doctor.Analyzers" />` to your project to catch this at write-time, before commit.
+The `maf-doctor.Analyzers` NuGet package ships **`MAF001`** (Warning severity: it sees one method, not the workflow topology; set `dotnet_diagnostic.MAF001.severity = error` to fail CI) for exactly this pattern — a `[MessageHandler]` returning `void` or a non-generic awaitable that emits nothing. Add `<PackageReference Include="maf-doctor.Analyzers" />` to your project to catch this at write-time, before commit.

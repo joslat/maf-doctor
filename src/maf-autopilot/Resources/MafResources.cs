@@ -108,7 +108,7 @@ public static class MafResources
         sb.AppendLine();
         sb.AppendLine("| Rule ID | Description | Same intent as scanner |");
         sb.AppendLine("|---|---|---|");
-        sb.AppendLine("| `MAF001` | Fan-out handler must return `ValueTask<T>` or a synchronous `T`. **Error.** | `MafValidateFanOut` (runtime/post-hoc) |");
+        sb.AppendLine("| `MAF001` | Fan-out handler must return `ValueTask<T>` or a synchronous `T`. **Warning** (raise to error in `.editorconfig` to fail CI). | `MafValidateFanOut` (runtime/post-hoc) |");
         sb.AppendLine("| `MAF002` | Avoid `DefaultAzureCredential` in production code. Warning. | `MAF-AP-SEC-001` via `MafScanAntiPatterns` |");
         sb.AppendLine("| `MAF003` | `EnableSensitiveData = true` outside test code. Warning. | `MAF-AP-SEC-003` via `MafScanAntiPatterns` |");
         sb.AppendLine();

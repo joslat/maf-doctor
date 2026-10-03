@@ -41,7 +41,10 @@ public sealed class FanOutHandlerAnalyzer : DiagnosticAnalyzer
         title: Title,
         messageFormat: MessageFormat,
         category: "MAF.Workflow",
-        defaultSeverity: DiagnosticSeverity.Error,
+        // Warning, not Error: the analyzer sees one method, not the workflow topology,
+        // so it cannot tell a fan-out source from a sink that legitimately returns nothing.
+        // Raise it with `dotnet_diagnostic.MAF001.severity = error` to fail CI.
+        defaultSeverity: DiagnosticSeverity.Warning,
         isEnabledByDefault: true,
         description: Description,
         helpLinkUri: "https://github.com/joslat/maf-doctor/blob/main/.github/skills/maf-fan-out-validator/SKILL.md");
@@ -53,8 +56,8 @@ public sealed class FanOutHandlerAnalyzer : DiagnosticAnalyzer
     {
         // Phase 4.5 originally flipped this to `Analyze | ReportDiagnostics`
         // for consistency with MAF002/003. Phase 4.G review flagged that as a
-        // FAR-too-aggressive change for MAF001 specifically: MAF001 is
-        // severity Error (not Warning like the other two), and MAF source-
+        // FAR-too-aggressive change for MAF001 specifically: MAF001 was
+        // severity Error at the time (Warning since 2026-10), and MAF source-
         // generators legitimately emit partial `[MessageHandler]` methods
         // whose return type is set by a separate user file — the analyzer
         // sees the generated half in isolation and flags it. Build-time

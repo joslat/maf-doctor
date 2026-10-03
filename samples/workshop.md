@@ -317,7 +317,7 @@ Open `Executors/OsintInvestigator.cs` in VS Code Insiders. You should see a **sq
 
 That's the **shift-left** angle. Same rule, fires at write time inside the editor — before the developer even saves the file.
 
-> **Why does the sample's `.editorconfig` demote MAF001/MAF002/MAF003 from `error` → `warning`?** Analyzer defaults to `error` so consumer projects fail CI on regression. For workshop purposes we WANT bugs visible but want the build to succeed — hence the override. A real consumer codebase leaves the default.
+> **Why does the sample's `.editorconfig` pin MAF001/MAF002/MAF003 to `warning`?** That is their default (MAF001 was `error` until 2026-10; it cannot see the workflow topology, so it no longer fails builds by default). The pin keeps the workshop sample building even where a parent `.editorconfig` raises them; a consumer that wants CI to fail sets them to `error`.
 
 ---
 

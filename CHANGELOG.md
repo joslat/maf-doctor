@@ -46,7 +46,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   handler not returning `Task<T>` / `ValueTask<T>` / `IAsyncEnumerable<T>`, including a
   synchronous `T` and the documented `void` / `ValueTask` handler that sends with
   `context.SendMessageAsync`. It now reports only `void` / `Task` / `ValueTask` handlers
-  that emit nothing.
+  that emit nothing, and at **Warning** severity (was Error): it sees one method, not the
+  workflow topology, so it cannot tell a fan-out source from a sink that legitimately
+  returns nothing. Set `dotnet_diagnostic.MAF001.severity = error` to fail CI.
 - **`maf-doctor new executor` generated code that did not compile.** Its handler took a
   `CancellationToken` second (the generator requires `IWorkflowContext`, MAFGENWF001),
   returned `Task<T>`, and had no constructor for `Executor`'s id. It now builds
