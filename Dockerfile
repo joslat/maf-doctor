@@ -31,7 +31,7 @@
 # (.github/dependabot.yml) tracks and PRs digest bumps weekly, same pattern
 # as the SHA-pinned GitHub Actions elsewhere in this repo. Resolve the
 # current digest for a tag with: docker inspect <image>:<tag> --format '{{index .RepoDigests 0}}'
-FROM mcr.microsoft.com/dotnet/sdk@sha256:35d40304542c8689331f8cab17c65926cdf48fe711e289321d71924b230a7d29 AS build
+FROM mcr.microsoft.com/dotnet/sdk@sha256:e70cdb7f80b0348f5cb85f19a8f670fca061f033d57eed12fa003d58b0e06317 AS build
 WORKDIR /src
 
 # Repo-root build-influencing files. CRITICAL: csproj uses Central Package
@@ -73,7 +73,7 @@ RUN dotnet publish src/maf-autopilot/maf-autopilot.csproj \
 # The runtime image is much smaller than the SDK image (~150 MB vs ~900 MB).
 # Must match the --framework TFM published above. Digest-pinned — see the
 # F-27 note on the build-stage FROM above.
-FROM mcr.microsoft.com/dotnet/runtime@sha256:ff17a18b639a0327e52c7c296fa2e1abe6e03eb61d8121a8ef67cc6aa430a27e
+FROM mcr.microsoft.com/dotnet/runtime@sha256:b89586dc17781f25531909993658aa8161205ae38b8cec8847df4a8221a403d5
 WORKDIR /app
 
 # Copy build output. Embedded resources (registry.yaml, constraints.md,
