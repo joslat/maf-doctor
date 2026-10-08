@@ -1,6 +1,6 @@
 # MAF Compatibility Matrix
 
-<!-- auto-updated-by: maf-release-watcher | last-updated: 2026-10-01 -->
+<!-- auto-updated-by: maf-release-watcher | last-updated: 2026-10-08 -->
 
 <!--
   Note on the Azure.AI.OpenAI column: MAF doesn't pin Azure.AI.OpenAI directly.
@@ -21,6 +21,7 @@
 
 | MAF Version | Microsoft.Extensions.AI | .NET | Azure.AI.OpenAI | Generators Package | Notes |
 |-------------|------------------------|------|-----------------|--------------------|-------|
+| **1.24.0** | `≥ 10.7.0` | `≥ 8.0` | _(not pinned by MAF — BYO via IChatClient)_ | `1.24.0` | Additive release — no `.NET … [BREAKING]` changes and no breaking or potentially-breaking API rows (source-compatible). New members: `AllowedOAuthConsentOrigins`. Transitive pins carried from 1.23.0. |
 | **1.23.0** | `≥ 10.7.0` | `≥ 8.0` | _(not pinned by MAF — BYO via IChatClient)_ | `1.23.0` | **Breaking** — review required. Declarative: `PromptAgentExtensions.GetChatOptions` and `StringExpressionExtensions.Eval` removed (async `GetChatOptionsAsync`/`EvalAsync` added). Foundry: eight `FoundryAITool.Create*Tool` methods now take `Azure.AI.Extensions.OpenAI` option types instead of `Azure.AI.Projects.Agents` ones. Hosting (preview): `AIHostAgent` constructor gained optional `sessionStorageIdentity` (rebuild required). API summary: 11 breaking. See `guides/maf-1.23.0-migration-guide.md` and the registry entries. Transitive pins carried from 1.22.0 (verify). |
 | **1.22.0** | `≥ 10.7.0` | `≥ 8.0` | _(not pinned by MAF — BYO via IChatClient)_ | `1.22.0` | **Breaking** — review required, concentrated in the preview Hosting packages. `AgentSessionStore` and `DelegatingAgentSessionStore` moved from `Microsoft.Agents.AI.Hosting` / `Microsoft.Agents.AI.Foundry.Hosting` into `Microsoft.Agents.AI` (Abstractions); store implementations (`InMemory`, `Noop`, `IsolationKeyScoped`, `FileSystem`, `Foundry`, `AzureBlob`) now use `GetSessionAsync`/`SaveSessionAsync(agent, AgentSessionStoreKey, …)` and `DeleteSessionAsync` was removed. Foundry: `WithFoundryHostedAgentUserIdentity` removed; `CreateFoundryHostedAgentSessionAsync` gained `userIdentity`. API summary: 35 breaking. See `guides/maf-1.22.0-migration-guide.md` and the registry entries. Transitive pins carried from 1.21.0 (verify). |
 | **1.21.0** | `≥ 10.7.0` | `≥ 8.0` | _(not pinned by MAF — BYO via IChatClient)_ | `1.21.0` | **Breaking** — review required. Breaking only in the preview Hosting package: two `HostedWorkflowBuilderExtensions.AddAsAIAgent` overloads gained an optional `includeWorkflowOutputsInResponse` parameter (binary break; rebuild required, source still compiles). See `guides/maf-1.21.0-migration-guide.md` and the registry entries. Transitive pins carried from 1.20.0 (verify). |
@@ -84,7 +85,7 @@
 
 The `.maf-version` file at the repository root records the latest MAF version this toolkit's data covers. The `maf-release-watcher` GitHub Actions workflow compares this against the NuGet feed to detect new releases.
 
-Current tracked version: **`1.23.0`** (see `.maf-version`)
+Current tracked version: **`1.24.0`** (see `.maf-version`)
 
 ---
 
